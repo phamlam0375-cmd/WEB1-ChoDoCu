@@ -1,0 +1,35 @@
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    command:
+      - --max_allowed_packet=128M
+      - --innodb_buffer_pool_size=512M
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-cho_do_cu}
+      MYSQL_USER: ${DB_USER:-cho_do_cu}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-cho_do_cu_password}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_password_change_me}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${DB_ROOT_PASSWORD:-root_password_change_me}"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  api:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${PORT:-3000}:3000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+volumes:
+  mysql_data:

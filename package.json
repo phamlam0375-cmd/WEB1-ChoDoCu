@@ -1,0 +1,31 @@
+{
+  "name": "cho-do-cu-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Backend đồ án website Chợ Đồ Cũ - nhóm 4 sinh viên",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "db:migrate": "sequelize-cli db:migrate",
+    "db:migrate:undo": "sequelize-cli db:migrate:undo:all",
+    "db:seed": "sequelize-cli db:seed:all",
+    "db:seed:undo": "sequelize-cli db:seed:undo:all",
+    "db:verify": "node scripts/verify-seed-counts.js",
+    "db:reset": "npm run db:seed:undo && npm run db:migrate:undo && npm run db:migrate && npm run db:seed && npm run db:verify",
+    "check": "node scripts/static-check.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "morgan": "^1.10.0",
+    "mysql2": "^3.14.0",
+    "sequelize": "^6.37.7",
+    "sequelize-cli": "^6.6.2"
+  }
+}

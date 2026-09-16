@@ -1,0 +1,41 @@
+# Mã|Thành viên|Tên branch|Tính năng
+A01|A|feature/a01-register-email-verification|Đăng ký và xác thực email
+A02|A|feature/a02-login|Đăng nhập
+A03|A|feature/a03-forgot-password|Quên mật khẩu
+A04|A|feature/a04-user-profile|Hồ sơ cá nhân
+A05|A|feature/a05-product-search-view|Tìm kiếm và xem sản phẩm
+A06|A|feature/a06-advanced-filter|Bộ lọc nâng cao
+A07|A|feature/a07-favorites|Lưu tin yêu thích
+A08|A|feature/a08-product-compare|So sánh sản phẩm
+A09|A|feature/a09-similar-recommendation|Gợi ý sản phẩm tương tự
+A10|A|feature/a10-ai-chatbot|Chatbot AI hỗ trợ
+B01|B|feature/b01-user-role-management|Quản lý tài khoản và phân quyền
+B02|B|feature/b02-partner-approval|Duyệt hồ sơ đối tác
+B03|B|feature/b03-category-management|Quản lý danh mục
+B04|B|feature/b04-report-intake|Tiếp nhận báo cáo vi phạm
+B05|B|feature/b05-listing-moderation|Kiểm duyệt tin và xử lý báo cáo
+B06|B|feature/b06-refund-intake|Tiếp nhận yêu cầu hoàn tiền
+B07|B|feature/b07-refund-resolution|Giải quyết yêu cầu hoàn tiền
+B08|B|feature/b08-commission-calculation|Tính hoa hồng theo đơn
+B09|B|feature/b09-fee-reconciliation|Thu và đối soát phí
+B10|B|feature/b10-statistics-dashboard|Thống kê và bảng điều khiển
+C01|C|feature/c01-partner-registration|Đăng ký đối tác
+C02|C|feature/c02-store-map|Gian hàng và Google Maps
+C03|C|feature/c03-create-listing|Đăng tin bán sản phẩm
+C04|C|feature/c04-listing-management|Quản lý tin đăng
+C05|C|feature/c05-vip-promotion|Đăng ký tin VIP
+C06|C|feature/c06-order-confirmation|Xác nhận hoặc từ chối đơn
+C07|C|feature/c07-order-handover|Chuẩn bị và bàn giao hàng
+C08|C|feature/c08-direct-chat|Nhắn tin trực tiếp
+C09|C|feature/c09-reviews|Đánh giá và phản hồi
+C10|C|feature/c10-partner-notifications|Thông báo cho đối tác
+D01|D|feature/d01-place-reserve-order|Đặt hàng và giữ món
+D02|D|feature/d02-cancel-order|Hủy đơn hàng
+D03|D|feature/d03-buyer-payment|Thanh toán cho người bán
+D04|D|feature/d04-seller-payment-confirmation|Xác nhận đã nhận tiền
+D05|D|feature/d05-order-tracking|Theo dõi đơn hàng
+D06|D|feature/d06-buyer-receipt-confirmation|Xác nhận đã nhận hàng
+D07|D|feature/d07-driver-accept-delivery|Tài xế nhận chuyến
+D08|D|feature/d08-driver-pickup|Xác nhận đã lấy hàng
+D09|D|feature/d09-delivery-progress|Cập nhật tiến độ giao hàng
+D10|D|feature/d10-failed-return-delivery|Giao thất bại và chuyển hoàn

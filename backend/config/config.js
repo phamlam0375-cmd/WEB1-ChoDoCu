@@ -24,4 +24,3 @@ module.exports = {
   test: { ...shared, database: `${shared.database}_test` },
   production: shared
 };
-áhdvjasjdaaaa

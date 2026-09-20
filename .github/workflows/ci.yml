@@ -33,11 +33,13 @@ jobs:
       - name: Cai thu vien
         run: pnpm install --frozen-lockfile
 
-      - name: Kiem tra code
-        run: pnpm run lint
+      - name: Kiem tra frontend
+        working-directory: frontend
+        run: pnpm lint
 
       - name: Build React
-        run: pnpm run build
+        working-directory: frontend
+        run: pnpm build
 
   backend:
     name: Kiem tra Backend
@@ -66,8 +68,9 @@ jobs:
       - name: Cai thu vien
         run: pnpm install --frozen-lockfile
 
-      - name: Kiem tra code
-        run: pnpm run lint --if-present
+      - name: Kiem tra Backend
+        working-directory: backend
+        run: pnpm check
 
       - name: Build Backend
         run: pnpm run build --if-present

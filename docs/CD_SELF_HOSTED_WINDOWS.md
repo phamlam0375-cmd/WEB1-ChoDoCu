@@ -16,7 +16,7 @@ docker compose version
 
 ## 2. Dung he thong Docker dang chay thu cong
 
-Chi lam mot lan truoc lan deploy dau tien de tranh trung cong 3000, 3306 va 8080.
+Chi lam mot lan truoc lan deploy dau tien de tranh trung cong 3000, 3306 va 8081.
 
 Tai thu muc du an dang chay thu cong:
 
@@ -88,7 +88,9 @@ Co the chay lai thu cong tai `Actions` -> `CD - Deploy laptop` -> `Run workflow`
 Tren laptop:
 
 - API health: http://localhost:3000/api/health
-- Nginx: http://localhost:8080
+- Website React qua Nginx: http://localhost:8081
+
+Cong `8081` duoc dung de khong xung dot voi WampServer dang chay tren cong `8080`.
 
 Kiem tra container:
 
@@ -126,6 +128,6 @@ Khi can mat khau rieng, tao file `backend/.env`, chuyen noi dung sang Base64 va 
 - Docker Desktop dang chay.
 - Cua so `run.cmd` dang mo va hien `Listening for Jobs`.
 - Ket noi Internet on dinh.
-- Cac cong 3000, 3306 va 8080 khong bi ung dung khac chiem.
+- Cac cong 3000, 3306 va 8081 khong bi ung dung khac chiem.
 
 Neu laptop tat, CI van chay binh thuong nhung job CD se cho runner online.

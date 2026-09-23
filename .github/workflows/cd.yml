@@ -89,10 +89,10 @@ jobs:
       - name: Kiem tra Nginx
         shell: powershell
         run: |
-          $response = Invoke-WebRequest -Uri "http://localhost:8080" -UseBasicParsing -TimeoutSec 10
+          $response = Invoke-WebRequest -Uri "http://localhost:8081" -UseBasicParsing -TimeoutSec 10
 
           if ($response.StatusCode -ne 200) {
-            throw "Nginx khong tra ve HTTP 200."
+            throw "Nginx cong 8081 khong tra ve HTTP 200."
           }
 
       - name: Hien thi container

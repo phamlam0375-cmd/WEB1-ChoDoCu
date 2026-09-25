@@ -1,10 +1,12 @@
-
 name: CI - Cho do cu
 
 on:
   push:
   pull_request:
-    branches: [main]
+    branches: [master]
+
+permissions:
+  contents: read
 
 jobs:
   frontend:
@@ -55,9 +57,6 @@ jobs:
         working-directory: backend
 
     steps:
-      - name: Tai ma nguon
-        uses: actions/checkout@v6
-
       - name: Tai ma nguon
         uses: actions/checkout@v6
 

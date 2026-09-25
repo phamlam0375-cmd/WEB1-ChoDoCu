@@ -20,6 +20,19 @@ const createPartnerApplication = async (req, res) => {
       });
     }
 
+    const existingApplication = await PartnerApplications.findOne({
+      where: {
+        UserId,
+        Status: "PENDING",
+      }
+    })
+    if (existingApplication) {
+      return res.status(409).json({
+        success: false,
+        message: "Bạn đã có đơn đăng ký",
+        data: existingApplication
+      })
+    }
 
     if (!["SELLER", "DRIVER"].includes(PartnerType)) {
       return res.status(400).json({

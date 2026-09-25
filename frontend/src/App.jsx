@@ -1,5 +1,4 @@
 import './App.css'
-const DEMO_CI_ERROR =
 
 function App() {
   return (

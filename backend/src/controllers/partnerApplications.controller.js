@@ -50,7 +50,7 @@ const createPartnerApplication = async (req, res) => {
 };
 
 
-const getPatnerApplication = async (req, res) => {
+const getAllPatnerApplication = async (req, res) => {
   try {
     const applications = await PartnerApplications.findAll();
     return res.status(200).json({
@@ -66,6 +66,31 @@ const getPatnerApplication = async (req, res) => {
     })
   }
 }
+
+const getPatnerApplicationId = async (req, res) => {
+  try {
+    const applications = await PartnerApplications.findByPk(req.params.id);
+
+    if (!applications) {
+      res.status(404).json({
+        success: false,
+        message: "Không tìm thấy đăng ký"
+      })
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Lấy đăng ký thành công",
+      data: applications
+    })
+  }
+  catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi server"
+    })
+  }
+}
 module.exports = {
-  createPartnerApplication, getPatnerApplication
+  createPartnerApplication, getAllPatnerApplication, getPatnerApplicationId
 };

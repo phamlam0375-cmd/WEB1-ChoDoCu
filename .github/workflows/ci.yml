@@ -1,0 +1,97 @@
+name: CI - Cho do cu
+
+on:
+  push:
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: Kiem tra Frontend
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Tai ma nguon
+        uses: actions/checkout@v6
+
+      - name: Cai pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Cai Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Kiem tra package.json
+        run: |
+          pwd
+          ls -la
+          node -e "console.log(require('./package.json').scripts)"
+
+      - name: Cai thu vien
+        run: pnpm install --frozen-lockfile
+
+      - name: Kiem tra code
+        run: pnpm run lint
+
+      - name: Build React
+        run: pnpm run build
+
+  backend:
+    name: Kiem tra Backend
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Tai ma nguon
+        uses: actions/checkout@v6
+
+      - name: Cai pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Cai Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: backend/pnpm-lock.yaml
+
+      - name: Kiem tra package.json
+        run: |
+          pwd
+          ls -la
+          node -e "console.log(require('./package.json').scripts)"
+
+      - name: Cai thu vien
+        run: pnpm install --frozen-lockfile
+
+      - name: Kiem tra code
+        run: pnpm run check
+
+  docker:
+    name: Kiem tra Docker
+    runs-on: ubuntu-latest
+    needs: [frontend, backend]
+
+    steps:
+      - name: Tai ma nguon
+        uses: actions/checkout@v6
+
+      - name: Build Docker
+        run: docker compose build

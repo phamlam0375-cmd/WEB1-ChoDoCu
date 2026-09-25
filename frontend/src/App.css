@@ -1,0 +1,50 @@
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  min-width: 320px;
+  margin: 0;
+  background: #ffffff;
+}
+
+button,
+a,
+input,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+select {
+  cursor: pointer;
+}
+
+::selection {
+  background: #a7f3d0;
+  color: #064e3b;
+}
+
+.Toastify__toast {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  color: #1e293b;
+  font-family: inherit;
+  font-size: 14px;
+  box-shadow: 0 12px 30px rgb(15 23 42 / 12%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

@@ -29,11 +29,12 @@ app.get('/api/test', (_request, response) => {
 
 app.use('/api/health', healthRouter);
 
+
+
 //PARTNER APPLICATION
-app.use(
-  "/api/partner-applications",
-  partnerApplicationRoutes
-);
+app.use("/api/partner-applications", partnerApplicationRoutes);
+
+
 
 app.use((_request, response) => {
   response.status(404).json({ message: '404 NOT FOUND' });

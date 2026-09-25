@@ -1,21 +1,27 @@
+import { Navigate, Route, Routes } from 'react-router-dom'
+import { ToastContainer } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
 import './App.css'
+import HomePage from './pages/HomePage'
 
 function App() {
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
-      <h1 className="text-3xl font-bold text-blue-600">
-        Chợ Đồ Cũ
-      </h1>
-
-      <p className="mt-2 text-gray-600">
-        Mua bán đồ cũ
-      </p>
-
-      <button className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
-        Đăng tin
-      </button>
-    </div>
-  );
+    <>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      <ToastContainer
+        position="top-right"
+        autoClose={2800}
+        hideProgressBar
+        newestOnTop
+        closeOnClick
+        pauseOnHover
+        theme="light"
+      />
+    </>
+  )
 }
 
-export default App;
+export default App

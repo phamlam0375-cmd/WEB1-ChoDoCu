@@ -44,11 +44,28 @@ const createPartnerApplication = async (req, res) => {
     console.error("Create partner application error:", error);
 
     return res.status(500).json({
-      message: "Lỗi server",
+      message: error.message || "Lỗi tạo không thành công",
     });
   }
 };
 
+
+const getPatnerApplication = async (req, res) => {
+  try {
+    const applications = await PartnerApplications.findAll();
+    return res.status(200).json({
+      success: true,
+      message: "Lấy danh sách đăng ký thành công",
+      data: applications
+    })
+  }
+  catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi server"
+    })
+  }
+}
 module.exports = {
-  createPartnerApplication,
+  createPartnerApplication, getPatnerApplication
 };

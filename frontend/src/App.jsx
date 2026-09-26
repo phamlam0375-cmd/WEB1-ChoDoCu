@@ -5,6 +5,7 @@ import './App.css'
 
 import HomePage from './pages/HomePage'
 import Login from './pages/Login'
+import RegisterApplication from './components/PartnerApplication/RegisterApplication'
 
 function App() {
   return (
@@ -12,6 +13,8 @@ function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<Login />} />
+
+        <Route path="/partner-application" element={<RegisterApplication />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 

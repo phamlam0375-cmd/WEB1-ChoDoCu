@@ -64,7 +64,6 @@ const createPartnerApplication = async (req, res) => {
       })
     }
 
-
     const application = await PartnerApplications.create({
       UserId,
       PartnerType,

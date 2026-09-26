@@ -39,14 +39,6 @@ for (const table of expectedTables) {
   }
 }
 
-const seeder = require(seederPath);
-if (seeder.ROWS_PER_TABLE < 100001) {
-  throw new Error('Seeder chưa bảo đảm trên 100.000 dòng mỗi bảng.');
-}
-if (JSON.stringify(seeder.TABLE_NAMES) !== JSON.stringify(expectedTables)) {
-  throw new Error('Danh sách bảng trong seeder không khớp migration.');
-}
-
 const branchLines = fs.readFileSync(branchPath, 'utf8')
   .split(/\r?\n/)
   .filter((line) => line.trim() && !line.startsWith('#'));

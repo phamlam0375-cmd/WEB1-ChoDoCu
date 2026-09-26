@@ -60,7 +60,7 @@ const createPartnerApplication = async (req, res) => {
       return res.status(409).json({
         success: false,
         message: `Bạn có role: ${PartnerType}`,
-        data: existingApplication
+        data: existingRole
       })
     }
 

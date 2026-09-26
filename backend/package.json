@@ -5,7 +5,7 @@
   "description": "Backend đồ án website Chợ Đồ Cũ - nhóm 4 sinh viên",
   "main": "src/server.js",
   "scripts": {
-    "dev": "node --watch src/server.js",
+    "dev": "nodemon --legacy-watch --polling-interval 500 src/server.js",
     "start": "node src/server.js",
     "db:migrate": "sequelize-cli db:migrate",
     "db:migrate:undo": "sequelize-cli db:migrate:undo:all",
@@ -27,5 +27,8 @@
     "mysql2": "^3.14.0",
     "sequelize": "^6.37.7",
     "sequelize-cli": "^6.6.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
   }
 }

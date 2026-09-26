@@ -1,15 +1,18 @@
 'use strict';
 
-const MINIMUM_ROWS = 100001;
+const MINIMUM_ROWS = 10;
 const requestedRows = Number.parseInt(process.env.SEED_RECORDS_PER_TABLE || '', 10);
 const requestedBatchSize = Number.parseInt(process.env.SEED_BATCH_SIZE || '', 10);
-const ROWS_PER_TABLE = Math.max(
-  MINIMUM_ROWS,
-  Number.isFinite(requestedRows) ? requestedRows : MINIMUM_ROWS
+const ROWS_PER_TABLE = Math.min(
+  20,
+  Math.max(
+    MINIMUM_ROWS,
+    Number.isFinite(requestedRows) ? requestedRows : 15
+  )
 );
 const BATCH_SIZE = Math.min(
   10000,
-  Math.max(500, Number.isFinite(requestedBatchSize) ? requestedBatchSize : 5000)
+  Math.max(1, Number.isFinite(requestedBatchSize) ? requestedBatchSize : 15)
 );
 const BASE_TIME = Date.parse('2026-01-01T00:00:00.000Z');
 const DAY = 24 * 60 * 60 * 1000;

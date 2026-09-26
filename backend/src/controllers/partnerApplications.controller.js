@@ -1,4 +1,6 @@
 const PartnerApplications = require("../models/PartnerApplications.model");
+const UserRoles = require("../models/UserRoles.model");
+const Roles = require("../models/UserRoles.model");
 
 const createPartnerApplication = async (req, res) => {
   try {
@@ -20,12 +22,48 @@ const createPartnerApplication = async (req, res) => {
       });
     }
 
-
     if (!["SELLER", "DRIVER"].includes(PartnerType)) {
       return res.status(400).json({
         message: "Loại partner không hợp lệ ",
       });
     }
+
+
+    //ktra da co dang ku chua
+    const existingApplication = await PartnerApplications.findOne({
+      where: {
+        UserId,
+        Status: "PENDING",
+      }
+    })
+    if (existingApplication) {
+      return res.status(409).json({
+        success: false,
+        message: "Bạn đã có đơn đăng ký",
+        data: existingApplication
+      })
+    }
+
+    //ktra user co role driver hay seller chua
+    const existingRole = await UserRoles.findOne({
+      where: { UserId },
+      includes: [
+        {
+          model: Roles,
+          where: {
+            RoleName: PartnerType,
+          }
+        }
+      ]
+    })
+    if (existingRole) {
+      return res.status(409).json({
+        success: false,
+        message: `Bạn có role: ${PartnerType}`,
+        data: existingRole
+      })
+    }
+
 
     const application = await PartnerApplications.create({
       UserId,

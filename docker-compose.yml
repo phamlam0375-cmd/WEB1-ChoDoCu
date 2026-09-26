@@ -15,7 +15,16 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot_password_change_me"]
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-uroot",
+          "-proot_password_change_me"
+        ]
       interval: 10s
       timeout: 5s
       retries: 15
@@ -27,17 +36,21 @@ services:
       - ./backend/.env
     ports:
       - "3000:3000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    command: pnpm run dev
     depends_on:
       mysql:
         condition: service_healthy
 
   nginx:
-    build:
-      context: .
-      dockerfile: nginx/Dockerfile
+    image: nginx:alpine
     restart: unless-stopped
     ports:
-      - "8081:80"
+      - "8080:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - api
 

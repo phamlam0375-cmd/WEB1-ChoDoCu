@@ -3,6 +3,7 @@ const express = require("express");
 const { requireAuth } = require("../middlewares/auth.middleware");
 const uploads = require("../controllers/uploads.controller");
 const categories = require("../controllers/categories.controller");
+const reports = require("../controllers/reports.controller");
 
 // Phân hệ B — các API phía người dùng/người bán (không cần quyền ADMIN).
 const router = express.Router();
@@ -21,5 +22,10 @@ router.get("/me", requireAuth, (req, res) => res.status(200).json({ success: tru
 // B03 Danh mục và tình trạng sản phẩm dùng chung
 router.get("/categories", categories.listActiveCategories);
 router.get("/categories/conditions", categories.listConditions);
+
+// B04 Gửi và theo dõi báo cáo vi phạm
+router.get("/reports/reasons", reports.listReasons);
+router.post("/reports", requireAuth, reports.createReport);
+router.get("/reports", requireAuth, reports.listMyReports);
 
 module.exports = router;

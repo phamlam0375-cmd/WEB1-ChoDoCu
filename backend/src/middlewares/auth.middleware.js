@@ -25,7 +25,7 @@ const requireAuth = async (req, _res, next) => {
   }
 
   const user = await Users.findByPk(userId, {
-    attributes: ["UserId", "FullName", "Email", "Status"],
+    attributes: ["UserId", "FullName", "Email", "Phone", "Address", "Status"],
     include: [{ model: Roles, as: "Roles", attributes: ["RoleName"], through: { attributes: [] } }],
   });
 
@@ -40,6 +40,8 @@ const requireAuth = async (req, _res, next) => {
     UserId: user.UserId,
     FullName: user.FullName,
     Email: user.Email,
+    Phone: user.Phone,
+    Address: user.Address,
     Status: user.Status,
     roles: user.Roles.map((role) => role.RoleName),
   };

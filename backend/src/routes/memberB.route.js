@@ -7,6 +7,7 @@ const categories = require("../controllers/categories.controller");
 const reports = require("../controllers/reports.controller");
 const refunds = require("../controllers/refunds.controller");
 const commissions = require("../controllers/commissions.controller");
+const orders = require("../controllers/orders.controller");
 
 // Phân hệ B — các API phía người dùng/người bán (không cần quyền ADMIN).
 const router = express.Router();
@@ -21,6 +22,10 @@ router.post(
 
 // Thông tin tài khoản đang đăng nhập (vai trò) để giao diện hiển thị đúng menu.
 router.get("/me", requireAuth, (req, res) => res.status(200).json({ success: true, data: req.user }));
+
+// D01 Đặt hàng và giữ món
+router.get("/orders/preview/:listingId", requireAuth, orders.getOrderPreview);
+router.post("/orders", requireAuth, orders.createOrder);
 
 // B03 Danh mục và tình trạng sản phẩm dùng chung
 router.get("/categories", categories.listActiveCategories);

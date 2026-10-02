@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import CategorySection from '../components/CategorySection'
 import FeaturedProducts from '../components/FeaturedProducts'
@@ -27,6 +28,7 @@ const normalizeText = (value) => value
   .replace(/đ/g, 'd')
 
 function HomePage() {
+  const navigate = useNavigate()
   const [keyword, setKeyword] = useState('')
   const [appliedKeyword, setAppliedKeyword] = useState('')
   const [searchCategory, setSearchCategory] = useState('all')
@@ -140,6 +142,10 @@ function HomePage() {
   }
 
   const handleBuyProduct = (product) => {
+    if (product?.id) {
+      navigate(`/orders/create/${product.id}`)
+      return
+    }
     toast.success(`Đã chọn “${product.name}”. Hãy liên hệ người bán để tiếp tục.`)
   }
 

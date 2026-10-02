@@ -29,6 +29,7 @@ const MyReportsPage = lazy(() => import('./pages/account/MyReportsPage'))
 const RefundCreatePage = lazy(() => import('./pages/account/RefundCreatePage'))
 const MyRefundsPage = lazy(() => import('./pages/account/MyRefundsPage'))
 const SellerFeesPage = lazy(() => import('./pages/account/SellerFeesPage'))
+const OrderCreatePage = lazy(() => import('./pages/OrderCreatePage'))
 
 function App() {
   return (
@@ -48,6 +49,7 @@ function App() {
             </DevAccountProvider>
           }
         >
+          <Route path="/orders/create/:listingId" element={<OrderCreatePage />} />
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboardPage />} />
             <Route path="users" element={<AdminUsersPage />} />

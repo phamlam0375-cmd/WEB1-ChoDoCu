@@ -9,6 +9,7 @@ const errorHandler = (error, req, res, _next) => {
     return res.status(error.status).json({
       success: false,
       message: error.message,
+      ...(error.code ? { code: error.code } : {}),
       ...(error.errors ? { errors: error.errors } : {}),
     });
   }

@@ -12,4 +12,4 @@ COPY . .
 
 EXPOSE 3000
 
-CMD ["pnpm", "run", "dev"]
+CMD ["pnpm", "run", "docker:dev"]

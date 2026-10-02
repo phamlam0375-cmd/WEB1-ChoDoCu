@@ -5,8 +5,9 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
+    // Chuyển /api sang backend khi chạy `pnpm dev`.
     proxy: {
-      '/api': 'http://localhost:3000',
+      "/api": "http://localhost:3000",
     },
   },
 });

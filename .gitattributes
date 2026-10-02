@@ -1,0 +1,2 @@
+# Script shell luôn dùng LF để chạy được trên macOS/Linux và trong container
+*.sh text eol=lf

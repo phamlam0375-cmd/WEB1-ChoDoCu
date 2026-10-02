@@ -7,6 +7,8 @@
   "scripts": {
     "dev": "nodemon --legacy-watch --polling-interval 500 src/server.js",
     "start": "node src/server.js",
+    "db:prepare": "node scripts/prepare-db.js",
+    "docker:dev": "node scripts/prepare-db.js && nodemon --legacy-watch --polling-interval 500 src/server.js",
     "db:migrate": "sequelize-cli db:migrate",
     "db:migrate:undo": "sequelize-cli db:migrate:undo:all",
     "db:seed": "sequelize-cli db:seed:all",

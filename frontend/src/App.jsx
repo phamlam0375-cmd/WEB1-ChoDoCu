@@ -14,6 +14,7 @@ import { Loading } from './components/admin/AdminUi'
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'))
 const AdminUsersPage = lazy(() => import('./pages/admin/AdminUsersPage'))
 const AdminPartnerApplicationsPage = lazy(() => import('./pages/admin/AdminPartnerApplicationsPage'))
+const AdminCategoriesPage = lazy(() => import('./pages/admin/AdminCategoriesPage'))
 
 function App() {
   return (
@@ -37,6 +38,7 @@ function App() {
             <Route index element={<Navigate to="users" replace />} />
             <Route path="users" element={<AdminUsersPage />} />
             <Route path="partner-applications" element={<AdminPartnerApplicationsPage />} />
+            <Route path="categories" element={<AdminCategoriesPage />} />
           </Route>
         </Route>
 

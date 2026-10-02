@@ -6,11 +6,12 @@ const { badRequest, conflict } = require("../utils/httpError");
 const { logAdminAction } = require("./auditLog.service");
 const { notify } = require("./notification.service");
 
-// B05: các hành động kiểm duyệt tin, trạng thái được phép và trạng thái đích.
+// Kiểm duyệt tin: các hành động, trạng thái được phép và trạng thái đích.
 const LISTING_ACTIONS = {
   APPROVE: { from: ["PENDING"], audit: "LISTING_APPROVE", noteRequired: false, title: "Tin đăng đã được duyệt" },
   REJECT: { from: ["PENDING"], audit: "LISTING_REJECT", noteRequired: true, title: "Tin đăng bị từ chối" },
-  HIDE: { from: ["PENDING", "ACTIVE", "RESERVED"], audit: "LISTING_HIDE", noteRequired: true, title: "Tin đăng bị gỡ" },
+  HIDE: { from: ["PENDING", "ACTIVE", "RESERVED"], audit: "LISTING_HIDE", noteRequired: true, title: "Tin đăng bị ẩn" },
+  REMOVE: { from: ["PENDING", "ACTIVE", "RESERVED", "HIDDEN"], audit: "LISTING_REMOVE", noteRequired: true, title: "Tin đăng bị gỡ" },
   RESTORE: { from: ["HIDDEN"], audit: "LISTING_RESTORE", noteRequired: false, title: "Tin đăng được khôi phục" },
 };
 
@@ -20,6 +21,7 @@ const nextListingStatus = async (listing, action, transaction) => {
   if (action === "APPROVE") return "ACTIVE";
   if (action === "REJECT") return "REJECTED";
   if (action === "HIDE") return "HIDDEN";
+  if (action === "REMOVE") return "REMOVED";
   // Khôi phục tin đang có đơn dở dang thì trả về RESERVED để không bán trùng.
   const openOrder = await Orders.count({
     where: { ListingId: listing.ListingId, Status: { [Op.in]: OPEN_ORDER_STATUSES } },
@@ -28,13 +30,16 @@ const nextListingStatus = async (listing, action, transaction) => {
   return openOrder ? "RESERVED" : "ACTIVE";
 };
 
-const moderateListing = async (req, listing, action, note, { transaction, source } = {}) => {
+const moderateListing = async (req, listing, action, note, { transaction, source, expectedStatus } = {}) => {
   const rule = LISTING_ACTIONS[action];
   if (!rule) throw badRequest("Hành động kiểm duyệt không hợp lệ");
-  if (!rule.from.includes(listing.Status)) {
-    throw conflict(`Không thể thực hiện với tin đang ở trạng thái ${listing.Status}`);
+  // Giao diện gửi trạng thái nó đang hiển thị; khác nghĩa là quản trị khác đã xử lý trước.
+  if ((expectedStatus && expectedStatus !== listing.Status) || !rule.from.includes(listing.Status)) {
+    throw conflict("Tin đã được xử lý, vui lòng tải lại trang");
   }
-  if (rule.noteRequired && !note) throw badRequest("Vui lòng nhập lý do");
+  if (rule.noteRequired && !note) {
+    throw badRequest(action === "REJECT" ? "Vui lòng nhập lý do từ chối" : "Vui lòng nhập lý do");
+  }
 
   const oldStatus = listing.Status;
   const newStatus = await nextListingStatus(listing, action, transaction);
@@ -71,11 +76,11 @@ const moderateListing = async (req, listing, action, note, { transaction, source
   return { oldStatus, newStatus };
 };
 
-// B01/B05: khóa hoặc mở khóa tài khoản, không cho tự khóa mình.
+// Khóa hoặc mở khóa tài khoản, không cho tự khóa mình.
 const setUserStatus = async (req, user, status, reason, { transaction, source } = {}) => {
   if (user.Status === status) return false;
   if (status === "LOCKED" && user.UserId === req.user.UserId) {
-    throw badRequest("Không thể tự khóa tài khoản của chính mình");
+    throw badRequest("Bạn không thể khóa tài khoản của chính mình");
   }
 
   const oldStatus = user.Status;

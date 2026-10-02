@@ -1,13 +1,21 @@
 "use strict";
 
-// B05 — Kiểm duyệt tin đăng: duyệt, từ chối, gỡ (ẩn) và khôi phục.
+// Kiểm duyệt tin đăng: duyệt, từ chối, ẩn, gỡ và khôi phục.
 const { Op, fn, col } = require("sequelize");
 const { sequelize, Listings, ListingMedia, Users, Categories, Reports } = require("../models");
 const { notFound } = require("../utils/httpError");
 const { parsePagination, pagedResponse, parseId, optionalId, text, oneOf } = require("../utils/request");
 const { LISTING_ACTIONS, moderateListing } = require("../services/moderation.service");
 
-const LISTING_STATUSES = ["DRAFT", "PENDING", "ACTIVE", "RESERVED", "SOLD", "HIDDEN", "REJECTED"];
+const REVIEW_MESSAGES = {
+  APPROVE: "Duyệt thành công",
+  REJECT: "Tin đã chuyển sang \"Bị từ chối\"",
+  HIDE: "Đã ẩn tin đăng",
+  REMOVE: "Đã gỡ tin đăng",
+  RESTORE: "Đã khôi phục tin đăng",
+};
+
+const LISTING_STATUSES = ["DRAFT", "PENDING", "ACTIVE", "RESERVED", "SOLD", "HIDDEN", "REMOVED", "REJECTED"];
 
 const openReportCount = [
   sequelize.literal(
@@ -93,12 +101,12 @@ const reviewListing = async (req, res) => {
   const result = await sequelize.transaction(async (transaction) => {
     const listing = await Listings.findByPk(id, { transaction, lock: transaction.LOCK.UPDATE });
     if (!listing) throw notFound("Không tìm thấy tin đăng");
-    return moderateListing(req, listing, action, note, { transaction });
+    return moderateListing(req, listing, action, note, { transaction, expectedStatus: req.body.expectedStatus });
   });
 
   return res.status(200).json({
     success: true,
-    message: `Đã cập nhật tin đăng: ${result.oldStatus} → ${result.newStatus}`,
+    message: REVIEW_MESSAGES[action],
     data: { ListingId: id, ...result },
   });
 };

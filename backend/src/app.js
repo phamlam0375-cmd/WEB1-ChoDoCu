@@ -4,7 +4,6 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const healthRouter = require('./routes/health');
 const orderRoutes = require('./routes/order.route');
-const errorHandler = require('./middleware/errorHandler');
 const AppError = require('./errors/AppError');
 
 const partnerApplicationRoutes = require('./routes/partnerApplication.route');

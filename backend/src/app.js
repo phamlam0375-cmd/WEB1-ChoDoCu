@@ -5,6 +5,10 @@ const morgan = require('morgan');
 const healthRouter = require('./routes/health');
 
 const partnerApplicationRoutes = require('./routes/partnerApplication.route');
+const adminRoutes = require('./routes/admin.route');
+const memberBRoutes = require('./routes/memberB.route');
+const errorHandler = require('./middlewares/errorHandler');
+const { UPLOAD_DIR } = require('./controllers/uploads.controller');
 
 const app = express();
 
@@ -34,10 +38,17 @@ app.use('/api/health', healthRouter);
 //PARTNER APPLICATION
 app.use("/api/partner-applications", partnerApplicationRoutes);
 
+// PHÂN HỆ B: QUẢN TRỊ VÀ DOANH THU
+app.use('/api/v1/uploads', express.static(UPLOAD_DIR, { index: false, maxAge: '7d' }));
+app.use('/api/v1/admin', adminRoutes);
+app.use('/api/v1', memberBRoutes);
+
 
 
 app.use((_request, response) => {
   response.status(404).json({ message: '404 NOT FOUND' });
 });
+
+app.use(errorHandler);
 
 module.exports = app;

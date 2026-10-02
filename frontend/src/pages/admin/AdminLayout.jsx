@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import {
+  FolderTree,
   Handshake,
   Menu,
   ShieldCheck,
@@ -18,6 +19,12 @@ const NAV_GROUPS = [
     items: [
       { to: '/admin/users', label: 'Tài khoản & phân quyền', icon: Users },
       { to: '/admin/partner-applications', label: 'Duyệt đối tác', icon: Handshake },
+    ],
+  },
+  {
+    title: 'Nội dung',
+    items: [
+      { to: '/admin/categories', label: 'Danh mục', icon: FolderTree },
     ],
   },
 ]

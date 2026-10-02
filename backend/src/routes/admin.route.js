@@ -30,6 +30,10 @@ router.patch("/partner-applications/:id", partners.reviewApplication);
 router.get("/categories", categories.listCategories);
 router.post("/categories", categories.createCategory);
 router.patch("/categories/:id", categories.updateCategory);
+router.delete("/categories/:id", categories.deleteCategory);
+router.get("/conditions", categories.listAllConditions);
+router.post("/conditions", categories.createCondition);
+router.patch("/conditions/:code", categories.updateCondition);
 
 // B04 + B05 Báo cáo vi phạm
 router.get("/reports", reports.listReports);

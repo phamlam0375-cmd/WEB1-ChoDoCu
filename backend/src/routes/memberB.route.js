@@ -5,12 +5,26 @@ const categories = require("../controllers/categories.controller");
 const reports = require("../controllers/reports.controller");
 const refunds = require("../controllers/refunds.controller");
 const commissions = require("../controllers/commissions.controller");
+const uploads = require("../controllers/uploads.controller");
+const settings = require("../controllers/settings.controller");
 
 // Phân hệ B — các API phía người dùng/người bán (không cần quyền ADMIN).
 const router = express.Router();
 
+// Ảnh bằng chứng: body là nguyên file ảnh (image/jpeg hoặc image/png), tối đa 5MB.
+router.post(
+  "/uploads",
+  requireAuth,
+  express.raw({ type: ["image/jpeg", "image/png", "application/octet-stream"], limit: uploads.MAX_BYTES }),
+  uploads.uploadImage
+);
+
 // Thông tin tài khoản đang đăng nhập (vai trò) để giao diện hiển thị đúng menu.
 router.get("/me", requireAuth, (req, res) => res.status(200).json({ success: true, data: req.user }));
+
+// Danh sách ngân hàng hỗ trợ mã QR chuyển khoản
+router.get("/banks", settings.listBanks);
+router.get("/fee-account", requireAuth, settings.getFeeAccount);
 
 // B03 Danh mục và tình trạng sản phẩm dùng chung
 router.get("/categories", categories.listActiveCategories);
@@ -22,6 +36,7 @@ router.post("/reports", requireAuth, reports.createReport);
 router.get("/reports", requireAuth, reports.listMyReports);
 
 // B06 Gửi yêu cầu hoàn tiền; B07 các bước giải quyết (admin, người bán, người mua)
+router.get("/refund-requests/reasons", refunds.listReasons);
 router.post("/orders/:id/refund-requests", requireAuth, refunds.createRefundRequest);
 router.get("/refund-requests", requireAuth, refunds.listMyRefundRequests);
 router.get("/refund-requests/:id", requireAuth, refunds.getRefundRequest);

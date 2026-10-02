@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { toast } from 'react-toastify'
-import { Lock, Unlock } from 'lucide-react'
+import { Eye, Lock, Unlock } from 'lucide-react'
 import {
   Badge,
   Card,
@@ -18,7 +18,6 @@ import {
 } from '../../components/admin/AdminUi'
 import { btn, input } from '../../components/admin/styles'
 import { useApi, useMutation } from '../../hooks/useApi'
-import { useDevAccount } from '../../hooks/useDevAccount'
 import { errorMessage } from '../../lib/api'
 import { formatDateTime, formatMoney } from '../../lib/format'
 import { ROLE_LABELS, USER_STATUS } from '../../lib/labels'
@@ -38,7 +37,6 @@ function RoleBadges({ roles }) {
 }
 
 function UserDetail({ userId, onClose, onSaved }) {
-  const { me } = useDevAccount()
   const { data: user, loading, error, reload } = useApi(`/admin/users/${userId}`)
   const { busy, run } = useMutation()
   const [roleDraft, setRoleDraft] = useState(null)
@@ -48,7 +46,6 @@ function UserDetail({ userId, onClose, onSaved }) {
   const standardRoles = ['USER', ...(user?.Roles ?? []).filter((role) => ROLES.includes(role) && role !== 'USER')]
   const roles = roleDraft ?? standardRoles
   const rolesChanged = user && JSON.stringify([...roles].sort()) !== JSON.stringify([...standardRoles].sort())
-  const isSelf = me?.UserId === userId
 
   const toggleRole = (role) => {
     if (role === 'USER') return
@@ -93,7 +90,7 @@ function UserDetail({ userId, onClose, onSaved }) {
             <p className="mb-2 text-sm font-semibold text-slate-900">Vai trò</p>
             <div className="flex flex-wrap gap-2">
               {ROLES.map((role) => {
-                const locked = role === 'USER' || (isSelf && role === 'ADMIN')
+                const locked = role === 'USER'
                 return (
                   <label
                     key={role}
@@ -107,7 +104,7 @@ function UserDetail({ userId, onClose, onSaved }) {
                 )
               })}
             </div>
-            <p className="mt-1 text-xs text-slate-500">Vai trò Người dùng luôn được giữ. Không thể tự thu hồi quyền quản trị của chính mình.</p>
+            <p className="mt-1 text-xs text-slate-500">Vai trò Người mua luôn được giữ. Hệ thống phải còn ít nhất một quản trị viên.</p>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -115,7 +112,7 @@ function UserDetail({ userId, onClose, onSaved }) {
               type="button"
               className={btn.primary}
               disabled={!rolesChanged}
-              onClick={() => setPending({ body: { roles }, title: 'Cập nhật vai trò', tone: 'primary' })}
+              onClick={() => setPending({ body: { roles }, title: 'Cập nhật vai trò', tone: 'primary', message: 'Lưu thay đổi vai trò cho tài khoản này?' })}
             >
               Lưu vai trò
             </button>
@@ -123,8 +120,7 @@ function UserDetail({ userId, onClose, onSaved }) {
               <button
                 type="button"
                 className={btn.danger}
-                disabled={isSelf}
-                onClick={() => setPending({ body: { status: 'LOCKED' }, title: `Khóa tài khoản ${user.FullName}?`, tone: 'danger' })}
+                onClick={() => setPending({ body: { status: 'LOCKED' }, title: 'Khóa tài khoản', tone: 'danger', message: 'Bạn có chắc muốn khóa tài khoản này?' })}
               >
                 <Lock size={16} /> Khóa tài khoản
               </button>
@@ -132,7 +128,7 @@ function UserDetail({ userId, onClose, onSaved }) {
               <button
                 type="button"
                 className={btn.secondary}
-                onClick={() => setPending({ body: { status: 'ACTIVE' }, title: `Mở khóa tài khoản ${user.FullName}?`, tone: 'primary' })}
+                onClick={() => setPending({ body: { status: 'ACTIVE' }, title: 'Mở khóa tài khoản', tone: 'primary', message: 'Bạn có chắc muốn mở khóa tài khoản này?' })}
               >
                 <Unlock size={16} /> Mở khóa
               </button>
@@ -159,9 +155,8 @@ function UserDetail({ userId, onClose, onSaved }) {
         open={Boolean(pending)}
         title={pending?.title}
         tone={pending?.tone}
-        message="Thao tác sẽ được ghi vào nhật ký quản trị và gửi thông báo cho người dùng."
-        reasonLabel="Lý do"
-        reasonRequired
+        message={pending?.message}
+        reasonLabel="Lý do (không bắt buộc)"
         busy={busy}
         onConfirm={save}
         onClose={() => setPending(null)}
@@ -192,15 +187,24 @@ export default function AdminUsersPage() {
     { key: 'Roles', title: 'Vai trò', render: (row) => <RoleBadges roles={row.Roles} /> },
     { key: 'Status', title: 'Trạng thái', render: (row) => <StatusBadge map={USER_STATUS} value={row.Status} /> },
     { key: 'CreatedAt', title: 'Ngày tạo', render: (row) => formatDateTime(row.CreatedAt), className: 'whitespace-nowrap' },
+    {
+      key: 'actions',
+      title: '',
+      render: (row) => (
+        <button type="button" className={btn.ghost} onClick={(event) => { event.stopPropagation(); setSelected(row.UserId) }}>
+          <Eye size={15} /> Xem chi tiết
+        </button>
+      ),
+    },
   ]
 
   return (
     <>
-      <PageHeader code="B01" title="Quản lý tài khoản và phân quyền" description="Tra cứu tài khoản, khóa hoặc mở khóa, cấp hoặc thu hồi vai trò. Mọi thay đổi đều cần lý do và được ghi nhật ký." />
+      <PageHeader title="Quản lý tài khoản và phân quyền" description="Tra cứu tài khoản, khóa hoặc mở khóa, cấp hoặc thu hồi vai trò. Mọi thay đổi đều được ghi nhật ký thao tác." />
       <Card>
         <div className="p-4 pb-0">
           <FilterBar onReset={() => setFilters({ q: '', role: '', status: '', page: 1 })}>
-            <SearchInput value={filters.q} onChange={(q) => update({ q })} placeholder="Tên, email, SĐT hoặc mã" />
+            <SearchInput value={filters.q} onChange={(q) => update({ q })} placeholder="Email, số điện thoại hoặc mã người dùng" />
             <Field className="w-40">
               <select value={filters.role} onChange={(event) => update({ role: event.target.value })} className={input} aria-label="Lọc vai trò">
                 <option value="">Mọi vai trò</option>
@@ -226,6 +230,7 @@ export default function AdminUsersPage() {
           loading={loading}
           error={error}
           onRetry={reload}
+          empty="Không tìm thấy tài khoản phù hợp"
         />
         <Pagination pagination={response?.pagination} onPage={(page) => setFilters((current) => ({ ...current, page }))} />
       </Card>

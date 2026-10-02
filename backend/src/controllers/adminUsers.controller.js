@@ -1,6 +1,6 @@
 "use strict";
 
-// B01 — Quản lý tài khoản và phân quyền.
+// Quản lý tài khoản và phân quyền.
 const { Op } = require("sequelize");
 const {
   sequelize,
@@ -90,10 +90,19 @@ const getUser = async (req, res) => {
   });
 };
 
-// PATCH { status?, roles?, reason }: đổi trạng thái và/hoặc thay toàn bộ danh sách vai trò.
+// Số quản trị viên đang hoạt động khác tài khoản đang xét (hệ thống phải còn ít nhất một).
+const countOtherActiveAdmins = (userId, transaction) =>
+  Users.count({
+    where: { UserId: { [Op.ne]: userId }, Status: "ACTIVE" },
+    include: [{ model: Roles, as: "Roles", where: { RoleName: "ADMIN" }, attributes: [], through: { attributes: [] } }],
+    distinct: true,
+    transaction,
+  });
+
+// PATCH { status?, roles?, reason? }: đổi trạng thái và/hoặc thay toàn bộ danh sách vai trò.
 const updateUser = async (req, res) => {
   const id = parseId(req.params.id, "Mã tài khoản");
-  const reason = text(req.body.reason, "lý do", { required: true, min: 5, max: 500 });
+  const reason = text(req.body.reason, "lý do", { max: 500 });
   const status = req.body.status === undefined ? null : oneOf(req.body.status, USER_STATUSES, "Trạng thái");
 
   let desiredRoles = null;
@@ -108,14 +117,20 @@ const updateUser = async (req, res) => {
     if (!user) throw notFound("Không tìm thấy tài khoản");
 
     let changed = false;
+    let message = "Cập nhật vai trò thành công";
     if (status) {
       changed = (await setUserStatus(req, user, status, reason, { transaction })) || changed;
+      message = status === "LOCKED" ? "Khóa tài khoản thành công" : "Mở khóa thành công";
     }
 
     if (desiredRoles) {
       // Chỉ quản lý 4 vai trò chuẩn; vai trò khác (nếu có) được giữ nguyên.
       const currentRoles = user.Roles.map((role) => role.RoleName).filter((role) => ROLE_NAMES.includes(role));
-      if (id === req.user.UserId && currentRoles.includes("ADMIN") && !desiredRoles.includes("ADMIN")) {
+      const revokingAdmin = currentRoles.includes("ADMIN") && !desiredRoles.includes("ADMIN");
+      if (revokingAdmin && (await countOtherActiveAdmins(id, transaction)) === 0) {
+        throw badRequest("Hệ thống phải còn ít nhất một quản trị viên");
+      }
+      if (revokingAdmin && id === req.user.UserId) {
         throw badRequest("Không thể tự thu hồi quyền quản trị của chính mình");
       }
 
@@ -155,7 +170,7 @@ const updateUser = async (req, res) => {
             message: [
               toGrant.length ? `Được cấp: ${toGrant.join(", ")}` : null,
               toRevoke.length ? `Bị thu hồi: ${toRevoke.join(", ")}` : null,
-              `Lý do: ${reason}`,
+              reason ? `Lý do: ${reason}` : null,
             ].filter(Boolean).join(". "),
             referenceType: "USER",
             referenceId: id,
@@ -167,10 +182,10 @@ const updateUser = async (req, res) => {
     }
 
     if (!changed) throw badRequest("Không có thay đổi nào");
-    return Users.findByPk(id, { include: [roleInclude], transaction });
+    return { user: await Users.findByPk(id, { include: [roleInclude], transaction }), message };
   });
 
-  return res.status(200).json({ success: true, message: "Cập nhật tài khoản thành công", data: toUserDto(result) });
+  return res.status(200).json({ success: true, message: result.message, data: toUserDto(result.user) });
 };
 
 module.exports = { listUsers, getUser, updateUser, ROLE_NAMES };

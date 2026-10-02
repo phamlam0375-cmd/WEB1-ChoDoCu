@@ -4,7 +4,7 @@
 
 ## Yêu cầu máy
 
-- Docker Desktop (Windows/macOS) hoặc Docker Engine có Docker Compose 2.24 trở lên.
+- Docker Desktop (Windows/macOS) hoặc Docker Engine có Docker Compose v2. Docker Desktop phải **đang mở** trước khi chạy lệnh.
 - Git 2.23 trở lên.
 - Nên dành tối thiểu 2 GB RAM và khoảng 5 GB dung lượng trống cho image Docker và MySQL.
 - Các cổng **3306**, **3000** và **8081** đang trống.
@@ -17,7 +17,13 @@ cd WEB1-ChoDoCu
 docker compose up -d --build
 ```
 
-Lần đầu mất vài phút để tải image, build frontend và khởi tạo MySQL. Khi khởi động, API **tự chạy migration** và **tự nạp dữ liệu mẫu nếu database còn trống**; các lần sau dữ liệu được giữ nguyên.
+Lần đầu mất vài phút để tải image, build frontend và khởi tạo MySQL. Khi khởi động, API tự chuẩn bị database:
+
+1. Database còn trống và repo có `backend/data/snapshot.sql` thì nạp **dữ liệu chung của nhóm** từ file này.
+2. Chạy các migration còn thiếu.
+3. Vẫn chưa có dữ liệu thì nạp dữ liệu mẫu.
+
+Các lần sau dữ liệu trên máy được giữ nguyên.
 
 Kiểm tra đã chạy xong:
 
@@ -46,6 +52,33 @@ Theo dõi quá trình khởi động nếu cần: `docker compose logs -f api`.
 | 1 | Người mua: báo cáo vi phạm, yêu cầu hoàn tiền đơn `/orders/9001/refund` |
 | 3 | Người bán: phí và hoa hồng `/seller/fees` (khoản HH009001, HH009002) |
 | 4, 8 | Hồ sơ đối tác đã xác thực ở tab Chờ duyệt (demo bấm Duyệt) |
+
+## Chia sẻ dữ liệu giữa các máy
+
+Dữ liệu nằm trong Docker trên từng máy, không tự đi theo Git. Muốn máy khác có đúng dữ liệu của mình:
+
+**Máy có dữ liệu** xuất ra file rồi commit, push:
+
+```bash
+# Windows (Command Prompt hoặc PowerShell)
+scripts\export-data.cmd
+# macOS/Linux hoặc Git Bash
+sh scripts/export-data.sh
+
+git add backend/data/snapshot.sql
+git commit -m "data: cập nhật dữ liệu chung"
+git push
+```
+
+**Máy nhận** kéo code mới rồi tạo lại database để nạp file vừa push. Lệnh `down -v` **xóa dữ liệu đang có trên máy nhận**:
+
+```bash
+git pull
+docker compose down -v
+docker compose up -d --build
+```
+
+Ảnh người dùng tải lên (thư mục `backend/uploads/`) không nằm trong file dữ liệu; cần thì chép thư mục này sang máy kia.
 
 ## Cấu hình (không bắt buộc)
 
@@ -103,7 +136,10 @@ docker compose up -d --build
 
 | Hiện tượng | Cách xử lý |
 |---|---|
+| Lệnh `docker` báo `error during connect` hoặc không kết nối được | Mở Docker Desktop, chờ trạng thái "running" rồi chạy lại |
 | Báo cổng 3306/3000/8081 đang được dùng | Tắt MySQL hoặc chương trình đang dùng cổng đó, rồi chạy lại |
+| Máy từng chạy bản cũ của dự án, trang báo lỗi hoặc thiếu bảng | `git pull` rồi `docker compose up -d --build`; vẫn lỗi thì `docker compose down -v` rồi chạy lại (xóa dữ liệu cũ trên máy đó) |
+| Máy khác không thấy dữ liệu mới của mình | Làm theo mục "Chia sẻ dữ liệu giữa các máy" |
 | Trang báo "Lỗi server" ngay sau khi khởi động | Chờ API chạy xong migration (xem `docker compose logs -f api`) |
 | Trang quản trị chỉ hiện "Khu vực dành cho quản trị viên" | Nhập mã tài khoản 2 ở ô "Tài khoản thử nghiệm"; nếu dùng cổng 5173 thì khởi động lại `pnpm dev` |
 | Sửa frontend nhưng cổng 8081 không đổi | Chạy `docker compose up -d --build nginx` |
@@ -124,11 +160,13 @@ WEB1-ChoDoCu/
 │   ├── config/         # Cấu hình kết nối MySQL
 │   ├── migrations/     # Tạo bảng
 │   ├── seeders/        # Dữ liệu mẫu
+│   ├── data/           # snapshot.sql: dữ liệu chung của nhóm
 │   ├── scripts/        # prepare-db, kiểm tra dữ liệu, kiểm tra cú pháp
 │   ├── src/            # routes, controllers, models, services, middlewares
 │   └── docs/           # Phân công branch, hướng dẫn GitHub, báo cáo
 ├── frontend/           # ReactJS (Vite, Tailwind)
 ├── nginx/              # Build frontend và chuyển /api sang backend
+├── scripts/            # export-data: xuất dữ liệu ra backend/data/snapshot.sql
 ├── .github/workflows/  # CI (kiểm tra) và CD (triển khai)
 └── docker-compose.yml
 ```

@@ -1,6 +1,6 @@
 "use strict";
 
-// B04 — Tiếp nhận báo cáo vi phạm; B05 — xử lý báo cáo (ẩn tin, khóa tài khoản).
+// Tiếp nhận báo cáo vi phạm và xử lý báo cáo (ẩn, gỡ tin, khóa tài khoản).
 const { Op, fn, col } = require("sequelize");
 const { sequelize, Reports, Listings, Users, Orders } = require("../models");
 const { badRequest, notFound, conflict, forbidden } = require("../utils/httpError");
@@ -55,8 +55,9 @@ const createReport = async (req, res) => {
   const reporterId = req.user.UserId;
   const targetType = oneOf(req.body.targetType, TARGET_TYPES, "Loại đối tượng bị báo cáo");
   const targetId = parseId(req.body.targetId, "Mã đối tượng bị báo cáo");
+  if (!req.body.reason) throw badRequest("Vui lòng chọn lý do báo cáo");
   const reason = oneOf(req.body.reason, REPORT_REASONS, "Lý do báo cáo");
-  const description = text(req.body.description, "mô tả chi tiết", { required: reason === "Khác", min: 10, max: 1000 });
+  const description = text(req.body.description, "mô tả chi tiết", { required: reason === "Khác", max: 1000 });
   const evidenceUrl = optionalUrl(req.body.evidenceUrl, "Đường dẫn bằng chứng");
 
   const data = { ReporterId: reporterId, Reason: reason, Description: description, EvidenceUrl: evidenceUrl };
@@ -95,13 +96,14 @@ const createReport = async (req, res) => {
     },
   });
   if (duplicate) {
-    throw conflict(`Bạn đã có báo cáo #${duplicate.ReportId} cho đối tượng này và đang chờ xử lý`);
+    const noun = { LISTING: "tin này", USER: "tài khoản này", ORDER: "đơn hàng này" }[targetType];
+    throw conflict(`Bạn đã báo cáo ${noun}, vui lòng chờ kết quả xử lý`);
   }
 
   const report = await Reports.create(data);
   return res.status(201).json({
     success: true,
-    message: "Đã gửi báo cáo. Quản trị viên sẽ xem xét và phản hồi.",
+    message: "Gửi báo cáo thành công",
     data: withTargetType(report),
   });
 };
@@ -188,36 +190,47 @@ const getReport = async (req, res) => {
 const DECISIONS = {
   PROCESSING: { from: ["PENDING"], audit: "REPORT_PROCESS", label: "đang được xử lý" },
   RESOLVED: { from: OPEN_STATUSES, audit: "REPORT_RESOLVE", label: "đã được xử lý" },
-  REJECTED: { from: OPEN_STATUSES, audit: "REPORT_REJECT", label: "không đủ căn cứ vi phạm" },
+  REJECTED: { from: OPEN_STATUSES, audit: "REPORT_REJECT", label: "được kết luận không vi phạm" },
 };
 
-// B05: PATCH /admin/reports/:id { status, resolution, hideListing, lockUser }
+// Xử lý tin bị báo cáo khi kết luận có vi phạm: Ẩn tin (có thể khôi phục) hoặc Gỡ tin.
+const LISTING_EFFECTS = { HIDE: "Đã ẩn tin đăng", REMOVE: "Đã gỡ tin đăng" };
+
+// PATCH /admin/reports/:id { status, resolution, listingAction: HIDE|REMOVE, lockUser, expectedStatus }
+//  - PROCESSING: "Chuyển xử lý" ở trang tiếp nhận báo cáo.
+//  - RESOLVED:   Ẩn tin / Gỡ tin (bắt buộc lý do) ở trang kiểm duyệt.
+//  - REJECTED:   Bác bỏ báo cáo, báo cáo chuyển sang "Không vi phạm".
 const handleReport = async (req, res) => {
   const id = parseId(req.params.id, "Mã báo cáo");
   const status = oneOf(req.body.status, Object.keys(DECISIONS), "Trạng thái xử lý");
-  const resolution = text(req.body.resolution, "kết quả xử lý", { required: status !== "PROCESSING", min: 5, max: 1000 });
-  const hideListing = req.body.hideListing === true;
+  const resolution = text(req.body.resolution, "lý do", { max: 1000 });
+  const listingAction = req.body.listingAction ? oneOf(req.body.listingAction, Object.keys(LISTING_EFFECTS), "Cách xử lý tin") : null;
+  // Tương thích phiên bản trước: hideListing = true tương đương listingAction HIDE.
+  const effectiveListingAction = listingAction || (req.body.hideListing === true ? "HIDE" : null);
   const lockUser = req.body.lockUser === true;
-  if ((hideListing || lockUser) && status !== "RESOLVED") {
-    throw badRequest("Chỉ ẩn tin hoặc khóa tài khoản khi kết luận có vi phạm (RESOLVED)");
+  if ((effectiveListingAction || lockUser) && status !== "RESOLVED") {
+    throw badRequest("Chỉ ẩn, gỡ tin hoặc khóa tài khoản khi kết luận có vi phạm");
   }
+  if (status === "RESOLVED" && !resolution) throw badRequest("Vui lòng nhập lý do");
 
   const actions = [];
   const report = await sequelize.transaction(async (transaction) => {
     const item = await Reports.findByPk(id, { transaction, lock: transaction.LOCK.UPDATE });
     if (!item) throw notFound("Không tìm thấy báo cáo");
-    if (!DECISIONS[status].from.includes(item.Status)) {
-      throw conflict(`Báo cáo đang ở trạng thái ${item.Status}, không thể chuyển sang ${status}`);
+    const expectedStatus = req.body.expectedStatus;
+    if (!DECISIONS[status].from.includes(item.Status) || (expectedStatus && expectedStatus !== item.Status)) {
+      throw conflict("Báo cáo đã được xử lý, vui lòng tải lại trang");
     }
 
     const source = `Báo cáo #${id}`;
-    if (hideListing) {
+    if (effectiveListingAction) {
       if (!item.ListingId) throw badRequest("Báo cáo này không gắn với tin đăng");
       const listing = await Listings.findByPk(item.ListingId, { transaction, lock: transaction.LOCK.UPDATE });
       if (!listing) throw notFound("Tin đăng không còn tồn tại");
-      if (listing.Status !== "HIDDEN") {
-        await moderateListing(req, listing, "HIDE", resolution, { transaction, source });
-        actions.push("Đã ẩn tin đăng");
+      const alreadyDone = effectiveListingAction === "HIDE" ? ["HIDDEN", "REMOVED"] : ["REMOVED"];
+      if (!alreadyDone.includes(listing.Status)) {
+        await moderateListing(req, listing, effectiveListingAction, resolution, { transaction, source });
+        actions.push(LISTING_EFFECTS[effectiveListingAction]);
       }
     }
 
@@ -232,11 +245,12 @@ const handleReport = async (req, res) => {
       }
     }
 
+    const finalResolution = status === "REJECTED" && !resolution ? "Không phát hiện vi phạm." : resolution;
     const oldStatus = item.Status;
     await item.update(
       {
         Status: status,
-        Resolution: resolution || item.Resolution,
+        Resolution: finalResolution || item.Resolution,
         HandledBy: req.user.UserId,
         HandledAt: status === "PROCESSING" ? null : new Date(),
       },
@@ -251,17 +265,18 @@ const handleReport = async (req, res) => {
         targetId: id,
         oldValue: { Status: oldStatus },
         newValue: { Status: status, actions },
-        note: resolution,
+        note: finalResolution,
       },
       { transaction }
     );
 
+    // Người báo cáo luôn nhận kết quả; người đăng tin nhận thông báo qua moderateListing.
     await notify(
       item.ReporterId,
       {
         type: "SYSTEM",
         title: `Báo cáo #${id} ${DECISIONS[status].label}`,
-        message: resolution || "Quản trị viên đã tiếp nhận và đang xem xét báo cáo của bạn.",
+        message: [finalResolution || "Quản trị viên đã tiếp nhận và đang xem xét báo cáo của bạn.", ...actions].join(". "),
         referenceType: "REPORT",
         referenceId: id,
       },
@@ -270,10 +285,15 @@ const handleReport = async (req, res) => {
     return item;
   });
 
+  const resultMessages = {
+    PROCESSING: "Báo cáo đã chuyển sang \"Đang xử lý\"",
+    RESOLVED: "Xử lý thành công",
+    REJECTED: "Báo cáo đã chuyển sang \"Không vi phạm\"",
+  };
   const fresh = await Reports.findByPk(report.ReportId, { include: reportIncludes });
   return res.status(200).json({
     success: true,
-    message: ["Đã lưu kết quả xử lý báo cáo", ...actions].join(". "),
+    message: [resultMessages[status], ...actions].join(". "),
     data: withTargetType(fresh),
   });
 };

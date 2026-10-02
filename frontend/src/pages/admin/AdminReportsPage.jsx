@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
+import { ArrowRightCircle, Eye } from 'lucide-react'
 import {
   Badge,
   Card,
@@ -7,7 +9,6 @@ import {
   DataTable,
   Field,
   FilterBar,
-  InfoRow,
   Loading,
   Modal,
   PageHeader,
@@ -17,139 +18,66 @@ import {
   StatusTabs,
 } from '../../components/admin/AdminUi'
 import { btn, input } from '../../components/admin/styles'
+import ReportInfo from '../../components/report/ReportInfo'
 import { useApi, useMutation } from '../../hooks/useApi'
 import { errorMessage } from '../../lib/api'
 import { formatDateTime } from '../../lib/format'
-import { LISTING_STATUS, ORDER_STATUS, REPORT_STATUS, REPORT_TARGET, USER_STATUS } from '../../lib/labels'
+import { REPORT_STATUS, REPORT_TARGET } from '../../lib/labels'
+
+// Đường dẫn tới trang kiểm duyệt, mở sẵn báo cáo cần xử lý.
+const moderationLink = (reportId) => `/admin/listings?tab=reports&report=${reportId}`
 
 function ReportDetail({ id, onClose, onSaved }) {
-  const { data: report, loading, error, reload } = useApi(`/admin/reports/${id}`)
+  const navigate = useNavigate()
+  const { data: report, loading, error } = useApi(`/admin/reports/${id}`)
   const { busy, run } = useMutation()
-  const [form, setForm] = useState({ status: 'RESOLVED', resolution: '', hideListing: false, lockUser: false })
-  const [formError, setFormError] = useState('')
   const [confirming, setConfirming] = useState(false)
 
-  const open = report && ['PENDING', 'PROCESSING'].includes(report.Status)
-  const hideListing = form.status === 'RESOLVED' && form.hideListing
-  const lockUser = form.status === 'RESOLVED' && form.lockUser
-  const effects = [hideListing && 'ẩn tin đăng', lockUser && 'khóa tài khoản bị báo cáo'].filter(Boolean)
-
-  const send = async () => {
+  // Chuyển xử lý: báo cáo sang "Đang xử lý" rồi mở trang kiểm duyệt.
+  const transfer = async () => {
     try {
-      const result = await run('patch', `/admin/reports/${id}`, {
-        status: form.status,
-        resolution: form.resolution.trim() || undefined,
-        hideListing,
-        lockUser,
-      })
+      const result = await run('patch', `/admin/reports/${id}`, { status: 'PROCESSING', expectedStatus: report.Status })
       toast.success(result.message)
-      setConfirming(false)
-      reload()
       onSaved()
+      navigate(moderationLink(id))
     } catch (err) {
       toast.error(errorMessage(err))
+      setConfirming(false)
     }
-  }
-
-  const submit = (event) => {
-    event.preventDefault()
-    if (form.status !== 'PROCESSING' && form.resolution.trim().length < 5) {
-      setFormError('Vui lòng nhập kết quả xử lý (ít nhất 5 ký tự)')
-      return
-    }
-    setFormError('')
-    // Ẩn tin hoặc khóa tài khoản là thao tác nặng: hỏi lại trước khi gửi.
-    if (effects.length) setConfirming(true)
-    else send()
   }
 
   return (
-    <Modal open title={`Báo cáo vi phạm #${id}`} onClose={onClose} size="max-w-2xl">
-      {loading && !report ? (
-        <Loading />
-      ) : error ? (
-        <p className="text-sm text-red-600">{error}</p>
-      ) : (
-        <div className="space-y-5">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge tone="blue">{REPORT_TARGET[report.TargetType]}</Badge>
-            <StatusBadge map={REPORT_STATUS} value={report.Status} />
-            <span className="text-sm font-semibold text-slate-900">{report.Reason}</span>
-          </div>
-          <dl className="divide-y divide-slate-100">
-            <InfoRow label="Người gửi">{report.Reporter?.FullName} (#{report.ReporterId}) · {formatDateTime(report.CreatedAt)}</InfoRow>
-            <InfoRow label="Mô tả">{report.Description}</InfoRow>
-            <InfoRow label="Bằng chứng">
-              {report.EvidenceUrl ? <a href={report.EvidenceUrl} target="_blank" rel="noreferrer" className="text-emerald-700 underline">Mở bằng chứng</a> : '—'}
-            </InfoRow>
-            {report.Listing && (
-              <InfoRow label="Tin đăng">
-                #{report.Listing.ListingId} {report.Listing.Title} <StatusBadge map={LISTING_STATUS} value={report.Listing.Status} />
-                <span className="block text-xs text-slate-500">Bị báo cáo {report.related.reportsAgainstListing} lần</span>
-              </InfoRow>
+    <Modal
+      open
+      title={`Báo cáo vi phạm #${id}`}
+      onClose={onClose}
+      size="max-w-2xl"
+      footer={
+        report && (
+          <>
+            <button type="button" className={btn.secondary} onClick={onClose}>Đóng</button>
+            {report.Status === 'PENDING' && (
+              <button type="button" className={btn.primary} onClick={() => setConfirming(true)}>
+                <ArrowRightCircle size={16} /> Chuyển xử lý
+              </button>
             )}
-            {report.ReportedUser && (
-              <InfoRow label="Tài khoản bị báo cáo">
-                {report.ReportedUser.FullName} (#{report.ReportedUser.UserId}) <StatusBadge map={USER_STATUS} value={report.ReportedUser.Status} />
-                <span className="block text-xs text-slate-500">Bị báo cáo {report.related.reportsAgainstUser} lần</span>
-              </InfoRow>
+            {report.Status === 'PROCESSING' && (
+              <button type="button" className={btn.primary} onClick={() => navigate(moderationLink(id))}>
+                <ArrowRightCircle size={16} /> Mở trang xử lý
+              </button>
             )}
-            {report.Order && <InfoRow label="Đơn hàng">#{report.Order.OrderId} · {ORDER_STATUS[report.Order.Status] || report.Order.Status}</InfoRow>}
-            {report.Resolution && <InfoRow label="Kết quả xử lý">{report.Resolution}</InfoRow>}
-            {report.Handler && <InfoRow label="Người xử lý">{report.Handler.FullName} · {formatDateTime(report.HandledAt)}</InfoRow>}
-          </dl>
-
-          {open && (
-            <form onSubmit={submit} className="space-y-4 rounded-xl border border-slate-200 p-4">
-              <p className="text-sm font-semibold text-slate-900">Xử lý báo cáo</p>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  ['PROCESSING', 'Tiếp nhận, đang xem xét'],
-                  ['RESOLVED', 'Có vi phạm'],
-                  ['REJECTED', 'Bác bỏ'],
-                ]
-                  .filter(([value]) => value !== 'PROCESSING' || report.Status === 'PENDING')
-                  .map(([value, text]) => (
-                    <label key={value} className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${form.status === value ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200'}`}>
-                      <input type="radio" name="status" value={value} checked={form.status === value} onChange={() => setForm({ ...form, status: value })} className="accent-emerald-600" />
-                      {text}
-                    </label>
-                  ))}
-              </div>
-              <Field label={`Kết quả xử lý${form.status === 'PROCESSING' ? ' (không bắt buộc)' : ' *'}`} error={formError}>
-                <textarea rows={3} value={form.resolution} onChange={(event) => setForm({ ...form, resolution: event.target.value })} className={input} maxLength={1000} />
-              </Field>
-              {form.status === 'RESOLVED' && (
-                <div className="space-y-2 text-sm">
-                  {report.Listing && report.Listing.Status !== 'HIDDEN' && (
-                    <label className="flex items-center gap-2">
-                      <input type="checkbox" className="accent-red-600" checked={form.hideListing} onChange={(event) => setForm({ ...form, hideListing: event.target.checked })} />
-                      Ẩn (gỡ) tin đăng #{report.Listing.ListingId}
-                    </label>
-                  )}
-                  {report.ReportedUser && report.ReportedUser.Status !== 'LOCKED' && (
-                    <label className="flex items-center gap-2">
-                      <input type="checkbox" className="accent-red-600" checked={form.lockUser} onChange={(event) => setForm({ ...form, lockUser: event.target.checked })} />
-                      Khóa tài khoản {report.ReportedUser.FullName}
-                    </label>
-                  )}
-                </div>
-              )}
-              <div className="flex justify-end">
-                <button type="submit" className={btn.primary} disabled={busy}>Lưu kết quả</button>
-              </div>
-            </form>
-          )}
-        </div>
-      )}
+          </>
+        )
+      }
+    >
+      {loading && !report ? <Loading /> : error ? <p className="text-sm text-red-600">{error}</p> : <ReportInfo report={report} />}
       <ConfirmDialog
         open={confirming}
-        title="Kết luận có vi phạm"
-        message={`Hệ thống sẽ ${effects.join(' và ')}. Người liên quan nhận thông báo và thao tác được ghi nhật ký.`}
-        confirmText="Xác nhận"
-        tone="danger"
+        title="Chuyển xử lý báo cáo?"
+        message="Báo cáo sẽ chuyển sang &quot;Đang xử lý&quot; và mở trang kiểm duyệt tin để xử lý."
+        confirmText="Chuyển xử lý"
         busy={busy}
-        onConfirm={send}
+        onConfirm={transfer}
         onClose={() => setConfirming(false)}
       />
     </Modal>
@@ -181,12 +109,21 @@ export default function AdminReportsPage() {
     { key: 'Reason', title: 'Lý do' },
     { key: 'Reporter', title: 'Người gửi', render: (row) => row.Reporter?.FullName },
     { key: 'Status', title: 'Trạng thái', render: (row) => <StatusBadge map={REPORT_STATUS} value={row.Status} /> },
-    { key: 'CreatedAt', title: 'Ngày gửi', render: (row) => formatDateTime(row.CreatedAt), className: 'whitespace-nowrap' },
+    { key: 'CreatedAt', title: 'Thời gian', render: (row) => formatDateTime(row.CreatedAt), className: 'whitespace-nowrap' },
+    {
+      key: 'actions',
+      title: '',
+      render: (row) => (
+        <button type="button" className={btn.ghost} onClick={(event) => { event.stopPropagation(); setSelected(row.ReportId) }}>
+          <Eye size={15} /> Xem chi tiết
+        </button>
+      ),
+    },
   ]
 
   return (
     <>
-      <PageHeader code="B04 · B05" title="Báo cáo vi phạm" description="Tiếp nhận báo cáo tin đăng, tài khoản hoặc giao dịch; xem xét, ẩn nội dung hoặc khóa tài khoản vi phạm và thông báo kết quả cho người gửi." />
+      <PageHeader title="Tiếp nhận báo cáo vi phạm" description="Báo cáo mới nhất hiện trước. Xem chi tiết và bấm Chuyển xử lý để chuyển báo cáo sang trang kiểm duyệt tin." />
       <Card>
         <div className="p-4 pb-0">
           <StatusTabs map={REPORT_STATUS} value={filters.status} onChange={(status) => update({ status })} counts={response?.counts} />

@@ -7,7 +7,7 @@ import { useApi } from '../../hooks/useApi'
 import { formatDateTime } from '../../lib/format'
 import { REPORT_STATUS, REPORT_TARGET } from '../../lib/labels'
 
-// B04: người gửi theo dõi trạng thái báo cáo của mình.
+// Người gửi theo dõi trạng thái báo cáo của mình.
 export default function MyReportsPage() {
   const [filters, setFilters] = useState({ status: '', page: 1 })
   const { response, loading, error, reload } = useApi('/reports', filters)
@@ -33,7 +33,6 @@ export default function MyReportsPage() {
   return (
     <>
       <PageHeader
-        code="B04"
         title="Báo cáo vi phạm của tôi"
         actions={
           <Link to="/reports/new" className={btn.primary}>

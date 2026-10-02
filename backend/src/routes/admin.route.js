@@ -7,6 +7,7 @@ const categories = require("../controllers/categories.controller");
 const reports = require("../controllers/reports.controller");
 const listings = require("../controllers/adminListings.controller");
 const refunds = require("../controllers/refunds.controller");
+const commissions = require("../controllers/commissions.controller");
 
 // Phân hệ B: mọi API /api/v1/admin/* yêu cầu đăng nhập và vai trò ADMIN.
 const router = express.Router();
@@ -43,5 +44,9 @@ router.patch("/listings/:id/review", listings.reviewListing);
 
 // B06 Tiếp nhận yêu cầu hoàn tiền (các bước xử lý ở PATCH /refund-requests/:id)
 router.get("/refund-requests", refunds.listRefundRequests);
+
+// B08 Hoa hồng theo đơn
+router.get("/commissions", commissions.listCommissions);
+router.post("/commissions/sync", commissions.syncCommissions);
 
 module.exports = router;

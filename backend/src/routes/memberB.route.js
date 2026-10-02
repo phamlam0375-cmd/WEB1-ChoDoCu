@@ -6,6 +6,7 @@ const banks = require("../controllers/banks.controller");
 const categories = require("../controllers/categories.controller");
 const reports = require("../controllers/reports.controller");
 const refunds = require("../controllers/refunds.controller");
+const commissions = require("../controllers/commissions.controller");
 
 // Phân hệ B — các API phía người dùng/người bán (không cần quyền ADMIN).
 const router = express.Router();
@@ -39,5 +40,8 @@ router.post("/orders/:id/refund-requests", requireAuth, refunds.createRefundRequ
 router.get("/refund-requests", requireAuth, refunds.listMyRefundRequests);
 router.get("/refund-requests/:id", requireAuth, refunds.getRefundRequest);
 router.patch("/refund-requests/:id", requireAuth, refunds.updateRefundRequest);
+
+// B08 Người bán xem hoa hồng các đơn của mình
+router.get("/seller/commissions", requireAuth, commissions.listSellerCommissions);
 
 module.exports = router;

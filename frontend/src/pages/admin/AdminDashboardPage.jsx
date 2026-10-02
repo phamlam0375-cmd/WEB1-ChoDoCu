@@ -38,7 +38,7 @@ export default function AdminDashboardPage() {
 
   return (
     <>
-      <PageHeader code="B10" title="Thống kê hoạt động và doanh thu" description="Đơn hoàn tất và hủy, giá trị giao dịch, hoa hồng phải thu và đã thu, phí tin VIP theo thời gian." />
+      <PageHeader title="Thống kê hoạt động và doanh thu" description="Đơn hoàn tất và hủy, giá trị giao dịch, hoa hồng phải thu và đã thu, phí tin VIP theo thời gian." />
 
       <div className="mb-6 flex flex-wrap items-end gap-3">
         <div className="flex flex-wrap gap-1 rounded-lg border border-slate-200 bg-white p-1">

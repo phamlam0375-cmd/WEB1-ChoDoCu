@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { toast } from 'react-toastify'
-import { AlertTriangle, Check, FileQuestion, ImageOff, X } from 'lucide-react'
+import { AlertTriangle, Check, Eye, FileQuestion, X, ZoomIn } from 'lucide-react'
 import {
   Badge,
   Card,
@@ -20,29 +20,55 @@ import {
 import { btn, input } from '../../components/admin/styles'
 import { useApi, useMutation } from '../../hooks/useApi'
 import { errorMessage } from '../../lib/api'
+import { demoIdentityImage } from '../../lib/demoIdentity'
 import { formatDateTime } from '../../lib/format'
 import { PARTNER_STATUS, PARTNER_TYPE, ROLE_LABELS } from '../../lib/labels'
 
 const DECISIONS = {
-  APPROVED: { title: 'Duyệt hồ sơ', confirm: 'Duyệt', tone: 'primary', reasonRequired: false, message: 'Tài khoản sẽ được cấp vai trò tương ứng ngay sau khi duyệt.' },
-  NEED_INFO: { title: 'Yêu cầu bổ sung hồ sơ', confirm: 'Gửi yêu cầu', tone: 'primary', reasonRequired: true, message: 'Người đăng ký sẽ nhận thông báo kèm nội dung cần bổ sung.' },
-  REJECTED: { title: 'Từ chối hồ sơ', confirm: 'Từ chối', tone: 'danger', reasonRequired: true, message: 'Người đăng ký sẽ nhận thông báo kèm lý do từ chối.' },
+  APPROVED: { title: 'Duyệt hồ sơ đối tác này?', confirm: 'Xác nhận duyệt', tone: 'primary', reasonRequired: false, message: 'Tài khoản sẽ được cấp vai trò tương ứng và nhận thông báo.' },
+  NEED_INFO: { title: 'Yêu cầu bổ sung hồ sơ', confirm: 'Yêu cầu bổ sung', tone: 'primary', reasonRequired: true, empty: 'Vui lòng nhập nội dung cần bổ sung', message: 'Người đăng ký sẽ nhận thông báo kèm nội dung cần bổ sung.' },
+  REJECTED: { title: 'Từ chối hồ sơ', confirm: 'Từ chối', tone: 'danger', reasonRequired: true, empty: 'Vui lòng nhập lý do từ chối', message: 'Người đăng ký sẽ nhận thông báo kèm lý do từ chối.' },
 }
 
-function IdentityImage({ url }) {
+// Ảnh giấy tờ: bấm để phóng to. Ảnh gốc không tải được (dữ liệu mẫu) thì hiện ảnh minh họa.
+function IdentityImage({ app }) {
   const [broken, setBroken] = useState(false)
-  if (!url) return <span className="text-slate-400">Không tải ảnh giấy tờ</span>
-  if (broken) {
-    return (
-      <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-emerald-700 underline">
-        <ImageOff size={14} /> Không hiển thị được ảnh, mở đường dẫn
-      </a>
-    )
-  }
+  const [zoom, setZoom] = useState(false)
+  const demo = !app.IdentityImageUrl || broken
+  const src = demo
+    ? demoIdentityImage({
+        id: app.ApplicationId,
+        fullName: app.Applicant?.FullName,
+        partnerType: app.PartnerType,
+        maskedNumber: app.IdentityNumberMasked || '***',
+      })
+    : app.IdentityImageUrl
+
   return (
-    <a href={url} target="_blank" rel="noreferrer">
-      <img src={url} alt="Ảnh giấy tờ tùy thân" onError={() => setBroken(true)} className="max-h-56 rounded-lg border border-slate-200 object-contain" />
-    </a>
+    <>
+      <button type="button" onClick={() => setZoom(true)} className="group relative block" aria-label="Phóng to ảnh giấy tờ">
+        <img
+          src={src}
+          alt="Ảnh giấy tờ tùy thân"
+          onError={() => setBroken(true)}
+          className="max-h-48 rounded-lg border border-slate-200 object-contain transition group-hover:opacity-90"
+        />
+        <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-md bg-slate-900/70 px-2 py-1 text-xs text-white">
+          <ZoomIn size={13} /> Xem ảnh
+        </span>
+      </button>
+      {demo && <span className="mt-1 block text-xs text-slate-500">Ảnh minh họa — hồ sơ mẫu chưa có ảnh giấy tờ thật.</span>}
+      {zoom && (
+        <Modal open title={`Ảnh giấy tờ — ${app.Applicant?.FullName || ''}`} onClose={() => setZoom(false)} size="max-w-4xl">
+          <img src={src} alt="Ảnh giấy tờ tùy thân phóng to" className="mx-auto w-full rounded-lg object-contain" />
+          {!demo && (
+            <a href={src} target="_blank" rel="noreferrer" className="mt-3 inline-block text-sm text-emerald-700 underline">
+              Mở ảnh gốc trong tab mới
+            </a>
+          )}
+        </Modal>
+      )}
+    </>
   )
 }
 
@@ -53,7 +79,7 @@ function ApplicationDetail({ id, onClose, onSaved }) {
 
   const submit = async (note) => {
     try {
-      const result = await run('patch', `/admin/partner-applications/${id}`, { status: decision, note })
+      const result = await run('patch', `/admin/partner-applications/${id}`, { status: decision, note, expectedStatus: app.Status })
       toast.success(result.message)
       setDecision(null)
       reload()
@@ -84,7 +110,7 @@ function ApplicationDetail({ id, onClose, onSaved }) {
           {unverified && reviewable && (
             <p className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
               <AlertTriangle size={16} className="mt-0.5 shrink-0" />
-              Tài khoản chưa xác thực đầy đủ email/số điện thoại. Kiểm tra kỹ trước khi duyệt.
+              Hồ sơ chưa xác thực email hoặc số điện thoại, không thể duyệt.
             </p>
           )}
 
@@ -99,7 +125,7 @@ function ApplicationDetail({ id, onClose, onSaved }) {
             <InfoRow label="Vai trò hiện có">{app.currentRoles.map((role) => ROLE_LABELS[role] || role).join(', ') || '—'}</InfoRow>
             <InfoRow label="Số giấy tờ (che)">{app.IdentityNumberMasked}</InfoRow>
             <InfoRow label="Ảnh giấy tờ">
-              <IdentityImage url={app.IdentityImageUrl} />
+              <IdentityImage app={app} />
             </InfoRow>
             {app.ReviewNote && <InfoRow label="Ghi chú xét duyệt">{app.ReviewNote}</InfoRow>}
             {app.Reviewer && <InfoRow label="Người duyệt">{app.Reviewer.FullName} · {formatDateTime(app.ReviewedAt)}</InfoRow>}
@@ -145,6 +171,7 @@ function ApplicationDetail({ id, onClose, onSaved }) {
         tone={DECISIONS[decision]?.tone}
         reasonLabel={decision === 'APPROVED' ? 'Ghi chú (không bắt buộc)' : decision === 'NEED_INFO' ? 'Nội dung cần bổ sung' : 'Lý do từ chối'}
         reasonRequired={DECISIONS[decision]?.reasonRequired}
+        reasonEmptyMessage={DECISIONS[decision]?.empty}
         busy={busy}
         onConfirm={submit}
         onClose={() => setDecision(null)}
@@ -185,16 +212,25 @@ export default function AdminPartnerApplicationsPage() {
     },
     { key: 'Status', title: 'Trạng thái', render: (row) => <StatusBadge map={PARTNER_STATUS} value={row.Status} /> },
     { key: 'SubmittedAt', title: 'Ngày gửi', render: (row) => formatDateTime(row.SubmittedAt), className: 'whitespace-nowrap' },
+    {
+      key: 'actions',
+      title: '',
+      render: (row) => (
+        <button type="button" className={btn.ghost} onClick={(event) => { event.stopPropagation(); setSelected(row.ApplicationId) }}>
+          <Eye size={15} /> Xem hồ sơ
+        </button>
+      ),
+    },
   ]
 
   return (
     <>
-      <PageHeader code="B02" title="Duyệt đăng ký đối tác" description="Kiểm tra email, số điện thoại (OTP) và ảnh giấy tờ nếu có; duyệt, từ chối hoặc yêu cầu bổ sung. Xét duyệt thủ công, không dùng OCR/eKYC." />
+      <PageHeader title="Duyệt đăng ký đối tác" description="Kiểm tra email, số điện thoại (OTP) và ảnh giấy tờ nếu có; duyệt, từ chối hoặc yêu cầu bổ sung. Xét duyệt thủ công, không dùng OCR/eKYC." />
       <Card>
         <div className="p-4 pb-0">
           <StatusTabs map={PARTNER_STATUS} value={filters.status} onChange={(status) => update({ status })} counts={response?.counts} />
           <FilterBar onReset={() => setFilters({ status: '', type: '', q: '', page: 1 })}>
-            <SearchInput value={filters.q} onChange={(q) => update({ q })} placeholder="Tên, email, SĐT hoặc mã hồ sơ" />
+            <SearchInput value={filters.q} onChange={(q) => update({ q })} placeholder="Email hoặc số điện thoại" />
             <Field className="w-40">
               <select value={filters.type} onChange={(event) => update({ type: event.target.value })} className={input} aria-label="Loại đối tác">
                 <option value="">Mọi loại</option>

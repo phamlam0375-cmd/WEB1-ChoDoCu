@@ -1,6 +1,6 @@
 "use strict";
 
-// B02 — Duyệt đăng ký đối tác (hồ sơ do C01 tạo). Xét duyệt thủ công, không OCR/eKYC.
+// Duyệt đăng ký đối tác (hồ sơ do người dùng gửi ở trang đăng ký đối tác). Xét duyệt thủ công, không OCR/eKYC.
 const { Op, fn, col } = require("sequelize");
 const { sequelize, PartnerApplications, Users, Roles, UserRoles } = require("../models");
 const { badRequest, notFound, conflict } = require("../utils/httpError");
@@ -91,15 +91,24 @@ const getApplication = async (req, res) => {
 const reviewApplication = async (req, res) => {
   const id = parseId(req.params.id, "Mã hồ sơ");
   const status = oneOf(req.body.status, Object.keys(DECISIONS), "Kết quả xét duyệt");
-  const note = text(req.body.note, "ghi chú", { required: status !== "APPROVED", min: 5, max: 500 });
+  const note = text(req.body.note, "ghi chú", { max: 500 });
+  if (!note && status === "REJECTED") throw badRequest("Vui lòng nhập lý do từ chối");
+  if (!note && status === "NEED_INFO") throw badRequest("Vui lòng nhập nội dung cần bổ sung");
 
   const application = await sequelize.transaction(async (transaction) => {
     const item = await PartnerApplications.findByPk(id, { transaction, lock: transaction.LOCK.UPDATE });
     if (!item) throw notFound("Không tìm thấy hồ sơ đối tác");
-    if (!REVIEWABLE.includes(item.Status)) {
-      throw conflict(`Hồ sơ đã được xử lý (${item.Status}), không thể xét duyệt lại`);
+    // expectedStatus: trạng thái giao diện đang hiển thị; khác nghĩa là quản trị khác đã xử lý.
+    const expectedStatus = req.body.expectedStatus;
+    if (!REVIEWABLE.includes(item.Status) || (expectedStatus && expectedStatus !== item.Status) || status === item.Status) {
+      throw conflict("Hồ sơ đã được xử lý, vui lòng tải lại trang");
     }
-    if (status === item.Status) throw badRequest("Hồ sơ đã ở trạng thái này");
+    if (status === "APPROVED") {
+      const applicant = await Users.findByPk(item.UserId, { attributes: ["EmailVerified", "PhoneVerified"], transaction });
+      if (!applicant || !applicant.EmailVerified || !applicant.PhoneVerified) {
+        throw badRequest("Hồ sơ chưa xác thực email hoặc số điện thoại, không thể duyệt");
+      }
+    }
 
     const oldStatus = item.Status;
     await item.update(
@@ -151,7 +160,12 @@ const reviewApplication = async (req, res) => {
     return item;
   });
 
-  return res.status(200).json({ success: true, message: "Đã lưu kết quả xét duyệt", data: application });
+  const resultMessages = {
+    APPROVED: "Duyệt thành công",
+    REJECTED: "Hồ sơ đã chuyển sang \"Từ chối\"",
+    NEED_INFO: "Hồ sơ đã chuyển sang \"Cần bổ sung\"",
+  };
+  return res.status(200).json({ success: true, message: resultMessages[status], data: application });
 };
 
 module.exports = { listApplications, getApplication, reviewApplication };

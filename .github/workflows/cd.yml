@@ -86,6 +86,14 @@ jobs:
             throw "API khong san sang sau 3 phut."
           }
 
+      - name: Chay migration
+        shell: powershell
+        run: |
+          docker compose -p cho-do-cu-cd exec -T api pnpm run db:migrate
+          if ($LASTEXITCODE -ne 0) {
+            throw "Chay migration that bai."
+          }
+
       - name: Kiem tra Nginx
         shell: powershell
         run: |

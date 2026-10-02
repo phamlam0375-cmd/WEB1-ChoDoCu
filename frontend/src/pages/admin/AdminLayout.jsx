@@ -4,6 +4,7 @@ import {
   Menu,
   ShieldCheck,
   Store,
+  Users,
   X,
 } from 'lucide-react'
 import DevAccountSwitcher from '../../components/DevAccountSwitcher'
@@ -11,7 +12,12 @@ import { Loading } from '../../components/admin/AdminUi'
 import { useDevAccount } from '../../hooks/useDevAccount'
 
 const NAV_GROUPS = [
-
+  {
+    title: 'Người dùng',
+    items: [
+      { to: '/admin/users', label: 'Tài khoản & phân quyền', icon: Users },
+    ],
+  },
 ]
 
 function Sidebar({ onNavigate }) {

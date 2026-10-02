@@ -32,14 +32,21 @@ services:
   api:
     build: ./backend
     restart: unless-stopped
+    # backend/.env không bắt buộc: thiếu file thì dùng giá trị mặc định trong config.
     env_file:
-      - ./backend/.env
+      - path: ./backend/.env
+        required: false
+    # Trong Docker, API luôn kết nối MySQL qua tên dịch vụ "mysql", cổng 3306.
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
     ports:
       - "3000:3000"
     volumes:
       - ./backend:/app
       - /app/node_modules
-    command: pnpm run dev
+    # Tự chạy migration và nạp dữ liệu mẫu (nếu database trống) rồi mới khởi động API.
+    command: pnpm run docker:dev
     depends_on:
       mysql:
         condition: service_healthy

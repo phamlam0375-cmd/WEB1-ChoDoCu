@@ -1,9 +1,7 @@
 import { useState, useRef } from "react";
 import { Camera, Car, Upload, ShieldCheck, Clock, Users } from "lucide-react";
 import Header from "../Header";
-
-// Bước 1/3 của luồng đăng ký người bán / tài xế.
-// Sinh mã OTP giả lập 6 số, đổi mới mỗi khi bấm "Gửi lại".
+import { postPartnerApplication } from "../../api/partnerApplicationApi";
 function generateOtp() {
     return String(Math.floor(100000 + Math.random() * 900000));
 }
@@ -22,9 +20,13 @@ export default function RegisterApplication({ onConfirm }) {
         if (file) setIdImage(file);
     };
 
-    const handleConfirm = () => {
-        onConfirm?.({ role, phone, otp, idImage });
-    };
+    const handleConfirm = async () => {
+        const res = await postPartnerApplication(
+            5,
+            role.toUpperCase(),
+            idImage ? idImage.name : null,
+        )
+    }
 
     const roleOptions = [
         { id: "seller", label: "Người bán", icon: Camera },
@@ -42,7 +44,6 @@ export default function RegisterApplication({ onConfirm }) {
             <div className="flex min-h-screen flex-col">
                 <Header />
                 <div className="flex w-full flex-1 bg-gradient-to-br from-emerald-50 via-white to-white text-slate-900">
-                    {/* Cột trái: giới thiệu, chỉ hiện trên màn hình rộng */}
                     <div className="hidden w-1/2 flex-col justify-center gap-8 px-16 lg:flex xl:px-24">
                         <div>
                             <p className="text-sm font-semibold text-emerald-600">Chợ Đồ Cũ</p>
@@ -69,14 +70,11 @@ export default function RegisterApplication({ onConfirm }) {
                         </ul>
                     </div>
 
-                    {/* Cột phải: form đăng ký */}
                     <div className="flex w-full flex-1 items-center justify-center px-6 py-12 lg:w-1/2">
                         <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
                             <h2 className="mb-6 text-sm font-semibold text-slate-500">
                                 Bước 1/3 — Chọn vai trò
                             </h2>
-
-                            {/* Chọn vai trò */}
                             <div className="mb-6 grid grid-cols-2 gap-3">
                                 {roleOptions.map(({ id, label, icon: Icon }) => {
                                     const active = role === id;
@@ -98,8 +96,6 @@ export default function RegisterApplication({ onConfirm }) {
                                     );
                                 })}
                             </div>
-
-                            {/* Số điện thoại */}
                             <label className="mb-1 block text-sm font-medium text-slate-700">Số điện thoại</label>
                             <input
                                 type="tel"
@@ -108,8 +104,6 @@ export default function RegisterApplication({ onConfirm }) {
                                 placeholder="090xxxxxxx"
                                 className="mb-5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
                             />
-
-                            {/* OTP + Gửi lại */}
                             <label className="mb-1 block text-sm font-medium text-slate-700">Mã OTP</label>
                             <div className="mb-5 flex items-center gap-2">
                                 <input
@@ -126,8 +120,6 @@ export default function RegisterApplication({ onConfirm }) {
                                     Gửi lại
                                 </button>
                             </div>
-
-                            {/* Upload ảnh giấy tờ */}
                             <label className="mb-1 block text-sm font-medium text-slate-700">
                                 Ảnh giấy tờ (CCCD/GPLX)
                             </label>
@@ -148,8 +140,6 @@ export default function RegisterApplication({ onConfirm }) {
                                 onChange={handleFileChange}
                                 className="hidden"
                             />
-
-                            {/* Xác nhận */}
                             <button
                                 type="button"
                                 onClick={handleConfirm}
@@ -162,6 +152,5 @@ export default function RegisterApplication({ onConfirm }) {
                 </div>
             </div>
         </>
-
     );
 }

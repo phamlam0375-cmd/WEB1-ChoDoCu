@@ -1,6 +1,6 @@
 const PartnerApplications = require("../models/PartnerApplications.model");
 const UserRoles = require("../models/UserRoles.model");
-const Roles = require("../models/UserRoles.model");
+const Roles = require("../models/Roles.model");
 
 const createPartnerApplication = async (req, res) => {
   try {
@@ -47,7 +47,7 @@ const createPartnerApplication = async (req, res) => {
     //ktra user co role driver hay seller chua
     const existingRole = await UserRoles.findOne({
       where: { UserId },
-      includes: [
+      include: [
         {
           model: Roles,
           where: {

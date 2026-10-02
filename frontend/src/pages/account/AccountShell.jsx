@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import Header from '../../components/Header'
 import DevAccountSwitcher from '../../components/DevAccountSwitcher'
+import DevAccountError from '../../components/DevAccountError'
 import { Loading } from '../../components/admin/AdminUi'
 import { useDevAccount } from '../../hooks/useDevAccount'
 
@@ -12,7 +13,7 @@ const LINKS = [
 
 // Khung cho các trang phân hệ B phía người dùng: báo cáo vi phạm, hoàn tiền, phí người bán.
 export default function AccountShell() {
-  const { userId, me, loading } = useDevAccount()
+  const { userId, me, loading, error } = useDevAccount()
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
@@ -45,6 +46,7 @@ export default function AccountShell() {
             <div className="mt-4 flex justify-center">
               <DevAccountSwitcher />
             </div>
+            <DevAccountError error={error} />
           </div>
         )}
       </div>

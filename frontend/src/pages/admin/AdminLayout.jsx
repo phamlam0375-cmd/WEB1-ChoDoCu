@@ -4,6 +4,7 @@ import {
   BarChart3,
   Banknote,
   ClipboardCheck,
+  FileClock,
   Flag,
   FolderTree,
   Handshake,
@@ -47,6 +48,12 @@ const NAV_GROUPS = [
       { to: '/admin/refunds', label: 'Hoàn tiền', icon: RotateCcw },
       { to: '/admin/commissions', label: 'Hoa hồng theo đơn', icon: Percent },
       { to: '/admin/fee-payments', label: 'Thu & đối soát phí', icon: Banknote },
+    ],
+  },
+  {
+    title: 'Hệ thống',
+    items: [
+      { to: '/admin/audit-logs', label: 'Nhật ký thao tác', icon: FileClock },
     ],
   },
 ]

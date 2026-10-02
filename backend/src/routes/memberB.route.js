@@ -44,4 +44,9 @@ router.patch("/refund-requests/:id", requireAuth, refunds.updateRefundRequest);
 // B08 Người bán xem hoa hồng các đơn của mình
 router.get("/seller/commissions", requireAuth, commissions.listSellerCommissions);
 
+// B09 Phí còn nợ, tài khoản nhận phí (mã QR) và báo đã nộp
+router.get("/fee-account", requireAuth, banks.getFeeAccount);
+router.get("/seller/fee-payments", requireAuth, commissions.getSellerFeeOverview);
+router.post("/seller/fee-payments", requireAuth, commissions.reportFeePayment);
+
 module.exports = router;

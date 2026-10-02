@@ -1,4 +1,6 @@
 import { InfoRow, Modal, StatusBadge } from './AdminUi'
+import QrPaymentPanel from '../QrPaymentPanel'
+import { useApi } from '../../hooks/useApi'
 import { formatDate, formatDateTime, formatMoney } from '../../lib/format'
 import { COMMISSION_STATUS } from '../../lib/labels'
 
@@ -7,6 +9,10 @@ export default function CommissionDetail({ commission, statusMap = COMMISSION_ST
   const orderValue = Number(commission.Order?.ProductAmount || 0)
   const rate = Number(commission.Rate)
   const adjusted = Number(commission.AdjustmentAmount) !== 0
+  const amountDue = Math.round(Number(commission.AmountDue))
+  // Chưa thanh toán (Chưa nộp / Đã điều chỉnh) thì mới có nút Thanh toán.
+  const payable = ['UNPAID', 'ADJUSTED'].includes(commission.Status)
+  const { data: account } = useApi(payable && amountDue > 0 ? '/fee-account' : null)
 
   return (
     <Modal open title={`Hoa hồng đơn #${commission.OrderId}`} onClose={onClose} footer={footer}>
@@ -27,6 +33,13 @@ export default function CommissionDetail({ commission, statusMap = COMMISSION_ST
               <span className="text-slate-500"> (điều chỉnh {formatMoney(commission.AdjustmentAmount)})</span>
             </p>
           </div>
+        )}
+
+        {payable && amountDue > 0 && account && (
+          <QrPaymentPanel account={account} amount={amountDue} reference={commission.PaymentReference} title={`Quét mã để nộp ${formatMoney(amountDue)}`} />
+        )}
+        {payable && amountDue === 0 && (
+          <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">Số tiền phải nộp là 0đ nên khoản này không cần chuyển khoản.</p>
         )}
 
         <dl className="divide-y divide-slate-100">

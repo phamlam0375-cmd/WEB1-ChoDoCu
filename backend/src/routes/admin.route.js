@@ -49,4 +49,9 @@ router.get("/refund-requests", refunds.listRefundRequests);
 router.get("/commissions", commissions.listCommissions);
 router.post("/commissions/sync", commissions.syncCommissions);
 
+// B09 Thu và đối soát phí
+router.get("/fee-payments", commissions.listFeePayments);
+router.get("/fee-payments/debtors", commissions.listDebtors);
+router.patch("/fee-payments/:id", commissions.reviewFeePayment);
+
 module.exports = router;

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import {
+  Banknote,
   ClipboardCheck,
   Flag,
   FolderTree,
@@ -38,6 +39,7 @@ const NAV_GROUPS = [
     items: [
       { to: '/admin/refunds', label: 'Hoàn tiền', icon: RotateCcw },
       { to: '/admin/commissions', label: 'Hoa hồng theo đơn', icon: Percent },
+      { to: '/admin/fee-payments', label: 'Thu & đối soát phí', icon: Banknote },
     ],
   },
 ]

@@ -7,7 +7,7 @@ import { useDevAccount } from '../../hooks/useDevAccount'
 const LINKS = [
   { to: '/reports', label: 'Báo cáo của tôi' },
   { to: '/refunds', label: 'Hoàn tiền' },
-  { to: '/seller/fees', label: 'Hoa hồng của tôi (người bán)' },
+  { to: '/seller/fees', label: 'Phí & hoa hồng (người bán)' },
 ]
 
 // Khung cho các trang phân hệ B phía người dùng: báo cáo vi phạm, hoàn tiền, phí người bán.

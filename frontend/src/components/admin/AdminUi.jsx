@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from 'react'
-import { AlertCircle, ChevronLeft, ChevronRight, Inbox, Loader2, X } from 'lucide-react'
+import { AlertCircle, ChevronLeft, ChevronRight, Inbox, Loader2, Search, X } from 'lucide-react'
 import { btn, card, input, label as labelClass, tones } from './styles'
 
 export function PageHeader({ code, title, description, actions }) {
@@ -90,7 +90,7 @@ export function Field({ label, hint, error, children, className = '' }) {
   )
 }
 
-// Ô tìm kiếm tự gửi sau khi ngừng gõ 400ms.
+// Ô tìm kiếm: nhập từ khóa rồi bấm Tìm (hoặc Enter). Xóa trắng ô thì tự bỏ lọc.
 export function SearchInput({ value, onChange, placeholder = 'Tìm kiếm...', className = 'w-full sm:w-72' }) {
   const [draft, setDraft] = useState(value)
   const [synced, setSynced] = useState(value)
@@ -99,20 +99,30 @@ export function SearchInput({ value, onChange, placeholder = 'Tìm kiếm...', c
     setSynced(value)
     setDraft(value)
   }
-  useEffect(() => {
-    if (draft === value) return undefined
-    const timer = setTimeout(() => onChange(draft), 400)
-    return () => clearTimeout(timer)
-  }, [draft, value, onChange])
   return (
-    <input
-      type="search"
-      value={draft}
-      onChange={(event) => setDraft(event.target.value)}
-      placeholder={placeholder}
-      className={`${input} ${className}`}
-      aria-label={placeholder}
-    />
+    <form
+      role="search"
+      className={`flex ${className}`}
+      onSubmit={(event) => {
+        event.preventDefault()
+        onChange(draft.trim())
+      }}
+    >
+      <input
+        type="search"
+        value={draft}
+        onChange={(event) => {
+          setDraft(event.target.value)
+          if (!event.target.value && value) onChange('')
+        }}
+        placeholder={placeholder}
+        className={`${input} rounded-r-none`}
+        aria-label={placeholder}
+      />
+      <button type="submit" className={`${btn.primary} rounded-l-none`}>
+        <Search size={16} /> Tìm
+      </button>
+    </form>
   )
 }
 
@@ -237,7 +247,9 @@ export function Modal({ open, title, onClose, children, footer, size = 'max-w-lg
           </button>
         </div>
         <div className="overflow-y-auto px-5 py-4">{children}</div>
-        {footer && <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 px-5 py-3">{footer}</div>}
+        {footer && (!Array.isArray(footer) || footer.length > 0) && (
+          <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 px-5 py-3">{footer}</div>
+        )}
       </div>
     </div>
   )
@@ -256,7 +268,8 @@ function ConfirmDialogBody({
   tone = 'primary',
   reasonLabel,
   reasonRequired = false,
-  reasonMin = 5,
+  reasonMin = 1,
+  reasonEmptyMessage = 'Vui lòng nhập lý do',
   busy = false,
   onConfirm,
   onClose,
@@ -294,7 +307,7 @@ function ConfirmDialogBody({
         <Field
           className="mt-4"
           label={`${reasonLabel}${reasonRequired ? ' *' : ''}`}
-          error={touched && invalid ? `Vui lòng nhập ít nhất ${reasonMin} ký tự` : null}
+          error={touched && invalid ? (trimmed ? `Vui lòng nhập ít nhất ${reasonMin} ký tự` : reasonEmptyMessage) : null}
         >
           <textarea rows={3} value={reason} onChange={(event) => setReason(event.target.value)} className={input} maxLength={500} />
         </Field>

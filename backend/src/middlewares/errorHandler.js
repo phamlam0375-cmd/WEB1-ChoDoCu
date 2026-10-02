@@ -4,7 +4,7 @@ const { HttpError } = require("../utils/httpError");
 
 // Express 5 tự chuyển lỗi của hàm async vào đây, controller không cần try/catch.
 // eslint-disable-next-line no-unused-vars
-const errorHandler = (error, _req, res, _next) => {
+const errorHandler = (error, req, res, _next) => {
   if (error instanceof HttpError) {
     return res.status(error.status).json({
       success: false,
@@ -23,6 +23,14 @@ const errorHandler = (error, _req, res, _next) => {
 
   if (error.name === "SequelizeUniqueConstraintError") {
     return res.status(409).json({ success: false, message: "Dữ liệu đã tồn tại" });
+  }
+
+  if (error.type === "entity.too.large") {
+    const isUpload = req.originalUrl.includes("/uploads");
+    return res.status(413).json({
+      success: false,
+      message: isUpload ? "Chỉ chấp nhận ảnh JPG, PNG, tối đa 5MB" : "Dữ liệu gửi lên quá lớn",
+    });
   }
 
   if (error.type === "entity.parse.failed") {

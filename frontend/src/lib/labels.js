@@ -1,6 +1,6 @@
 // Nhãn tiếng Việt và màu cho các trạng thái của phân hệ B.
 export const ROLE_LABELS = {
-  USER: 'Người dùng',
+  USER: 'Người mua',
   ADMIN: 'Quản trị',
   SELLER: 'Người bán',
   DRIVER: 'Tài xế',
@@ -13,16 +13,16 @@ export const USER_STATUS = {
 
 export const PARTNER_STATUS = {
   PENDING: { label: 'Chờ duyệt', tone: 'amber' },
-  NEED_INFO: { label: 'Cần bổ sung', tone: 'blue' },
   APPROVED: { label: 'Đã duyệt', tone: 'green' },
   REJECTED: { label: 'Từ chối', tone: 'red' },
+  NEED_INFO: { label: 'Cần bổ sung', tone: 'blue' },
 }
 
 export const PARTNER_TYPE = { SELLER: 'Người bán', DRIVER: 'Tài xế' }
 
 export const CATEGORY_STATUS = {
-  ACTIVE: { label: 'Đang dùng', tone: 'green' },
-  INACTIVE: { label: 'Tạm ẩn', tone: 'slate' },
+  ACTIVE: { label: 'Hiện', tone: 'green' },
+  INACTIVE: { label: 'Ẩn', tone: 'slate' },
 }
 
 export const LISTING_STATUS = {
@@ -31,39 +31,53 @@ export const LISTING_STATUS = {
   ACTIVE: { label: 'Đang bán', tone: 'green' },
   RESERVED: { label: 'Đang giữ', tone: 'blue' },
   SOLD: { label: 'Đã bán', tone: 'slate' },
-  HIDDEN: { label: 'Đã gỡ', tone: 'red' },
-  REJECTED: { label: 'Từ chối', tone: 'red' },
+  HIDDEN: { label: 'Đã ẩn', tone: 'slate' },
+  REMOVED: { label: 'Đã gỡ', tone: 'red' },
+  REJECTED: { label: 'Bị từ chối', tone: 'red' },
 }
 
+// Nhãn dự phòng; danh sách đầy đủ lấy từ API /categories/conditions.
 export const CONDITION_LABELS = {
+  NEW: 'Mới',
   LIKE_NEW: 'Như mới',
-  GOOD: 'Tốt',
-  FAIR: 'Khá',
+  GOOD: 'Đã qua sử dụng - tốt',
+  FAIR: 'Đã qua sử dụng - khá',
   POOR: 'Cũ nhiều',
 }
 
 export const REPORT_STATUS = {
-  PENDING: { label: 'Chờ xử lý', tone: 'amber' },
+  PENDING: { label: 'Đã tiếp nhận', tone: 'amber' },
   PROCESSING: { label: 'Đang xử lý', tone: 'blue' },
-  RESOLVED: { label: 'Có vi phạm', tone: 'green' },
-  REJECTED: { label: 'Bác bỏ', tone: 'slate' },
+  RESOLVED: { label: 'Đã xử lý', tone: 'green' },
+  REJECTED: { label: 'Không vi phạm', tone: 'slate' },
 }
 
 export const REPORT_TARGET = { LISTING: 'Tin đăng', USER: 'Tài khoản', ORDER: 'Đơn hàng' }
 
 export const REFUND_STATUS = {
-  PENDING: { label: 'Chờ duyệt', tone: 'amber' },
-  APPROVED: { label: 'Chờ người bán trả', tone: 'blue' },
-  REJECTED: { label: 'Từ chối', tone: 'red' },
-  SELLER_TRANSFERRED: { label: 'Người bán đã chuyển', tone: 'violet' },
+  PENDING: { label: 'Chờ xử lý', tone: 'amber' },
+  REVIEWING: { label: 'Đang xem xét', tone: 'blue' },
+  APPROVED: { label: 'Chờ người bán chuyển trả', tone: 'violet' },
+  SELLER_TRANSFERRED: { label: 'Chờ người mua xác nhận', tone: 'violet' },
+  DISPUTED: { label: 'Đang tranh chấp', tone: 'red' },
+  REJECTED: { label: 'Từ chối', tone: 'slate' },
   COMPLETED: { label: 'Hoàn tất', tone: 'green' },
 }
 
 export const COMMISSION_STATUS = {
   UNPAID: { label: 'Chưa nộp', tone: 'amber' },
-  REPORTED: { label: 'Đã báo nộp', tone: 'blue' },
-  PAID: { label: 'Đã thu', tone: 'green' },
+  REPORTED: { label: 'Chờ xác nhận', tone: 'blue' },
+  PAID: { label: 'Đã nộp', tone: 'green' },
   ADJUSTED: { label: 'Đã điều chỉnh', tone: 'violet' },
+  WAIVED: { label: 'Miễn', tone: 'slate' },
+}
+
+// Tên trạng thái phía thu phí: Còn nợ / Chờ xác nhận / Đã thu.
+export const FEE_STATUS = {
+  UNPAID: { label: 'Còn nợ', tone: 'amber' },
+  ADJUSTED: { label: 'Còn nợ (đã điều chỉnh)', tone: 'amber' },
+  REPORTED: { label: 'Chờ xác nhận', tone: 'blue' },
+  PAID: { label: 'Đã thu', tone: 'green' },
   WAIVED: { label: 'Miễn', tone: 'slate' },
 }
 

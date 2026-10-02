@@ -48,7 +48,7 @@ const requireAuth = async (req, _res, next) => {
 
 const requireRole = (...allowed) => (req, _res, next) => {
   if (!req.user || !allowed.some((role) => req.user.roles.includes(role))) {
-    return next(forbidden());
+    return next(forbidden("Bạn không có quyền truy cập chức năng này"));
   }
   return next();
 };

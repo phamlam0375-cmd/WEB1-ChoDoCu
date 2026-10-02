@@ -20,6 +20,8 @@ const Commissions = sequelize.define(
     AmountDue: { type: DataTypes.DECIMAL(18, 2), allowNull: false },
     PaymentReference: { type: DataTypes.STRING(50), allowNull: true },
     PaymentProofUrl: { type: DataTypes.STRING(255), allowNull: true },
+    PaymentTransactionCode: { type: DataTypes.STRING(50), allowNull: true },
+    ReportedAt: { type: DataTypes.DATE, allowNull: true },
     Status: {
       type: DataTypes.STRING(20),
       allowNull: false,

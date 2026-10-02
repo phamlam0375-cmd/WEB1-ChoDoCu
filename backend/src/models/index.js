@@ -7,6 +7,7 @@ const Roles = require("./Roles.model");
 const UserRoles = require("./UserRoles.model");
 const PartnerApplications = require("./PartnerApplications.model");
 const Categories = require("./Categories.model");
+const ConditionOptions = require("./ConditionOptions.model");
 const Listings = require("./Listings.model");
 const ListingMedia = require("./ListingMedia.model");
 const ListingPromotions = require("./ListingPromotions.model");
@@ -67,6 +68,7 @@ module.exports = {
   UserRoles,
   PartnerApplications,
   Categories,
+  ConditionOptions,
   Listings,
   ListingMedia,
   ListingPromotions,

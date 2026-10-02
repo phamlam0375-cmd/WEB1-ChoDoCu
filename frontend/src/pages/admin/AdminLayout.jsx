@@ -22,35 +22,35 @@ import { Loading } from '../../components/admin/AdminUi'
 import { useDevAccount } from '../../hooks/useDevAccount'
 
 const NAV_GROUPS = [
-  { title: 'Tổng quan', items: [{ to: '/admin', end: true, label: 'Thống kê', code: 'B10', icon: BarChart3 }] },
+  { title: 'Tổng quan', items: [{ to: '/admin', end: true, label: 'Thống kê', icon: BarChart3 }] },
   {
     title: 'Người dùng',
     items: [
-      { to: '/admin/users', label: 'Tài khoản & phân quyền', code: 'B01', icon: Users },
-      { to: '/admin/partner-applications', label: 'Duyệt đối tác', code: 'B02', icon: Handshake },
+      { to: '/admin/users', label: 'Tài khoản & phân quyền', icon: Users },
+      { to: '/admin/partner-applications', label: 'Duyệt đối tác', icon: Handshake },
     ],
   },
   {
     title: 'Nội dung',
     items: [
-      { to: '/admin/categories', label: 'Danh mục', code: 'B03', icon: FolderTree },
-      { to: '/admin/listings', label: 'Kiểm duyệt tin', code: 'B05', icon: ClipboardCheck },
-      { to: '/admin/reports', label: 'Báo cáo vi phạm', code: 'B04·B05', icon: Flag },
+      { to: '/admin/categories', label: 'Danh mục', icon: FolderTree },
+      { to: '/admin/listings', label: 'Kiểm duyệt tin', icon: ClipboardCheck },
+      { to: '/admin/reports', label: 'Báo cáo vi phạm', icon: Flag },
     ],
   },
   {
     title: 'Tài chính',
     items: [
-      { to: '/admin/refunds', label: 'Hoàn tiền', code: 'B06·B07', icon: RotateCcw },
-      { to: '/admin/commissions', label: 'Hoa hồng theo đơn', code: 'B08', icon: Percent },
-      { to: '/admin/fee-payments', label: 'Thu & đối soát phí', code: 'B09', icon: Banknote },
+      { to: '/admin/refunds', label: 'Hoàn tiền', icon: RotateCcw },
+      { to: '/admin/commissions', label: 'Hoa hồng theo đơn', icon: Percent },
+      { to: '/admin/fee-payments', label: 'Thu & đối soát phí', icon: Banknote },
     ],
   },
   {
     title: 'Hệ thống',
     items: [
-      { to: '/admin/audit-logs', label: 'Nhật ký thao tác', code: 'B11', icon: FileClock },
-      { to: '/admin/settings', label: 'Cấu hình quy tắc', code: 'B12', icon: Settings },
+      { to: '/admin/audit-logs', label: 'Nhật ký thao tác', icon: FileClock },
+      { to: '/admin/settings', label: 'Cấu hình quy tắc', icon: Settings },
     ],
   },
 ]
@@ -62,7 +62,7 @@ function Sidebar({ onNavigate }) {
         <div key={group.title}>
           <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">{group.title}</p>
           <ul className="flex flex-col gap-0.5">
-            {group.items.map(({ to, end, label, code, icon: Icon }) => (
+            {group.items.map(({ to, end, label, icon: Icon }) => (
               <li key={to}>
                 <NavLink
                   to={to}
@@ -76,7 +76,6 @@ function Sidebar({ onNavigate }) {
                 >
                   <Icon size={17} className="shrink-0" />
                   <span className="flex-1 truncate">{label}</span>
-                  <span className="text-[10px] font-semibold text-slate-400">{code}</span>
                 </NavLink>
               </li>
             ))}
@@ -96,7 +95,7 @@ function AccessGate({ children }) {
         <ShieldCheck className="mx-auto text-emerald-600" size={32} />
         <h1 className="mt-3 text-lg font-semibold text-slate-900">Khu vực dành cho quản trị viên</h1>
         <p className="mt-1 text-sm text-slate-500">
-          {me ? 'Tài khoản hiện tại không có vai trò ADMIN.' : 'Chọn một tài khoản có vai trò ADMIN để tiếp tục.'} Trong
+          {me ? 'Bạn không có quyền truy cập chức năng này.' : 'Chọn một tài khoản có vai trò quản trị để tiếp tục.'} Trong
           dữ liệu mẫu, tài khoản <b>#2</b> là quản trị viên.
         </p>
         <div className="mt-4 flex justify-center">

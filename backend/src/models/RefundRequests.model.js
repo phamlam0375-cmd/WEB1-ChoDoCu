@@ -23,7 +23,7 @@ const RefundRequests = sequelize.define(
       allowNull: false,
       defaultValue: "PENDING",
       validate: {
-        isIn: [["PENDING", "APPROVED", "REJECTED", "SELLER_TRANSFERRED", "COMPLETED"]],
+        isIn: [["PENDING", "REVIEWING", "APPROVED", "REJECTED", "SELLER_TRANSFERRED", "DISPUTED", "COMPLETED"]],
       },
     },
     AdminNote: { type: DataTypes.STRING(500), allowNull: true },
@@ -32,6 +32,13 @@ const RefundRequests = sequelize.define(
     ReviewedAt: { type: DataTypes.DATE, allowNull: true },
     CompletedAt: { type: DataTypes.DATE, allowNull: true },
     OrderStatusBefore: { type: DataTypes.STRING(30), allowNull: true },
+    Description: { type: DataTypes.STRING(1000), allowNull: true },
+    SellerResponse: { type: DataTypes.STRING(1000), allowNull: true },
+    SellerRespondedAt: { type: DataTypes.DATE, allowNull: true },
+    RefundBankCode: { type: DataTypes.STRING(10), allowNull: true },
+    RefundAccountNumber: { type: DataTypes.STRING(30), allowNull: true },
+    RefundAccountHolder: { type: DataTypes.STRING(100), allowNull: true },
+    RefundTransactionCode: { type: DataTypes.STRING(50), allowNull: true },
   },
   {
     tableName: "RefundRequests",

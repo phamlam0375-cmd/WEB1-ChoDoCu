@@ -8,6 +8,7 @@ const reports = require("../controllers/reports.controller");
 const listings = require("../controllers/adminListings.controller");
 const refunds = require("../controllers/refunds.controller");
 const commissions = require("../controllers/commissions.controller");
+const statistics = require("../controllers/statistics.controller");
 
 // Phân hệ B: mọi API /api/v1/admin/* yêu cầu đăng nhập và vai trò ADMIN.
 const router = express.Router();
@@ -53,5 +54,8 @@ router.post("/commissions/sync", commissions.syncCommissions);
 router.get("/fee-payments", commissions.listFeePayments);
 router.get("/fee-payments/debtors", commissions.listDebtors);
 router.patch("/fee-payments/:id", commissions.reviewFeePayment);
+
+// B10 Thống kê
+router.get("/statistics", statistics.getStatistics);
 
 module.exports = router;

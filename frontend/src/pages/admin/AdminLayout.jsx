@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import {
+  BarChart3,
   Banknote,
   ClipboardCheck,
   Flag,
@@ -19,6 +20,12 @@ import { Loading } from '../../components/admin/AdminUi'
 import { useDevAccount } from '../../hooks/useDevAccount'
 
 const NAV_GROUPS = [
+  {
+    title: 'Tổng quan',
+    items: [
+      { to: '/admin', end: true, label: 'Thống kê', icon: BarChart3 },
+    ],
+  },
   {
     title: 'Người dùng',
     items: [

@@ -3,6 +3,9 @@ const express = require('express');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const healthRouter = require('./routes/health');
+const orderRoutes = require('./routes/order.route');
+const errorHandler = require('./middleware/errorHandler');
+const AppError = require('./errors/AppError');
 
 const partnerApplicationRoutes = require('./routes/partnerApplication.route');
 
@@ -28,6 +31,7 @@ app.get('/api/test', (_request, response) => {
 });
 
 app.use('/api/health', healthRouter);
+app.use('/api/orders', orderRoutes);
 
 
 
@@ -36,8 +40,10 @@ app.use("/api/partner-applications", partnerApplicationRoutes);
 
 
 
-app.use((_request, response) => {
-  response.status(404).json({ message: '404 NOT FOUND' });
+app.use((_request, _response, next) => {
+  next(new AppError(404, 'ROUTE_NOT_FOUND', 'Không tìm thấy đường dẫn API.'));
 });
+
+app.use(errorHandler);
 
 module.exports = app;

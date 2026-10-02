@@ -1,8 +1,12 @@
 "use strict";
 
-// B06 — Tiếp nhận yêu cầu hoàn tiền; B07 — Giải quyết hoàn tiền.
-// Website không giữ tiền: người bán chuyển trả trực tiếp cho người mua, website ghi nhận
-// từng bước và điều chỉnh hoa hồng khi hoàn tiền xong.
+// Tiếp nhận và giải quyết yêu cầu hoàn tiền.
+// Website không giữ tiền: người bán chuyển trả trực tiếp cho người mua (có mã QR VietQR),
+// website ghi nhận từng bước và điều chỉnh hoa hồng khi hoàn tiền xong.
+//
+// Trạng thái: PENDING (Chờ xử lý) → REVIEWING (Đang xem xét) → APPROVED (Chờ người bán chuyển trả)
+//   → SELLER_TRANSFERRED (Chờ người mua xác nhận) → COMPLETED (Hoàn tất)
+//   Nhánh khác: REJECTED (Từ chối), DISPUTED (Đang tranh chấp — người mua báo chưa nhận được tiền).
 const { Op, fn, col } = require("sequelize");
 const {
   sequelize,
@@ -10,6 +14,7 @@ const {
   Orders,
   Payments,
   Users,
+  Roles,
   Listings,
   StatusHistories,
 } = require("../models");
@@ -23,6 +28,7 @@ const {
   optionalUrl,
   parseDate,
 } = require("../utils/request");
+const { BANK_BY_CODE } = require("../utils/banks");
 const { hasRole } = require("../middlewares/auth.middleware");
 const { logAdminAction } = require("../services/auditLog.service");
 const { notify } = require("../services/notification.service");
@@ -30,16 +36,35 @@ const { getSettingAt } = require("../services/settings.service");
 const { adjustCommissionForRefund } = require("../services/commission.service");
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const REFUND_STATUSES = ["PENDING", "APPROVED", "REJECTED", "SELLER_TRANSFERRED", "COMPLETED"];
-const OPEN_STATUSES = ["PENDING", "APPROVED", "SELLER_TRANSFERRED"];
+const REFUND_STATUSES = ["PENDING", "REVIEWING", "APPROVED", "REJECTED", "SELLER_TRANSFERRED", "DISPUTED", "COMPLETED"];
+const OPEN_STATUSES = ["PENDING", "REVIEWING", "APPROVED", "SELLER_TRANSFERRED", "DISPUTED"];
 // Đơn ở các trạng thái này chắc chắn người mua đã trả tiền sản phẩm.
 const PAID_ORDER_STATUSES = ["PAID", "IN_DELIVERY", "DELIVERED", "COMPLETED"];
 const CLOSED_ORDER_STATUSES = ["CANCELLED", "REFUNDED", "REFUND_PENDING"];
 
+const REFUND_REASONS = [
+  "Sản phẩm không đúng mô tả",
+  "Sản phẩm bị lỗi, hư hỏng",
+  "Giao sai sản phẩm",
+  "Không nhận được hàng",
+  "Người bán không giao hàng",
+  "Khác",
+];
+
+const STATUS_LABELS = {
+  PENDING: "Chờ xử lý",
+  REVIEWING: "Đang xem xét",
+  APPROVED: "Chờ người bán chuyển trả",
+  REJECTED: "Từ chối",
+  SELLER_TRANSFERRED: "Chờ người mua xác nhận",
+  DISPUTED: "Đang tranh chấp",
+  COMPLETED: "Hoàn tất",
+};
+
 const orderInclude = {
   model: Orders,
   as: "Order",
-  attributes: ["OrderId", "BuyerId", "SellerId", "ProductAmount", "DeliveryFee", "Status", "CreatedAt", "CompletedAt"],
+  attributes: ["OrderId", "BuyerId", "SellerId", "ProductAmount", "DeliveryFee", "TotalAmount", "Status", "CreatedAt", "CompletedAt"],
   include: [
     { model: Users, as: "Seller", attributes: ["UserId", "FullName", "Email", "Phone"] },
     { model: Listings, as: "Listing", attributes: ["ListingId", "Title"] },
@@ -53,28 +78,56 @@ const refundIncludes = [
 
 const formatVnd = (value) => `${Math.round(Number(value)).toLocaleString("vi-VN")}đ`;
 
+// Mã yêu cầu hoàn tiền, dùng làm nội dung chuyển khoản khi người bán trả tiền.
+const refundCode = (id) => `HT${String(id).padStart(6, "0")}`;
+
 const addHistory = (orderId, statusType, statusValue, note, changedBy, transaction) =>
   StatusHistories.create(
     { OrderId: orderId, StatusType: statusType, StatusValue: statusValue, Note: note ? note.slice(0, 500) : null, ChangedBy: changedBy },
     { transaction }
   );
 
+const notifyAdmins = async (payload, transaction) => {
+  const admins = await Users.findAll({
+    attributes: ["UserId"],
+    where: { Status: "ACTIVE" },
+    include: [{ model: Roles, as: "Roles", where: { RoleName: "ADMIN" }, attributes: [], through: { attributes: [] } }],
+    transaction,
+  });
+  for (const admin of admins) await notify(admin.UserId, payload, { transaction });
+};
+
 const parseAmount = (value, max) => {
   const amount = Number(value);
   if (!Number.isFinite(amount) || !Number.isInteger(amount) || amount <= 0) {
-    throw badRequest("Số tiền hoàn phải là số nguyên dương (đồng)");
+    throw badRequest("Số tiền hoàn phải là số nguyên lớn hơn 0");
   }
-  if (amount > max) {
-    throw badRequest(`Số tiền hoàn không được vượt quá tiền sản phẩm (${formatVnd(max)}). Phí giao hàng trả riêng cho tài xế.`);
-  }
+  if (amount > max) throw badRequest("Số tiền hoàn không được vượt quá giá trị đơn hàng");
   return amount;
 };
 
-// POST /orders/:id/refund-requests { reason, amount?, evidenceUrl? }
+const readRefundAccount = (body) => {
+  const bankCode = String(body.refundBankCode || "").trim();
+  if (!BANK_BY_CODE[bankCode]) throw badRequest("Vui lòng chọn ngân hàng nhận tiền hoàn");
+  const accountNumber = String(body.refundAccountNumber || "").trim();
+  if (!/^\d{6,20}$/.test(accountNumber)) throw badRequest("Số tài khoản ngân hàng phải gồm 6–20 chữ số");
+  const accountHolder = String(body.refundAccountHolder || "").trim().toUpperCase().replace(/\s+/g, " ");
+  if (!accountHolder) throw badRequest("Vui lòng nhập tên chủ tài khoản");
+  if (accountHolder.length > 100) throw badRequest("Tên chủ tài khoản tối đa 100 ký tự");
+  return { RefundBankCode: bankCode, RefundAccountNumber: accountNumber, RefundAccountHolder: accountHolder };
+};
+
+const listReasons = (_req, res) => res.status(200).json({ success: true, data: REFUND_REASONS });
+
+// POST /orders/:id/refund-requests
+// { reason, description?, amount?, evidenceUrl?, refundBankCode, refundAccountNumber, refundAccountHolder }
 const createRefundRequest = async (req, res) => {
   const orderId = parseId(req.params.id, "Mã đơn hàng");
-  const reason = text(req.body.reason, "lý do hoàn tiền", { required: true, min: 10, max: 500 });
-  const evidenceUrl = optionalUrl(req.body.evidenceUrl, "Đường dẫn bằng chứng");
+  if (!req.body.reason) throw badRequest("Vui lòng chọn lý do hoàn tiền");
+  const reason = oneOf(req.body.reason, REFUND_REASONS, "Lý do hoàn tiền");
+  const description = text(req.body.description, "mô tả", { required: reason === "Khác", max: 1000 });
+  const evidenceUrl = optionalUrl(req.body.evidenceUrl, "Ảnh bằng chứng");
+  const account = readRefundAccount(req.body);
 
   const refund = await sequelize.transaction(async (transaction) => {
     const order = await Orders.findByPk(orderId, { transaction, lock: transaction.LOCK.UPDATE });
@@ -82,22 +135,20 @@ const createRefundRequest = async (req, res) => {
     if (order.BuyerId !== req.user.UserId) throw forbidden("Chỉ người mua của đơn mới được yêu cầu hoàn tiền");
 
     const open = await RefundRequests.findOne({ where: { OrderId: orderId, Status: OPEN_STATUSES }, transaction });
-    if (open) throw conflict(`Đơn đang có yêu cầu hoàn tiền #${open.RefundRequestId} chưa xử lý xong`);
+    if (open) throw conflict("Đơn hàng này đã có yêu cầu hoàn tiền đang xử lý");
     if (CLOSED_ORDER_STATUSES.includes(order.Status)) {
-      throw badRequest(`Đơn đang ở trạng thái ${order.Status}, không thể yêu cầu hoàn tiền`);
+      throw badRequest("Đơn hàng không ở trạng thái có thể yêu cầu hoàn tiền");
     }
 
     const payment = await Payments.findOne({ where: { OrderId: orderId }, attributes: ["Status"], transaction });
     const paid = PAID_ORDER_STATUSES.includes(order.Status) || (payment && payment.Status === "CONFIRMED");
-    if (!paid) throw badRequest("Người bán chưa xác nhận nhận tiền cho đơn này nên chưa cần hoàn tiền; bạn có thể hủy đơn");
+    if (!paid) throw badRequest("Chỉ yêu cầu hoàn tiền cho đơn hàng đã thanh toán");
 
     if (order.CompletedAt) {
-      // Hạn hoàn tiền theo cấu hình có hiệu lực lúc đặt đơn (B12).
+      // Hạn hoàn tiền theo cấu hình có hiệu lực lúc đặt đơn.
       const windowDays = await getSettingAt("REFUND_WINDOW_DAYS", order.CreatedAt, { transaction });
-      const deadline = new Date(new Date(order.CompletedAt).getTime() + windowDays * DAY_MS);
-      if (Date.now() > deadline.getTime()) {
-        throw badRequest(`Đã quá hạn yêu cầu hoàn tiền (${windowDays} ngày kể từ khi đơn hoàn tất)`);
-      }
+      const deadline = new Date(order.CompletedAt).getTime() + windowDays * DAY_MS;
+      if (Date.now() > deadline) throw badRequest("Đơn hàng đã quá thời hạn yêu cầu hoàn tiền");
     }
 
     const productAmount = Number(order.ProductAmount);
@@ -108,32 +159,33 @@ const createRefundRequest = async (req, res) => {
         OrderId: orderId,
         RequestedBy: req.user.UserId,
         Reason: reason,
+        Description: description,
         EvidenceUrl: evidenceUrl,
         Amount: amount,
         Status: "PENDING",
         OrderStatusBefore: order.Status,
+        ...account,
       },
       { transaction }
     );
 
     await order.update({ Status: "REFUND_PENDING" }, { transaction });
     await addHistory(orderId, "REFUND", "PENDING", reason, req.user.UserId, transaction);
-    await addHistory(orderId, "ORDER", "REFUND_PENDING", `Yêu cầu hoàn tiền #${created.RefundRequestId}`, req.user.UserId, transaction);
-    await notify(
-      order.SellerId,
-      {
-        type: "REFUND",
-        title: `Đơn #${orderId} có yêu cầu hoàn tiền`,
-        message: `Người mua yêu cầu hoàn ${formatVnd(amount)}. Quản trị viên sẽ xem xét trước khi bạn cần chuyển trả.`,
-        referenceType: "REFUND_REQUEST",
-        referenceId: created.RefundRequestId,
-      },
-      { transaction }
-    );
+    await addHistory(orderId, "ORDER", "REFUND_PENDING", `Yêu cầu hoàn tiền ${refundCode(created.RefundRequestId)}`, req.user.UserId, transaction);
+
+    const payload = {
+      type: "REFUND",
+      title: `Đơn #${orderId} có yêu cầu hoàn tiền`,
+      message: `Người mua yêu cầu hoàn ${formatVnd(amount)}. Lý do: ${reason}.`,
+      referenceType: "REFUND_REQUEST",
+      referenceId: created.RefundRequestId,
+    };
+    await notify(order.SellerId, payload, { transaction });
+    await notifyAdmins(payload, transaction);
     return created;
   });
 
-  return res.status(201).json({ success: true, message: "Đã gửi yêu cầu hoàn tiền", data: refund });
+  return res.status(201).json({ success: true, message: "Gửi yêu cầu thành công", data: refund });
 };
 
 // GET /refund-requests?as=buyer|seller — người mua/người bán theo dõi tiến độ.
@@ -155,22 +207,31 @@ const listMyRefundRequests = async (req, res) => {
   return pagedResponse(res, result, pagination);
 };
 
-const findRefundForViewer = async (req, id, transaction) => {
-  const refund = await RefundRequests.findByPk(id, { include: refundIncludes, transaction });
-  if (!refund) throw notFound("Không tìm thấy yêu cầu hoàn tiền");
-  const isParty = [refund.Order.BuyerId, refund.Order.SellerId].includes(req.user.UserId);
-  if (!isParty && !hasRole(req.user, "ADMIN")) throw forbidden();
-  return refund;
-};
-
 const getRefundRequest = async (req, res) => {
   const id = parseId(req.params.id, "Mã yêu cầu hoàn tiền");
-  const refund = await findRefundForViewer(req, id);
+  const refund = await RefundRequests.findByPk(id, { include: refundIncludes });
+  if (!refund) throw notFound("Không tìm thấy yêu cầu hoàn tiền");
+  const isSeller = refund.Order.SellerId === req.user.UserId;
+  const isBuyer = refund.Order.BuyerId === req.user.UserId;
+  if (!isSeller && !isBuyer && !hasRole(req.user, "ADMIN")) throw forbidden();
+
   const history = await StatusHistories.findAll({
     where: { OrderId: refund.OrderId, StatusType: { [Op.in]: ["REFUND", "ORDER"] }, CreatedAt: { [Op.gte]: refund.RequestedAt } },
     order: [["CreatedAt", "ASC"], ["HistoryId", "ASC"]],
   });
-  return res.status(200).json({ success: true, data: { ...refund.get({ plain: true }), history } });
+
+  const code = refundCode(id);
+  const bank = BANK_BY_CODE[refund.RefundBankCode];
+  return res.status(200).json({
+    success: true,
+    data: {
+      ...refund.get({ plain: true }),
+      RefundCode: code,
+      StatusLabel: STATUS_LABELS[refund.Status],
+      RefundBankName: bank ? bank.shortName : null,
+      history,
+    },
+  });
 };
 
 const listRefundRequests = async (req, res) => {
@@ -211,12 +272,14 @@ const listRefundRequests = async (req, res) => {
 
 // Ai được làm gì, từ trạng thái nào sang trạng thái nào.
 const ACTIONS = {
-  APPROVE: { actor: "ADMIN", from: ["PENDING"], to: "APPROVED" },
-  REJECT: { actor: "ADMIN", from: ["PENDING"], to: "REJECTED" },
+  REVIEW: { actor: "ADMIN", from: ["PENDING"], to: "REVIEWING", audit: "REFUND_REVIEW" },
+  APPROVE: { actor: "ADMIN", from: ["PENDING", "REVIEWING", "DISPUTED"], to: "APPROVED", audit: "REFUND_APPROVE" },
+  REJECT: { actor: "ADMIN", from: ["PENDING", "REVIEWING", "DISPUTED"], to: "REJECTED", audit: "REFUND_REJECT" },
+  ADMIN_COMPLETE: { actor: "ADMIN", from: ["SELLER_TRANSFERRED", "DISPUTED"], to: "COMPLETED", audit: "REFUND_COMPLETE" },
+  SELLER_RESPOND: { actor: "SELLER", from: ["PENDING", "REVIEWING"], to: null },
   SELLER_TRANSFERRED: { actor: "SELLER", from: ["APPROVED"], to: "SELLER_TRANSFERRED" },
   CONFIRM_RECEIVED: { actor: "BUYER", from: ["SELLER_TRANSFERRED"], to: "COMPLETED" },
-  NOT_RECEIVED: { actor: "BUYER", from: ["SELLER_TRANSFERRED"], to: "APPROVED" },
-  ADMIN_COMPLETE: { actor: "ADMIN", from: ["SELLER_TRANSFERRED"], to: "COMPLETED" },
+  NOT_RECEIVED: { actor: "BUYER", from: ["SELLER_TRANSFERRED"], to: "DISPUTED" },
 };
 
 const canAct = (req, actor, order) => {
@@ -225,13 +288,26 @@ const canAct = (req, actor, order) => {
   return order.BuyerId === req.user.UserId;
 };
 
-// PATCH /refund-requests/:id { action, note?, amount?, refundProofUrl? }
+const RESULT_MESSAGES = {
+  REVIEW: "Yêu cầu đã chuyển sang \"Đang xem xét\"",
+  APPROVE: "Yêu cầu đã chuyển sang \"Chờ người bán chuyển trả\"",
+  REJECT: "Yêu cầu đã chuyển sang \"Từ chối\"",
+  ADMIN_COMPLETE: "Yêu cầu đã chuyển sang \"Hoàn tất\"",
+  SELLER_RESPOND: "Đã gửi phản hồi cho quản trị viên",
+  SELLER_TRANSFERRED: "Yêu cầu đã chuyển sang \"Chờ người mua xác nhận\"",
+  CONFIRM_RECEIVED: "Yêu cầu đã chuyển sang \"Hoàn tất\"",
+  NOT_RECEIVED: "Yêu cầu đã chuyển lại cho quản trị xem xét, trạng thái \"Đang tranh chấp\"",
+};
+
+// PATCH /refund-requests/:id { action, note?, amount?, refundProofUrl?, transactionCode?, expectedStatus? }
 const updateRefundRequest = async (req, res) => {
   const id = parseId(req.params.id, "Mã yêu cầu hoàn tiền");
   const action = oneOf(req.body.action, Object.keys(ACTIONS), "Hành động");
   const rule = ACTIONS[action];
-  const noteRequired = ["REJECT", "NOT_RECEIVED", "ADMIN_COMPLETE"].includes(action);
-  const note = text(req.body.note, "ghi chú", { required: noteRequired, min: 5, max: 500 });
+  const note = text(req.body.note, "ghi chú", { max: 1000 });
+  if (action === "REJECT" && !note) throw badRequest("Vui lòng nhập lý do từ chối");
+  if (action === "SELLER_RESPOND" && !note) throw badRequest("Vui lòng nhập nội dung phản hồi");
+  if (action === "ADMIN_COMPLETE" && !note) throw badRequest("Vui lòng nhập căn cứ xác nhận");
   const warnings = [];
 
   const refund = await sequelize.transaction(async (transaction) => {
@@ -239,64 +315,92 @@ const updateRefundRequest = async (req, res) => {
     if (!item) throw notFound("Không tìm thấy yêu cầu hoàn tiền");
     const order = await Orders.findByPk(item.OrderId, { transaction, lock: transaction.LOCK.UPDATE });
     if (!canAct(req, rule.actor, order)) throw forbidden();
-    if (!rule.from.includes(item.Status)) {
-      throw conflict(`Yêu cầu đang ở trạng thái ${item.Status}, không thể thực hiện thao tác này`);
+    const expectedStatus = req.body.expectedStatus;
+    if (!rule.from.includes(item.Status) || (expectedStatus && expectedStatus !== item.Status)) {
+      throw conflict("Yêu cầu đã được xử lý, vui lòng tải lại trang");
     }
 
     const oldStatus = item.Status;
     const oldAmount = Number(item.Amount);
     const now = new Date();
-    const changes = { Status: rule.to };
-    const refLabel = `yêu cầu hoàn tiền #${id} (đơn #${order.OrderId})`;
-    const notifyBoth = (title, message) =>
-      Promise.all(
-        [order.BuyerId, order.SellerId].map((userId) =>
-          notify(userId, { type: "REFUND", title, message, referenceType: "REFUND_REQUEST", referenceId: id }, { transaction })
-        )
-      );
+    const changes = rule.to ? { Status: rule.to } : {};
+    const code = refundCode(id);
+    const label = `yêu cầu hoàn tiền ${code} (đơn #${order.OrderId})`;
+    const send = (userId, title, message) =>
+      notify(userId, { type: "REFUND", title, message, referenceType: "REFUND_REQUEST", referenceId: id }, { transaction });
+
+    if (action === "REVIEW") {
+      Object.assign(changes, { ReviewedBy: req.user.UserId, ReviewedAt: now });
+      await send(order.BuyerId, "Yêu cầu hoàn tiền đang được xem xét", `Quản trị viên đã tiếp nhận ${label}.`);
+    }
 
     if (action === "APPROVE") {
       if (req.body.amount !== undefined && req.body.amount !== "") {
-        changes.Amount = parseAmount(req.body.amount, Math.min(Number(order.ProductAmount), Number(item.Amount)));
+        changes.Amount = parseAmount(req.body.amount, Number(order.ProductAmount));
       }
-      Object.assign(changes, { AdminNote: note, ReviewedBy: req.user.UserId, ReviewedAt: now });
+      Object.assign(changes, { AdminNote: note || item.AdminNote, ReviewedBy: req.user.UserId, ReviewedAt: now });
+      const amountText = formatVnd(changes.Amount ?? item.Amount);
+      await send(order.SellerId, "Cần chuyển trả tiền cho người mua", `Quản trị viên chấp nhận ${label}. Vui lòng chuyển trả ${amountText} cho người mua với nội dung ${code}.`);
+      await send(order.BuyerId, "Yêu cầu hoàn tiền được chấp nhận", `Người bán sẽ chuyển trả ${amountText} cho bạn.`);
     }
 
     if (action === "REJECT") {
       Object.assign(changes, { AdminNote: note, ReviewedBy: req.user.UserId, ReviewedAt: now });
       const restored = item.OrderStatusBefore || "COMPLETED";
       await order.update({ Status: restored }, { transaction });
-      await addHistory(order.OrderId, "ORDER", restored, `Từ chối ${refLabel}`, req.user.UserId, transaction);
+      await addHistory(order.OrderId, "ORDER", restored, `Từ chối ${label}`, req.user.UserId, transaction);
+      await send(order.BuyerId, "Yêu cầu hoàn tiền bị từ chối", `Lý do: ${note}`);
+      await send(order.SellerId, "Yêu cầu hoàn tiền bị từ chối", `Quản trị viên từ chối ${label}.`);
+    }
+
+    if (action === "SELLER_RESPOND") {
+      Object.assign(changes, { SellerResponse: note, SellerRespondedAt: now });
+      await notifyAdmins(
+        { type: "REFUND", title: `Người bán phản hồi ${code}`, message: note, referenceType: "REFUND_REQUEST", referenceId: id },
+        transaction
+      );
     }
 
     if (action === "SELLER_TRANSFERRED") {
-      const proof = optionalUrl(req.body.refundProofUrl, "Ảnh chứng minh đã chuyển trả");
-      if (!proof) throw badRequest("Vui lòng cung cấp ảnh chứng minh đã chuyển trả tiền");
-      changes.RefundProofUrl = proof;
+      const proof = optionalUrl(req.body.refundProofUrl, "Ảnh chuyển khoản");
+      const transactionCode = text(req.body.transactionCode, "mã giao dịch", { max: 50 });
+      if (!proof && !transactionCode) throw badRequest("Vui lòng nhập mã giao dịch hoặc ảnh chuyển khoản");
+      Object.assign(changes, { RefundProofUrl: proof, RefundTransactionCode: transactionCode });
+      await send(order.BuyerId, "Người bán đã chuyển trả tiền", `Người bán báo đã chuyển ${formatVnd(item.Amount)} cho ${label}. Vui lòng kiểm tra và xác nhận.`);
+    }
+
+    if (action === "NOT_RECEIVED") {
+      Object.assign(changes, { AdminNote: note ? `Người mua: ${note}` : item.AdminNote });
+      await send(order.SellerId, "Người mua chưa nhận được tiền hoàn", `${label}${note ? `: ${note}` : ""}`);
+      await notifyAdmins(
+        { type: "REFUND", title: `Tranh chấp hoàn tiền ${code}`, message: note || "Người mua báo chưa nhận được tiền hoàn.", referenceType: "REFUND_REQUEST", referenceId: id },
+        transaction
+      );
     }
 
     if (action === "CONFIRM_RECEIVED" || action === "ADMIN_COMPLETE") {
       changes.CompletedAt = now;
       await order.update({ Status: "REFUNDED" }, { transaction });
-      await addHistory(order.OrderId, "ORDER", "REFUNDED", `Hoàn tất ${refLabel}`, req.user.UserId, transaction);
+      await addHistory(order.OrderId, "ORDER", "REFUNDED", `Hoàn tất ${label}`, req.user.UserId, transaction);
 
       const adjustment = await adjustCommissionForRefund(order, item.Amount, { transaction });
       if (adjustment.note) warnings.push(adjustment.note);
       if (adjustment.changed) {
-        warnings.push(
-          `Hoa hồng đơn #${order.OrderId}: ${formatVnd(adjustment.before.AmountDue)} → ${formatVnd(adjustment.commission.AmountDue)}`
-        );
+        warnings.push(`Hoa hồng đơn #${order.OrderId}: ${formatVnd(adjustment.before.AmountDue)} → ${formatVnd(adjustment.commission.AmountDue)}`);
       }
+      const message = `Đã hoàn ${formatVnd(item.Amount)} cho ${label}.`;
+      await send(order.BuyerId, "Hoàn tiền hoàn tất", message);
+      await send(order.SellerId, "Hoàn tiền hoàn tất", message);
     }
 
     await item.update(changes, { transaction });
-    await addHistory(order.OrderId, "REFUND", rule.to, note || action, req.user.UserId, transaction);
+    if (rule.to) await addHistory(order.OrderId, "REFUND", rule.to, note || null, req.user.UserId, transaction);
 
-    if (rule.actor === "ADMIN") {
+    if (rule.audit) {
       await logAdminAction(
         req,
         {
-          action: { APPROVE: "REFUND_APPROVE", REJECT: "REFUND_REJECT", ADMIN_COMPLETE: "REFUND_COMPLETE" }[action],
+          action: rule.audit,
           targetType: "REFUND_REQUEST",
           targetId: id,
           oldValue: { Status: oldStatus, Amount: oldAmount },
@@ -306,30 +410,21 @@ const updateRefundRequest = async (req, res) => {
         { transaction }
       );
     }
-
-    const amountText = formatVnd(item.Amount);
-    const messages = {
-      APPROVE: [`Đã duyệt ${refLabel}`, `Người bán cần chuyển trả ${amountText} cho người mua.${note ? ` Ghi chú: ${note}` : ""}`],
-      REJECT: [`Từ chối ${refLabel}`, `Lý do: ${note}`],
-      SELLER_TRANSFERRED: [`Người bán đã chuyển trả tiền`, `Người bán báo đã chuyển ${amountText} cho ${refLabel}. Người mua vui lòng kiểm tra và xác nhận.`],
-      CONFIRM_RECEIVED: [`Hoàn tiền hoàn tất`, `Người mua xác nhận đã nhận ${amountText} cho ${refLabel}.`],
-      NOT_RECEIVED: [`Người mua chưa nhận được tiền hoàn`, `${refLabel}: ${note}`],
-      ADMIN_COMPLETE: [`Hoàn tiền hoàn tất`, `Quản trị viên xác nhận đã hoàn ${amountText} cho ${refLabel}. ${note}`],
-    };
-    await notifyBoth(...messages[action]);
     return item;
   });
 
   const fresh = await RefundRequests.findByPk(refund.RefundRequestId, { include: refundIncludes });
   return res.status(200).json({
     success: true,
-    message: ["Đã cập nhật yêu cầu hoàn tiền", ...warnings].join(". "),
+    message: [RESULT_MESSAGES[action], ...warnings].join(". "),
     warnings,
     data: fresh,
   });
 };
 
 module.exports = {
+  REFUND_REASONS,
+  listReasons,
   createRefundRequest,
   listMyRefundRequests,
   getRefundRequest,

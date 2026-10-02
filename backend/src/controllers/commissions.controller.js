@@ -1,6 +1,6 @@
 "use strict";
 
-// B08 — Hoa hồng theo đơn; B09 — Thu và đối soát phí website.
+// Hoa hồng theo đơn; thu và đối soát phí website.
 const { Op, fn, col } = require("sequelize");
 const { sequelize, Commissions, Orders, Users, Listings } = require("../models");
 const { badRequest, notFound, conflict } = require("../utils/httpError");
@@ -17,6 +17,7 @@ const {
 const { logAdminAction } = require("../services/auditLog.service");
 const { notify } = require("../services/notification.service");
 const { getSettingsMap } = require("../services/settings.service");
+const { BANK_BY_CODE } = require("../utils/banks");
 const {
   OUTSTANDING_STATUSES,
   PAYABLE_STATUSES,
@@ -53,7 +54,10 @@ const statusTotals = async (where = {}) => {
 
 const buildAdminWhere = (query) => {
   const where = {};
-  if (query.status) where.Status = oneOf(query.status, COMMISSION_STATUSES, "Trạng thái");
+  // Cho phép lọc nhiều trạng thái: ?status=UNPAID,ADJUSTED (nhóm "Còn nợ").
+  if (query.status) {
+    where.Status = String(query.status).split(",").map((status) => oneOf(status.trim(), COMMISSION_STATUSES, "Trạng thái"));
+  }
   const sellerId = optionalId(query.sellerId, "Mã người bán");
   if (sellerId) where.SellerId = sellerId;
   if (query.overdue === "true") {
@@ -95,7 +99,7 @@ const respondCommissionList = async (res, query) => {
   return pagedResponse(res, { rows: result.rows.map(withOverdue), count: result.count }, pagination, { totals });
 };
 
-// GET /admin/commissions — B08: toàn bộ hoa hồng theo đơn.
+// GET /admin/commissions — toàn bộ hoa hồng theo đơn.
 const listCommissions = (req, res) => respondCommissionList(res, req.query);
 
 // POST /admin/commissions/sync — tạo hoa hồng cho đơn hoàn tất còn thiếu.
@@ -118,7 +122,7 @@ const syncCommissions = async (req, res) => {
   });
 };
 
-// GET /seller/commissions — B08: người bán xem hoa hồng từng đơn của mình.
+// GET /seller/commissions — người bán xem hoa hồng từng đơn của mình.
 const listSellerCommissions = async (req, res) => {
   const pagination = parsePagination(req.query);
   const where = { SellerId: req.user.UserId };
@@ -138,7 +142,10 @@ const listSellerCommissions = async (req, res) => {
   return pagedResponse(res, { rows: result.rows.map(withOverdue), count: result.count }, pagination, { summary: debt });
 };
 
-// GET /seller/fee-payments — B09: phí còn nợ + tài khoản nhận phí của website.
+// Mã đối soát của người bán, dùng làm nội dung chuyển khoản khi nộp nhiều khoản một lần.
+const sellerReference = (sellerId) => `PHI${String(sellerId).padStart(6, "0")}`;
+
+// GET /seller/fee-payments — phí còn nợ + tài khoản nhận phí của website (để tạo mã QR).
 const getSellerFeeOverview = async (req, res) => {
   const [settings, debt, items] = await Promise.all([
     getSettingsMap(),
@@ -150,30 +157,35 @@ const getSellerFeeOverview = async (req, res) => {
       order: [["DueAt", "ASC"], ["CommissionId", "ASC"]],
     }),
   ]);
+  const bank = BANK_BY_CODE[settings.FEE_BANK_CODE];
 
   return res.status(200).json({
     success: true,
     data: {
       bankAccount: {
-        bankName: settings.FEE_BANK_NAME,
+        bankCode: settings.FEE_BANK_CODE,
+        bankName: bank ? bank.shortName : settings.FEE_BANK_CODE,
         accountNumber: settings.FEE_BANK_ACCOUNT_NUMBER,
         accountHolder: settings.FEE_BANK_ACCOUNT_HOLDER,
       },
+      sellerReference: sellerReference(req.user.UserId),
       summary: debt,
       items: items.map(withOverdue),
     },
   });
 };
 
-// POST /seller/fee-payments { commissionIds: [], proofUrl } — B09: người bán báo đã nộp.
+// POST /seller/fee-payments { commissionIds: [], amount, transactionCode, proofUrl? } — người bán báo đã nộp.
 const reportFeePayment = async (req, res) => {
   const ids = Array.isArray(req.body.commissionIds)
     ? [...new Set(req.body.commissionIds.map((value) => parseId(value, "Mã khoản phí")))]
     : [];
   if (!ids.length) throw badRequest("Vui lòng chọn ít nhất một khoản phí");
   if (ids.length > 50) throw badRequest("Mỗi lần báo nộp tối đa 50 khoản");
+  const transactionCode = text(req.body.transactionCode, "mã giao dịch", { max: 50 });
+  if (!transactionCode) throw badRequest("Vui lòng nhập mã giao dịch");
+  const amount = Number(req.body.amount);
   const proofUrl = optionalUrl(req.body.proofUrl, "Ảnh chứng minh chuyển khoản");
-  if (!proofUrl) throw badRequest("Vui lòng cung cấp ảnh chứng minh chuyển khoản");
 
   const items = await sequelize.transaction(async (transaction) => {
     const rows = await Commissions.findAll({
@@ -184,23 +196,30 @@ const reportFeePayment = async (req, res) => {
     if (rows.length !== ids.length) throw notFound("Có khoản phí không tồn tại hoặc không thuộc về bạn");
     const invalid = rows.filter((row) => !PAYABLE_STATUSES.includes(row.Status));
     if (invalid.length) {
-      throw conflict(`Các khoản ${invalid.map((row) => row.PaymentReference).join(", ")} không ở trạng thái chờ nộp`);
+      throw conflict(`Các khoản ${invalid.map((row) => row.PaymentReference).join(", ")} không ở trạng thái còn nợ`);
     }
+    const total = rows.reduce((sum, row) => sum + Math.round(Number(row.AmountDue)), 0);
+    if (!Number.isFinite(amount) || Math.round(amount) !== total) {
+      throw badRequest("Số tiền không khớp với khoản phí cần nộp");
+    }
+    const reportedAt = new Date();
     for (const row of rows) {
-      await row.update({ Status: "REPORTED", PaymentProofUrl: proofUrl }, { transaction });
+      await row.update(
+        { Status: "REPORTED", PaymentTransactionCode: transactionCode, PaymentProofUrl: proofUrl, ReportedAt: reportedAt },
+        { transaction }
+      );
     }
     return rows;
   });
 
-  const total = items.reduce((sum, row) => sum + Number(row.AmountDue), 0);
   return res.status(200).json({
     success: true,
-    message: `Đã báo nộp ${items.length} khoản, tổng ${total.toLocaleString("vi-VN")}đ. Quản trị viên sẽ đối soát và xác nhận.`,
+    message: "Gửi thành công, khoản phí chuyển sang \"Chờ xác nhận\"",
     data: items,
   });
 };
 
-// GET /admin/fee-payments — B09: mặc định các khoản người bán đã báo nộp, chờ đối soát.
+// GET /admin/fee-payments — mặc định các khoản người bán đã báo nộp, chờ đối soát.
 const listFeePayments = (req, res) => {
   const query = { ...req.query, status: req.query.status || (req.query.overdue === "true" ? undefined : "REPORTED") };
   if (query.status === "ALL") delete query.status;
@@ -257,7 +276,8 @@ const reviewFeePayment = async (req, res) => {
   const id = parseId(req.params.id, "Mã khoản phí");
   const action = oneOf(req.body.action, Object.keys(FEE_ACTIONS), "Hành động");
   const rule = FEE_ACTIONS[action];
-  const note = text(req.body.note, "ghi chú", { required: rule.noteRequired, min: 5, max: 500 });
+  const note = text(req.body.note, "ghi chú", { max: 500 });
+  if (rule.noteRequired && !note) throw badRequest("Vui lòng nhập lý do");
 
   const commission = await sequelize.transaction(async (transaction) => {
     const item = await Commissions.findByPk(id, { transaction, lock: transaction.LOCK.UPDATE });
@@ -271,7 +291,7 @@ const reviewFeePayment = async (req, res) => {
     if (action === "CONFIRM") {
       changes = { Status: "PAID", ConfirmedBy: req.user.UserId, ConfirmedAt: new Date() };
     } else if (action === "REJECT") {
-      changes = { Status: Number(item.AdjustmentAmount) !== 0 ? "ADJUSTED" : "UNPAID", PaymentProofUrl: null };
+      changes = { Status: Number(item.AdjustmentAmount) !== 0 ? "ADJUSTED" : "UNPAID", PaymentProofUrl: null, PaymentTransactionCode: null, ReportedAt: null };
     } else {
       changes = { Status: "WAIVED", ConfirmedBy: req.user.UserId, ConfirmedAt: new Date() };
     }
@@ -311,7 +331,12 @@ const reviewFeePayment = async (req, res) => {
   });
 
   const fresh = await Commissions.findByPk(commission.CommissionId, { include: [orderInclude, sellerInclude, confirmerInclude] });
-  return res.status(200).json({ success: true, message: "Đã cập nhật khoản phí", data: withOverdue(fresh) });
+  const resultMessages = {
+    CONFIRM: "Khoản phí chuyển sang \"Đã thu\"",
+    REJECT: "Khoản phí trở lại \"Còn nợ\"",
+    WAIVE: "Khoản phí đã được miễn",
+  };
+  return res.status(200).json({ success: true, message: resultMessages[action], data: withOverdue(fresh) });
 };
 
 module.exports = {

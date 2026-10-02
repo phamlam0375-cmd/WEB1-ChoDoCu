@@ -11,6 +11,7 @@ import {
   Menu,
   Percent,
   RotateCcw,
+  Settings,
   ShieldCheck,
   Store,
   Users,
@@ -54,6 +55,7 @@ const NAV_GROUPS = [
     title: 'Hệ thống',
     items: [
       { to: '/admin/audit-logs', label: 'Nhật ký thao tác', icon: FileClock },
+      { to: '/admin/settings', label: 'Cấu hình quy tắc', icon: Settings },
     ],
   },
 ]

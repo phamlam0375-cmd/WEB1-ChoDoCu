@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" role="img" aria-labelledby="title description">
+  <title id="title">Ảnh sản phẩm</title>
+  <desc id="description">Ảnh minh họa sản phẩm Chợ Đồ Cũ</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ecfdf5"/>
+      <stop offset="1" stop-color="#d1fae5"/>
+    </linearGradient>
+    <linearGradient id="box" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#34d399"/>
+      <stop offset="1" stop-color="#059669"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#background)"/>
+  <circle cx="680" cy="95" r="115" fill="#a7f3d0" opacity=".45"/>
+  <circle cx="100" cy="530" r="150" fill="#6ee7b7" opacity=".22"/>
+  <g transform="translate(260 145)">
+    <path d="M25 105 140 40l115 65-115 66z" fill="#6ee7b7"/>
+    <path d="m25 105 115 66v137L25 241z" fill="#10b981"/>
+    <path d="m255 105-115 66v137l115-67z" fill="url(#box)"/>
+    <path d="m92 67 116 66" fill="none" stroke="#fff" stroke-linecap="round" stroke-width="10" opacity=".85"/>
+  </g>
+  <text x="400" y="510" fill="#065f46" font-family="Arial, sans-serif" font-size="32" font-weight="700" text-anchor="middle">Chợ Đồ Cũ</text>
+  <text x="400" y="550" fill="#047857" font-family="Arial, sans-serif" font-size="20" text-anchor="middle">Sản phẩm đang được cập nhật ảnh</text>
+</svg>

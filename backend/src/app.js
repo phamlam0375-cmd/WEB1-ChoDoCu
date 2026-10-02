@@ -4,6 +4,8 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const healthRouter = require('./routes/health');
 
+const partnerApplicationRoutes = require('./routes/partnerApplication.route');
+
 const app = express();
 
 app.use(helmet());
@@ -19,10 +21,23 @@ app.get('/', (_request, response) => {
   });
 });
 
+app.get('/api/test', (_request, response) => {
+  response.json({
+    message: 'API hoạt động'
+  });
+});
+
 app.use('/api/health', healthRouter);
 
+
+
+//PARTNER APPLICATION
+app.use("/api/partner-applications", partnerApplicationRoutes);
+
+
+
 app.use((_request, response) => {
-  response.status(404).json({ message: 'Không tìm thấy tài nguyên.' });
+  response.status(404).json({ message: '404 NOT FOUND' });
 });
 
 module.exports = app;

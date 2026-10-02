@@ -6,3 +6,6 @@ coverage/
 *.log
 .idea/
 .vscode/
+
+# Ảnh người dùng tải lên (phân hệ B)
+backend/uploads/

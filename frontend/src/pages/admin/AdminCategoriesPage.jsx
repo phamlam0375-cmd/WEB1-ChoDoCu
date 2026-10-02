@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { toast } from 'react-toastify'
-import { Pencil, Plus } from 'lucide-react'
+import { Ban, Eye, Pencil, Plus, Trash2 } from 'lucide-react'
 import {
   Card,
   ConfirmDialog,
@@ -14,6 +14,7 @@ import {
   StatusBadge,
 } from '../../components/admin/AdminUi'
 import { btn, input } from '../../components/admin/styles'
+import ConditionOptionsCard from '../../components/admin/ConditionOptionsCard'
 import { useApi, useMutation } from '../../hooks/useApi'
 import { errorMessage } from '../../lib/api'
 import { formatDate } from '../../lib/format'
@@ -24,24 +25,21 @@ function CategoryForm({ category, onClose, onSaved }) {
   const [form, setForm] = useState({
     CategoryName: category?.CategoryName || '',
     Description: category?.Description || '',
-    Status: category?.Status || 'ACTIVE',
   })
   const [errors, setErrors] = useState({})
-  const [confirmDeactivate, setConfirmDeactivate] = useState(false)
   const { busy, run } = useMutation()
 
-  const validate = () => {
+  const submit = async (event) => {
+    event.preventDefault()
+    const name = form.CategoryName.trim().replace(/\s+/g, ' ')
     const next = {}
-    const name = form.CategoryName.trim()
-    if (name.length < 2) next.CategoryName = 'Tên danh mục cần ít nhất 2 ký tự'
-    if (name.length > 100) next.CategoryName = 'Tên danh mục tối đa 100 ký tự'
+    if (!name) next.CategoryName = 'Vui lòng nhập tên danh mục'
+    else if (name.length > 100) next.CategoryName = 'Tên danh mục tối đa 100 ký tự'
     if (form.Description.length > 300) next.Description = 'Mô tả tối đa 300 ký tự'
     setErrors(next)
-    return !Object.keys(next).length
-  }
+    if (Object.keys(next).length) return
 
-  const save = async () => {
-    const body = { CategoryName: form.CategoryName.trim(), Description: form.Description.trim(), Status: form.Status }
+    const body = { CategoryName: name, Description: form.Description.trim() }
     try {
       const result = isNew
         ? await run('post', '/admin/categories', body)
@@ -50,17 +48,11 @@ function CategoryForm({ category, onClose, onSaved }) {
       onSaved()
       onClose()
     } catch (err) {
-      toast.error(errorMessage(err))
-      setConfirmDeactivate(false)
+      const message = errorMessage(err)
+      // Trùng tên: báo ngay dưới ô nhập.
+      if (err?.response?.status === 409) setErrors({ CategoryName: message })
+      else toast.error(message)
     }
-  }
-
-  const submit = (event) => {
-    event.preventDefault()
-    if (!validate()) return
-    // Tắt danh mục đang có tin: hỏi lại trước khi lưu.
-    if (!isNew && category.Status === 'ACTIVE' && form.Status === 'INACTIVE') setConfirmDeactivate(true)
-    else save()
   }
 
   return (
@@ -71,9 +63,7 @@ function CategoryForm({ category, onClose, onSaved }) {
       footer={
         <>
           <button type="button" className={btn.secondary} onClick={onClose}>Hủy</button>
-          <button type="submit" form="category-form" className={btn.primary} disabled={busy}>
-            {isNew ? 'Thêm' : 'Lưu thay đổi'}
-          </button>
+          <button type="submit" form="category-form" className={btn.primary} disabled={busy}>Lưu</button>
         </>
       }
     >
@@ -96,23 +86,7 @@ function CategoryForm({ category, onClose, onSaved }) {
             maxLength={300}
           />
         </Field>
-        <Field label="Trạng thái" hint="Danh mục tạm ẩn không xuất hiện trong biểu mẫu đăng tin và bộ lọc.">
-          <select value={form.Status} onChange={(event) => setForm({ ...form, Status: event.target.value })} className={input}>
-            <option value="ACTIVE">Đang dùng</option>
-            <option value="INACTIVE">Tạm ẩn</option>
-          </select>
-        </Field>
       </form>
-      <ConfirmDialog
-        open={confirmDeactivate}
-        title="Tạm ẩn danh mục?"
-        message={`Danh mục đang có ${category?.ActiveListingCount ?? 0} tin hoạt động. Tin cũ vẫn hiển thị nhưng người bán không thể đăng tin mới vào danh mục này.`}
-        confirmText="Tạm ẩn"
-        tone="danger"
-        busy={busy}
-        onConfirm={save}
-        onClose={() => setConfirmDeactivate(false)}
-      />
     </Modal>
   )
 }
@@ -120,9 +94,52 @@ function CategoryForm({ category, onClose, onSaved }) {
 export default function AdminCategoriesPage() {
   const [filters, setFilters] = useState({ q: '', status: '', page: 1 })
   const [editing, setEditing] = useState(undefined) // undefined: đóng, null: thêm mới, object: sửa
+  const [pending, setPending] = useState(null) // { kind: 'toggle' | 'delete', row }
   const { response, loading, error, reload } = useApi('/admin/categories', filters)
-  const { data: conditions } = useApi('/categories/conditions')
+  const { busy, run } = useMutation()
   const update = (patch) => setFilters((current) => ({ ...current, page: 1, ...patch }))
+
+  const confirmPending = async () => {
+    const { kind, row } = pending
+    try {
+      const result =
+        kind === 'delete'
+          ? await run('delete', `/admin/categories/${row.CategoryId}`)
+          : await run('patch', `/admin/categories/${row.CategoryId}`, { Status: row.Status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' })
+      toast.success(result.message)
+      reload()
+    } catch (err) {
+      toast.error(errorMessage(err))
+    } finally {
+      setPending(null)
+    }
+  }
+
+  // Xóa danh mục đang có tin: báo ngay, không mở hộp xác nhận.
+  const askDelete = (row) => {
+    if (Number(row.ListingCount) > 0) {
+      toast.error('Không thể xóa danh mục đang được sử dụng, chỉ có thể vô hiệu hóa')
+      return
+    }
+    setPending({ kind: 'delete', row })
+  }
+
+  const pendingCount = Number(pending?.row.ListingCount || 0)
+  const dialog = !pending
+    ? {}
+    : pending.kind === 'delete'
+      ? { title: 'Xóa danh mục', message: `Xóa danh mục "${pending.row.CategoryName}"? Thao tác không thể hoàn tác.`, confirm: 'Xóa', tone: 'danger' }
+      : pending.row.Status === 'ACTIVE'
+        ? {
+            title: 'Vô hiệu hóa danh mục',
+            message:
+              pendingCount > 0
+                ? `Danh mục đang có ${pendingCount} tin đăng. Danh mục sẽ bị ẩn khỏi form đăng tin mới, các tin cũ vẫn giữ nguyên. Tiếp tục?`
+                : `Vô hiệu hóa danh mục "${pending.row.CategoryName}"? Danh mục sẽ chuyển sang "Ẩn".`,
+            confirm: 'Vô hiệu hóa',
+            tone: 'danger',
+          }
+        : { title: 'Hiện lại danh mục', message: `Hiện lại danh mục "${pending.row.CategoryName}" trong form đăng tin và bộ lọc?`, confirm: 'Hiện lại', tone: 'primary' }
 
   const columns = [
     { key: 'CategoryId', title: 'Mã', render: (row) => <span className="font-mono text-xs text-slate-500">#{row.CategoryId}</span> },
@@ -136,16 +153,24 @@ export default function AdminCategoriesPage() {
         </div>
       ),
     },
-    { key: 'ListingCount', title: 'Tin đăng', render: (row) => `${row.ActiveListingCount} đang bán / ${row.ListingCount}`, className: 'whitespace-nowrap' },
+    { key: 'ListingCount', title: 'Số tin đang dùng', render: (row) => row.ListingCount, className: 'text-right tabular-nums' },
     { key: 'Status', title: 'Trạng thái', render: (row) => <StatusBadge map={CATEGORY_STATUS} value={row.Status} /> },
     { key: 'CreatedAt', title: 'Ngày tạo', render: (row) => formatDate(row.CreatedAt) },
     {
       key: 'actions',
       title: '',
       render: (row) => (
-        <button type="button" className={btn.ghost} onClick={() => setEditing(row)} aria-label={`Sửa ${row.CategoryName}`}>
-          <Pencil size={15} /> Sửa
-        </button>
+        <div className="flex flex-nowrap justify-end gap-0.5 whitespace-nowrap">
+          <button type="button" className={btn.ghost} onClick={() => setEditing(row)} aria-label={`Sửa ${row.CategoryName}`}>
+            <Pencil size={15} /> Sửa
+          </button>
+          <button type="button" className={`${btn.ghost} text-slate-600`} onClick={() => setPending({ kind: 'toggle', row })}>
+            {row.Status === 'ACTIVE' ? <><Ban size={15} /> Vô hiệu hóa</> : <><Eye size={15} /> Hiện lại</>}
+          </button>
+          <button type="button" className={`${btn.ghost} text-red-600 hover:bg-red-50`} onClick={() => askDelete(row)}>
+            <Trash2 size={15} /> Xóa
+          </button>
+        </div>
       ),
     },
   ]
@@ -153,9 +178,8 @@ export default function AdminCategoriesPage() {
   return (
     <>
       <PageHeader
-        code="B03"
         title="Quản lý danh mục"
-        description="Danh mục hàng hóa và lựa chọn tình trạng dùng chung cho biểu mẫu đăng tin, tìm kiếm và bộ lọc. Thêm và sửa danh mục được ghi nhật ký."
+        description="Danh mục hàng hóa và lựa chọn tình trạng dùng chung cho biểu mẫu đăng tin, tìm kiếm và bộ lọc. Mọi thao tác được ghi nhật ký."
         actions={
           <button type="button" className={btn.primary} onClick={() => setEditing(null)}>
             <Plus size={16} /> Thêm danh mục
@@ -170,8 +194,8 @@ export default function AdminCategoriesPage() {
               <Field className="w-40">
                 <select value={filters.status} onChange={(event) => update({ status: event.target.value })} className={input} aria-label="Trạng thái">
                   <option value="">Mọi trạng thái</option>
-                  <option value="ACTIVE">Đang dùng</option>
-                  <option value="INACTIVE">Tạm ẩn</option>
+                  <option value="ACTIVE">Hiện</option>
+                  <option value="INACTIVE">Ẩn</option>
                 </select>
               </Field>
             </FilterBar>
@@ -179,20 +203,19 @@ export default function AdminCategoriesPage() {
           <DataTable columns={columns} rows={response?.data} rowKey={(row) => row.CategoryId} loading={loading} error={error} onRetry={reload} />
           <Pagination pagination={response?.pagination} onPage={(page) => setFilters((current) => ({ ...current, page }))} />
         </Card>
-        <Card className="h-fit p-4">
-          <h2 className="text-sm font-semibold text-slate-900">Tình trạng sản phẩm dùng chung</h2>
-          <p className="mt-1 text-xs text-slate-500">Các lựa chọn cố định trong biểu mẫu đăng tin và bộ lọc.</p>
-          <ul className="mt-3 space-y-2">
-            {conditions?.map((item) => (
-              <li key={item.value} className="rounded-lg bg-slate-50 px-3 py-2 text-sm">
-                <p className="font-medium">{item.label} <span className="font-mono text-xs text-slate-400">{item.value}</span></p>
-                <p className="text-xs text-slate-500">{item.description}</p>
-              </li>
-            ))}
-          </ul>
-        </Card>
+        <ConditionOptionsCard />
       </div>
       {editing !== undefined && <CategoryForm category={editing} onClose={() => setEditing(undefined)} onSaved={reload} />}
+      <ConfirmDialog
+        open={Boolean(pending)}
+        title={dialog.title}
+        message={dialog.message}
+        confirmText={dialog.confirm}
+        tone={dialog.tone}
+        busy={busy}
+        onConfirm={confirmPending}
+        onClose={() => setPending(null)}
+      />
     </>
   )
 }

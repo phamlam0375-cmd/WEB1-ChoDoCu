@@ -6,6 +6,7 @@ import './App.css'
 
 import HomePage from './pages/HomePage'
 import Login from './pages/Login'
+import OrderCreatePage from './pages/OrderCreatePage'
 import RegisterApplication from './components/PartnerApplication/RegisterApplication'
 
 // Phân hệ B: quản trị và doanh thu (tải khi cần để không làm nặng trang chủ)
@@ -36,6 +37,7 @@ function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/orders/create/:listingId" element={<OrderCreatePage />} />
 
         <Route path="/partner-application" element={<RegisterApplication />} />
 

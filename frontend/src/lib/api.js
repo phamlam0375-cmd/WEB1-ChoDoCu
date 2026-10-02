@@ -74,3 +74,4 @@ export async function downloadFile(url, params) {
     exported: Number(response.headers['x-exported-count'] || 0),
   }
 }
+export default api;

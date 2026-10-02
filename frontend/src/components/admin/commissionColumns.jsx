@@ -2,7 +2,7 @@ import { Badge, StatusBadge } from './AdminUi'
 import { formatDate, formatMoney } from '../../lib/format'
 import { COMMISSION_STATUS } from '../../lib/labels'
 
-// Cột bảng hoa hồng dùng chung cho B08 (hoa hồng) và B09 (đối soát phí).
+// Cột bảng hoa hồng dùng chung cho trang hoa hồng và trang đối soát phí.
 export const commissionColumns = [
   { key: 'PaymentReference', title: 'Mã đối soát', render: (row) => <span className="font-mono text-xs">{row.PaymentReference}</span> },
   {

@@ -6,6 +6,7 @@ import {
   FolderTree,
   Handshake,
   Menu,
+  RotateCcw,
   ShieldCheck,
   Store,
   Users,
@@ -29,6 +30,12 @@ const NAV_GROUPS = [
       { to: '/admin/categories', label: 'Danh mục', icon: FolderTree },
       { to: '/admin/listings', label: 'Kiểm duyệt tin', icon: ClipboardCheck },
       { to: '/admin/reports', label: 'Báo cáo vi phạm', icon: Flag },
+    ],
+  },
+  {
+    title: 'Tài chính',
+    items: [
+      { to: '/admin/refunds', label: 'Hoàn tiền', icon: RotateCcw },
     ],
   },
 ]

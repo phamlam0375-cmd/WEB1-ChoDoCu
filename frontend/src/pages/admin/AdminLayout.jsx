@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react'
 import DevAccountSwitcher from '../../components/DevAccountSwitcher'
+import DevAccountError from '../../components/DevAccountError'
 import { Loading } from '../../components/admin/AdminUi'
 import { useDevAccount } from '../../hooks/useDevAccount'
 
@@ -92,7 +93,7 @@ function Sidebar({ onNavigate }) {
 }
 
 function AccessGate({ children }) {
-  const { userId, me, loading } = useDevAccount()
+  const { userId, me, loading, error } = useDevAccount()
   if (userId && loading) return <Loading text="Đang kiểm tra quyền truy cập..." />
   if (!me || !me.roles.includes('ADMIN')) {
     return (
@@ -106,6 +107,7 @@ function AccessGate({ children }) {
         <div className="mt-4 flex justify-center">
           <DevAccountSwitcher />
         </div>
+        <DevAccountError error={error} />
       </div>
     )
   }

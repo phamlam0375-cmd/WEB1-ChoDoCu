@@ -109,7 +109,6 @@ export default function AdminAuditLogsPage() {
   return (
     <>
       <PageHeader
-        code="B11"
         title="Nhật ký thao tác quản trị"
         description="Ai đã làm gì, khi nào: khóa tài khoản, duyệt hoàn tiền, xác nhận thu phí, gỡ tin, đổi cấu hình... Nhật ký chỉ đọc, không ai sửa hoặc xóa được."
         actions={

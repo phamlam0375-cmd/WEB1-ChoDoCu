@@ -15,6 +15,7 @@ const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'))
 const AdminUsersPage = lazy(() => import('./pages/admin/AdminUsersPage'))
 const AdminPartnerApplicationsPage = lazy(() => import('./pages/admin/AdminPartnerApplicationsPage'))
 const AdminCategoriesPage = lazy(() => import('./pages/admin/AdminCategoriesPage'))
+const AdminListingsPage = lazy(() => import('./pages/admin/AdminListingsPage'))
 const AdminReportsPage = lazy(() => import('./pages/admin/AdminReportsPage'))
 const AccountShell = lazy(() => import('./pages/account/AccountShell'))
 const ReportCreatePage = lazy(() => import('./pages/account/ReportCreatePage'))
@@ -43,6 +44,7 @@ function App() {
             <Route path="users" element={<AdminUsersPage />} />
             <Route path="partner-applications" element={<AdminPartnerApplicationsPage />} />
             <Route path="categories" element={<AdminCategoriesPage />} />
+            <Route path="listings" element={<AdminListingsPage />} />
             <Route path="reports" element={<AdminReportsPage />} />
           </Route>
           <Route element={<AccountShell />}>

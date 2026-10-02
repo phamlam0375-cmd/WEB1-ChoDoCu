@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { toast } from 'react-toastify'
+import { Eye, Inbox } from 'lucide-react'
 import {
   Card,
   DataTable,
@@ -10,9 +12,10 @@ import {
   StatusBadge,
   StatusTabs,
 } from '../../components/admin/AdminUi'
-import { input } from '../../components/admin/styles'
+import { btn, input } from '../../components/admin/styles'
 import RefundDetail from '../../components/refund/RefundDetail'
-import { useApi } from '../../hooks/useApi'
+import { useApi, useMutation } from '../../hooks/useApi'
+import { errorMessage } from '../../lib/api'
 import { formatDateTime, formatMoney } from '../../lib/format'
 import { REFUND_STATUS } from '../../lib/labels'
 
@@ -20,38 +23,56 @@ export default function AdminRefundsPage() {
   const [filters, setFilters] = useState({ status: 'PENDING', q: '', from: '', to: '', page: 1 })
   const [selected, setSelected] = useState(null)
   const { response, loading, error, reload } = useApi('/admin/refund-requests', filters)
+  const { busy, run } = useMutation()
   const update = (patch) => setFilters((current) => ({ ...current, page: 1, ...patch }))
 
+  // Tiếp nhận: yêu cầu chuyển sang "Đang xem xét" rồi mở màn hình giải quyết.
+  const receive = async (row) => {
+    try {
+      const result = await run('patch', `/refund-requests/${row.RefundRequestId}`, { action: 'REVIEW', expectedStatus: row.Status })
+      toast.success(result.message)
+      reload()
+      setSelected(row.RefundRequestId)
+    } catch (err) {
+      toast.error(errorMessage(err))
+    }
+  }
+
   const columns = [
-    { key: 'RefundRequestId', title: 'Mã', render: (row) => <span className="font-mono text-xs text-slate-500">#{row.RefundRequestId}</span> },
-    {
-      key: 'order',
-      title: 'Đơn hàng',
-      render: (row) => (
-        <div className="max-w-xs">
-          <p className="truncate font-medium text-slate-900">#{row.OrderId} · {row.Order?.Listing?.Title}</p>
-          <p className="text-xs text-slate-500">Mua: {row.Requester?.FullName} · Bán: {row.Order?.Seller?.FullName}</p>
-        </div>
-      ),
-    },
-    { key: 'Reason', title: 'Lý do', render: (row) => <p className="line-clamp-2 max-w-xs">{row.Reason}</p> },
+    { key: 'OrderId', title: 'Mã đơn', render: (row) => <span className="font-mono text-xs">#{row.OrderId}</span> },
+    { key: 'Requester', title: 'Người mua', render: (row) => row.Requester?.FullName },
+    { key: 'Seller', title: 'Người bán', render: (row) => row.Order?.Seller?.FullName },
+    { key: 'Reason', title: 'Lý do', render: (row) => <p className="line-clamp-2 max-w-[220px]">{row.Reason}</p> },
     { key: 'Amount', title: 'Số tiền', render: (row) => formatMoney(row.Amount), className: 'whitespace-nowrap text-right tabular-nums' },
-    { key: 'Status', title: 'Trạng thái', render: (row) => <StatusBadge map={REFUND_STATUS} value={row.Status} /> },
     { key: 'RequestedAt', title: 'Ngày gửi', render: (row) => formatDateTime(row.RequestedAt), className: 'whitespace-nowrap' },
+    { key: 'Status', title: 'Trạng thái', render: (row) => <StatusBadge map={REFUND_STATUS} value={row.Status} /> },
+    {
+      key: 'actions',
+      title: '',
+      render: (row) =>
+        row.Status === 'PENDING' ? (
+          <button type="button" className={`${btn.primary} px-3 py-1.5`} disabled={busy} onClick={(event) => { event.stopPropagation(); receive(row) }}>
+            <Inbox size={15} /> Tiếp nhận
+          </button>
+        ) : (
+          <button type="button" className={btn.ghost} onClick={(event) => { event.stopPropagation(); setSelected(row.RefundRequestId) }}>
+            <Eye size={15} /> Xem chi tiết
+          </button>
+        ),
+    },
   ]
 
   return (
     <>
       <PageHeader
-        code="B06 · B07"
         title="Tiếp nhận và giải quyết hoàn tiền"
-        description="Người mua gửi yêu cầu theo đơn; quản trị xét duyệt, người bán chuyển trả trực tiếp cho người mua. Khi hoàn tất, hoa hồng của đơn được điều chỉnh theo số tiền hoàn."
+        description="Người mua gửi yêu cầu theo đơn; quản trị tiếp nhận, xem xét rồi chấp nhận hoặc từ chối. Người bán chuyển trả trực tiếp cho người mua; khi hoàn tất, hoa hồng của đơn được điều chỉnh."
       />
       <Card>
         <div className="p-4 pb-0">
           <StatusTabs map={REFUND_STATUS} value={filters.status} onChange={(status) => update({ status })} counts={response?.counts} />
           <FilterBar onReset={() => setFilters({ status: '', q: '', from: '', to: '', page: 1 })}>
-            <SearchInput value={filters.q} onChange={(q) => update({ q })} placeholder="Mã đơn, mã yêu cầu, tên người mua/bán" />
+            <SearchInput value={filters.q} onChange={(q) => update({ q })} placeholder="Mã đơn, tên người mua/bán" />
             <Field label="Từ ngày" className="w-40">
               <input type="date" value={filters.from} onChange={(event) => update({ from: event.target.value })} className={input} />
             </Field>

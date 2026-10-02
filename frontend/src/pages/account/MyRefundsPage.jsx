@@ -6,7 +6,7 @@ import { useDevAccount } from '../../hooks/useDevAccount'
 import { formatDateTime, formatMoney } from '../../lib/format'
 import { REFUND_STATUS } from '../../lib/labels'
 
-// B06/B07: người mua theo dõi yêu cầu của mình; người bán xem yêu cầu cần chuyển trả.
+// Người mua theo dõi yêu cầu của mình; người bán xem yêu cầu cần chuyển trả.
 export default function MyRefundsPage() {
   const { me } = useDevAccount()
   const [as, setAs] = useState('buyer')
@@ -33,7 +33,7 @@ export default function MyRefundsPage() {
 
   return (
     <>
-      <PageHeader code="B06 · B07" title="Hoàn tiền" description="Theo dõi tiến độ yêu cầu hoàn tiền. Bấm vào một dòng để xem chi tiết và thực hiện bước tiếp theo." />
+      <PageHeader title="Hoàn tiền" description="Theo dõi tiến độ yêu cầu hoàn tiền. Bấm vào một dòng để xem chi tiết và thực hiện bước tiếp theo." />
       <div className="mb-4 flex gap-1 rounded-lg border border-slate-200 bg-white p-1 sm:w-fit">
         {[
           ['buyer', 'Tôi là người mua'],

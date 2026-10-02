@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import {
+  Flag,
   FolderTree,
   Handshake,
   Menu,
@@ -25,6 +26,7 @@ const NAV_GROUPS = [
     title: 'Nội dung',
     items: [
       { to: '/admin/categories', label: 'Danh mục', icon: FolderTree },
+      { to: '/admin/reports', label: 'Báo cáo vi phạm', icon: Flag },
     ],
   },
 ]

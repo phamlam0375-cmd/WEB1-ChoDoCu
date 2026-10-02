@@ -4,6 +4,7 @@ const { requireAuth, requireRole } = require("../middlewares/auth.middleware");
 const users = require("../controllers/adminUsers.controller");
 const partners = require("../controllers/adminPartnerApplications.controller");
 const categories = require("../controllers/categories.controller");
+const reports = require("../controllers/reports.controller");
 
 // Phân hệ B: mọi API /api/v1/admin/* yêu cầu đăng nhập và vai trò ADMIN.
 const router = express.Router();
@@ -27,5 +28,10 @@ router.delete("/categories/:id", categories.deleteCategory);
 router.get("/conditions", categories.listAllConditions);
 router.post("/conditions", categories.createCondition);
 router.patch("/conditions/:code", categories.updateCondition);
+
+// B04 Tiếp nhận báo cáo vi phạm (xử lý báo cáo dùng chung với B05)
+router.get("/reports", reports.listReports);
+router.get("/reports/:id", reports.getReport);
+router.patch("/reports/:id", reports.handleReport);
 
 module.exports = router;

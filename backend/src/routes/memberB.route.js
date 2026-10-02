@@ -33,7 +33,7 @@ router.get("/reports", requireAuth, reports.listMyReports);
 // Ngân hàng hỗ trợ mã QR chuyển khoản (tài khoản nhận tiền hoàn)
 router.get("/banks", banks.listBanks);
 
-// B06 Gửi, theo dõi và tiếp nhận yêu cầu hoàn tiền
+// B06 Gửi yêu cầu hoàn tiền; B07 các bước giải quyết (quản trị, người bán, người mua)
 router.get("/refund-requests/reasons", refunds.listReasons);
 router.post("/orders/:id/refund-requests", requireAuth, refunds.createRefundRequest);
 router.get("/refund-requests", requireAuth, refunds.listMyRefundRequests);

@@ -1,16 +1,24 @@
 import { useState } from 'react'
 import { toast } from 'react-toastify'
-import { ConfirmDialog, InfoRow, Loading, Modal, StatusBadge } from '../admin/AdminUi'
-import { btn } from '../admin/styles'
+import { ConfirmDialog, Field, InfoRow, Loading, Modal, StatusBadge } from '../admin/AdminUi'
+import { btn, input } from '../admin/styles'
+import ImageUpload from '../ImageUpload'
 import { useApi, useMutation } from '../../hooks/useApi'
 import { errorMessage } from '../../lib/api'
 import { formatDateTime, formatMoney } from '../../lib/format'
 import { ORDER_STATUS, REFUND_STATUS } from '../../lib/labels'
+import QrPaymentPanel from '../QrPaymentPanel'
 
-// Chi tiết và tiến độ yêu cầu hoàn tiền; quản trị bấm Tiếp nhận để chuyển sang Đang xem xét.
 // Thao tác của từng vai trò: viewer = 'admin' | 'buyer' | 'seller'.
 const ACTIONS = {
   REVIEW: { viewer: 'admin', from: ['PENDING'], label: 'Tiếp nhận', style: btn.primary, message: 'Yêu cầu sẽ chuyển sang "Đang xem xét".' },
+  APPROVE: { viewer: 'admin', from: ['PENDING', 'REVIEWING', 'DISPUTED'], label: 'Chấp nhận hoàn tiền', style: btn.primary, reason: 'Ghi chú (không bắt buộc)', message: 'Yêu cầu sẽ chuyển sang "Chờ người bán chuyển trả", người bán nhận thông báo.' },
+  REJECT: { viewer: 'admin', from: ['PENDING', 'REVIEWING', 'DISPUTED'], label: 'Từ chối', style: btn.danger, reason: 'Lý do từ chối', required: true, empty: 'Vui lòng nhập lý do từ chối', tone: 'danger' },
+  ADMIN_COMPLETE: { viewer: 'admin', from: ['SELLER_TRANSFERRED', 'DISPUTED'], label: 'Xác nhận đã hoàn xong', style: btn.secondary, reason: 'Căn cứ xác nhận', required: true },
+  SELLER_RESPOND: { viewer: 'seller', from: ['PENDING', 'REVIEWING'], label: 'Gửi phản hồi', style: btn.secondary, reason: 'Nội dung phản hồi', required: true, empty: 'Vui lòng nhập nội dung phản hồi' },
+  SELLER_TRANSFERRED: { viewer: 'seller', from: ['APPROVED'], label: 'Báo đã chuyển trả', style: btn.primary },
+  CONFIRM_RECEIVED: { viewer: 'buyer', from: ['SELLER_TRANSFERRED'], label: 'Đã nhận tiền', style: btn.primary },
+  NOT_RECEIVED: { viewer: 'buyer', from: ['SELLER_TRANSFERRED'], label: 'Chưa nhận được', style: btn.secondary, reason: 'Mô tả vấn đề (không bắt buộc)', tone: 'danger', message: 'Yêu cầu sẽ chuyển lại cho quản trị xem xét.' },
 }
 
 const STEP_LABELS = {
@@ -27,14 +35,29 @@ export default function RefundDetail({ id, viewer, onClose, onSaved }) {
   const { data: refund, loading, error, reload } = useApi(`/refund-requests/${id}`)
   const { busy, run } = useMutation()
   const [action, setAction] = useState(null)
+  const [amount, setAmount] = useState('')
+  const [transfer, setTransfer] = useState({ transactionCode: '', proofUrl: '' })
 
   const rule = ACTIONS[action]
   const available = refund ? Object.entries(ACTIONS).filter(([, item]) => item.viewer === viewer && item.from.includes(refund.Status)) : []
 
-  const openAction = (key) => setAction(key)
+  const openAction = (key) => {
+    setAmount(refund ? String(Math.round(Number(refund.Amount))) : '')
+    setTransfer({ transactionCode: '', proofUrl: '' })
+    setAction(key)
+  }
 
   const submit = async (note) => {
+    if (action === 'SELLER_TRANSFERRED' && !transfer.transactionCode.trim() && !transfer.proofUrl) {
+      toast.error('Vui lòng nhập mã giao dịch hoặc ảnh chuyển khoản')
+      return
+    }
     const body = { action, note: note || undefined, expectedStatus: refund.Status }
+    if (action === 'APPROVE' && Number(amount) !== Math.round(Number(refund.Amount))) body.amount = Number(amount)
+    if (action === 'SELLER_TRANSFERRED') {
+      body.transactionCode = transfer.transactionCode.trim() || undefined
+      body.refundProofUrl = transfer.proofUrl || undefined
+    }
     try {
       const result = await run('patch', `/refund-requests/${id}`, body)
       toast.success(result.message)
@@ -85,6 +108,21 @@ export default function RefundDetail({ id, viewer, onClose, onSaved }) {
             )}
           </dl>
 
+          {viewer !== 'buyer' && ['APPROVED', 'DISPUTED'].includes(refund.Status) && refund.RefundAccountNumber && (
+            <QrPaymentPanel
+              account={{
+                bankCode: refund.RefundBankCode,
+                bankName: refund.RefundBankName,
+                accountNumber: refund.RefundAccountNumber,
+                accountHolder: refund.RefundAccountHolder,
+              }}
+              amount={Math.round(Number(refund.Amount))}
+              reference={refund.RefundCode}
+              buttonLabel="Chuyển trả bằng QR"
+              title={`Chuyển trả ${formatMoney(refund.Amount)} cho người mua`}
+            />
+          )}
+
           <div>
             <p className="mb-2 text-sm font-semibold text-slate-900">Tiến độ xử lý</p>
             <ol className="relative space-y-3 border-l border-slate-200 pl-5">
@@ -126,8 +164,26 @@ export default function RefundDetail({ id, viewer, onClose, onSaved }) {
         busy={busy}
         onConfirm={submit}
         onClose={() => setAction(null)}
-        message={rule?.message}
-      />
+        message={
+          action === 'CONFIRM_RECEIVED'
+            ? `Xác nhận bạn đã nhận đủ ${formatMoney(refund?.Amount)}. Yêu cầu sẽ chuyển sang "Hoàn tất".`
+            : rule?.message
+        }
+      >
+        {action === 'APPROVE' && (
+          <Field className="mt-3" label="Số tiền hoàn (đồng)" hint="Không vượt quá giá trị đơn hàng.">
+            <input type="number" min="1" step="1000" value={amount} onChange={(event) => setAmount(event.target.value)} className={input} />
+          </Field>
+        )}
+        {action === 'SELLER_TRANSFERRED' && (
+          <div className="mt-3 space-y-3">
+            <Field label="Mã giao dịch">
+              <input value={transfer.transactionCode} onChange={(event) => setTransfer({ ...transfer, transactionCode: event.target.value })} className={input} placeholder="VD: FT26100212345" />
+            </Field>
+            <ImageUpload label="hoặc ảnh chuyển khoản" value={transfer.proofUrl} onChange={(proofUrl) => setTransfer({ ...transfer, proofUrl })} />
+          </div>
+        )}
+      </ConfirmDialog>
     </Modal>
   )
 }

@@ -1,6 +1,6 @@
 "use strict";
 
-// Tiếp nhận yêu cầu hoàn tiền: người mua gửi, theo dõi tiến độ; quản trị tiếp nhận để xem xét.
+// Tiếp nhận và giải quyết yêu cầu hoàn tiền.
 // Website không giữ tiền: người bán chuyển trả trực tiếp cho người mua (có mã QR VietQR),
 // website ghi nhận từng bước và điều chỉnh hoa hồng khi hoàn tiền xong.
 //
@@ -33,6 +33,7 @@ const { hasRole } = require("../middlewares/auth.middleware");
 const { logAdminAction } = require("../services/auditLog.service");
 const { notify } = require("../services/notification.service");
 const { getSettingAt } = require("../services/settings.service");
+const { adjustCommissionForRefund } = require("../services/commission.service");
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const REFUND_STATUSES = ["PENDING", "REVIEWING", "APPROVED", "REJECTED", "SELLER_TRANSFERRED", "DISPUTED", "COMPLETED"];
@@ -272,6 +273,13 @@ const listRefundRequests = async (req, res) => {
 // Ai được làm gì, từ trạng thái nào sang trạng thái nào.
 const ACTIONS = {
   REVIEW: { actor: "ADMIN", from: ["PENDING"], to: "REVIEWING", audit: "REFUND_REVIEW" },
+  APPROVE: { actor: "ADMIN", from: ["PENDING", "REVIEWING", "DISPUTED"], to: "APPROVED", audit: "REFUND_APPROVE" },
+  REJECT: { actor: "ADMIN", from: ["PENDING", "REVIEWING", "DISPUTED"], to: "REJECTED", audit: "REFUND_REJECT" },
+  ADMIN_COMPLETE: { actor: "ADMIN", from: ["SELLER_TRANSFERRED", "DISPUTED"], to: "COMPLETED", audit: "REFUND_COMPLETE" },
+  SELLER_RESPOND: { actor: "SELLER", from: ["PENDING", "REVIEWING"], to: null },
+  SELLER_TRANSFERRED: { actor: "SELLER", from: ["APPROVED"], to: "SELLER_TRANSFERRED" },
+  CONFIRM_RECEIVED: { actor: "BUYER", from: ["SELLER_TRANSFERRED"], to: "COMPLETED" },
+  NOT_RECEIVED: { actor: "BUYER", from: ["SELLER_TRANSFERRED"], to: "DISPUTED" },
 };
 
 const canAct = (req, actor, order) => {
@@ -282,14 +290,24 @@ const canAct = (req, actor, order) => {
 
 const RESULT_MESSAGES = {
   REVIEW: "Yêu cầu đã chuyển sang \"Đang xem xét\"",
+  APPROVE: "Yêu cầu đã chuyển sang \"Chờ người bán chuyển trả\"",
+  REJECT: "Yêu cầu đã chuyển sang \"Từ chối\"",
+  ADMIN_COMPLETE: "Yêu cầu đã chuyển sang \"Hoàn tất\"",
+  SELLER_RESPOND: "Đã gửi phản hồi cho quản trị viên",
+  SELLER_TRANSFERRED: "Yêu cầu đã chuyển sang \"Chờ người mua xác nhận\"",
+  CONFIRM_RECEIVED: "Yêu cầu đã chuyển sang \"Hoàn tất\"",
+  NOT_RECEIVED: "Yêu cầu đã chuyển lại cho quản trị xem xét, trạng thái \"Đang tranh chấp\"",
 };
 
-// PATCH /refund-requests/:id { action: REVIEW, note?, expectedStatus? }
+// PATCH /refund-requests/:id { action, note?, amount?, refundProofUrl?, transactionCode?, expectedStatus? }
 const updateRefundRequest = async (req, res) => {
   const id = parseId(req.params.id, "Mã yêu cầu hoàn tiền");
   const action = oneOf(req.body.action, Object.keys(ACTIONS), "Hành động");
   const rule = ACTIONS[action];
   const note = text(req.body.note, "ghi chú", { max: 1000 });
+  if (action === "REJECT" && !note) throw badRequest("Vui lòng nhập lý do từ chối");
+  if (action === "SELLER_RESPOND" && !note) throw badRequest("Vui lòng nhập nội dung phản hồi");
+  if (action === "ADMIN_COMPLETE" && !note) throw badRequest("Vui lòng nhập căn cứ xác nhận");
   const warnings = [];
 
   const refund = await sequelize.transaction(async (transaction) => {
@@ -314,6 +332,65 @@ const updateRefundRequest = async (req, res) => {
     if (action === "REVIEW") {
       Object.assign(changes, { ReviewedBy: req.user.UserId, ReviewedAt: now });
       await send(order.BuyerId, "Yêu cầu hoàn tiền đang được xem xét", `Quản trị viên đã tiếp nhận ${label}.`);
+    }
+
+    if (action === "APPROVE") {
+      if (req.body.amount !== undefined && req.body.amount !== "") {
+        changes.Amount = parseAmount(req.body.amount, Number(order.ProductAmount));
+      }
+      Object.assign(changes, { AdminNote: note || item.AdminNote, ReviewedBy: req.user.UserId, ReviewedAt: now });
+      const amountText = formatVnd(changes.Amount ?? item.Amount);
+      await send(order.SellerId, "Cần chuyển trả tiền cho người mua", `Quản trị viên chấp nhận ${label}. Vui lòng chuyển trả ${amountText} cho người mua với nội dung ${code}.`);
+      await send(order.BuyerId, "Yêu cầu hoàn tiền được chấp nhận", `Người bán sẽ chuyển trả ${amountText} cho bạn.`);
+    }
+
+    if (action === "REJECT") {
+      Object.assign(changes, { AdminNote: note, ReviewedBy: req.user.UserId, ReviewedAt: now });
+      const restored = item.OrderStatusBefore || "COMPLETED";
+      await order.update({ Status: restored }, { transaction });
+      await addHistory(order.OrderId, "ORDER", restored, `Từ chối ${label}`, req.user.UserId, transaction);
+      await send(order.BuyerId, "Yêu cầu hoàn tiền bị từ chối", `Lý do: ${note}`);
+      await send(order.SellerId, "Yêu cầu hoàn tiền bị từ chối", `Quản trị viên từ chối ${label}.`);
+    }
+
+    if (action === "SELLER_RESPOND") {
+      Object.assign(changes, { SellerResponse: note, SellerRespondedAt: now });
+      await notifyAdmins(
+        { type: "REFUND", title: `Người bán phản hồi ${code}`, message: note, referenceType: "REFUND_REQUEST", referenceId: id },
+        transaction
+      );
+    }
+
+    if (action === "SELLER_TRANSFERRED") {
+      const proof = optionalUrl(req.body.refundProofUrl, "Ảnh chuyển khoản");
+      const transactionCode = text(req.body.transactionCode, "mã giao dịch", { max: 50 });
+      if (!proof && !transactionCode) throw badRequest("Vui lòng nhập mã giao dịch hoặc ảnh chuyển khoản");
+      Object.assign(changes, { RefundProofUrl: proof, RefundTransactionCode: transactionCode });
+      await send(order.BuyerId, "Người bán đã chuyển trả tiền", `Người bán báo đã chuyển ${formatVnd(item.Amount)} cho ${label}. Vui lòng kiểm tra và xác nhận.`);
+    }
+
+    if (action === "NOT_RECEIVED") {
+      Object.assign(changes, { AdminNote: note ? `Người mua: ${note}` : item.AdminNote });
+      await send(order.SellerId, "Người mua chưa nhận được tiền hoàn", `${label}${note ? `: ${note}` : ""}`);
+      await notifyAdmins(
+        { type: "REFUND", title: `Tranh chấp hoàn tiền ${code}`, message: note || "Người mua báo chưa nhận được tiền hoàn.", referenceType: "REFUND_REQUEST", referenceId: id },
+        transaction
+      );
+    }
+
+    if (action === "CONFIRM_RECEIVED" || action === "ADMIN_COMPLETE") {
+      changes.CompletedAt = now;
+      await order.update({ Status: "REFUNDED" }, { transaction });
+      await addHistory(order.OrderId, "ORDER", "REFUNDED", `Hoàn tất ${label}`, req.user.UserId, transaction);
+
+      const adjustment = await adjustCommissionForRefund(order, item.Amount, { transaction });
+      if (adjustment.note) warnings.push(adjustment.note);
+      if (adjustment.changed) {
+        warnings.push(`Hoa hồng đơn #${order.OrderId}: ${formatVnd(adjustment.before.AmountDue)} → ${formatVnd(adjustment.commission.AmountDue)}`);
+      }
+      const message = `Đã hoàn ${formatVnd(item.Amount)} cho ${label}.`;
+      await send(order.BuyerId, "Hoàn tiền hoàn tất", message);
+      await send(order.SellerId, "Hoàn tiền hoàn tất", message);
     }
 
     await item.update(changes, { transaction });

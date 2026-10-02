@@ -32,10 +32,8 @@ services:
   api:
     build: ./backend
     restart: unless-stopped
-    # backend/.env không bắt buộc: thiếu file thì dùng giá trị mặc định trong config.
-    env_file:
-      - path: ./backend/.env
-        required: false
+    # backend/.env (nếu có) được backend tự đọc qua thư mục mount ./backend;
+    # thiếu file thì dùng giá trị mặc định trong config.
     # Trong Docker, API luôn kết nối MySQL qua tên dịch vụ "mysql", cổng 3306.
     environment:
       DB_HOST: mysql

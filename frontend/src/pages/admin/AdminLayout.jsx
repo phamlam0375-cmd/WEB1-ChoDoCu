@@ -6,6 +6,7 @@ import {
   FolderTree,
   Handshake,
   Menu,
+  Percent,
   RotateCcw,
   ShieldCheck,
   Store,
@@ -36,6 +37,7 @@ const NAV_GROUPS = [
     title: 'Tài chính',
     items: [
       { to: '/admin/refunds', label: 'Hoàn tiền', icon: RotateCcw },
+      { to: '/admin/commissions', label: 'Hoa hồng theo đơn', icon: Percent },
     ],
   },
 ]

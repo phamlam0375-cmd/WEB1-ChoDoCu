@@ -5,6 +5,7 @@ const users = require("../controllers/adminUsers.controller");
 const partners = require("../controllers/adminPartnerApplications.controller");
 const categories = require("../controllers/categories.controller");
 const reports = require("../controllers/reports.controller");
+const listings = require("../controllers/adminListings.controller");
 
 // Phân hệ B: mọi API /api/v1/admin/* yêu cầu đăng nhập và vai trò ADMIN.
 const router = express.Router();
@@ -33,5 +34,10 @@ router.patch("/conditions/:code", categories.updateCondition);
 router.get("/reports", reports.listReports);
 router.get("/reports/:id", reports.getReport);
 router.patch("/reports/:id", reports.handleReport);
+
+// B05 Kiểm duyệt tin
+router.get("/listings", listings.listListings);
+router.get("/listings/:id", listings.getListing);
+router.patch("/listings/:id/review", listings.reviewListing);
 
 module.exports = router;

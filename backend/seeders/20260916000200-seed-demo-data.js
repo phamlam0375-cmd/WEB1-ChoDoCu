@@ -43,15 +43,36 @@ const TABLES = [
   },
   {
     name: 'Roles',
-    row: (i) => ({
-      RoleId: i,
-      RoleName: ['USER', 'ADMIN', 'SELLER', 'DRIVER'][i - 1] || `ROLE_DEMO_${pad(i)}`,
-      Description: `Vai trò dữ liệu mẫu số ${i}`
-    })
+    rows: [
+      {
+        RoleId: 1,
+        RoleName: 'USER',
+        Description: 'Người dùng'
+      },
+      {
+        RoleId: 2,
+        RoleName: 'ADMIN',
+        Description: 'Quản trị viên'
+      },
+      {
+        RoleId: 3,
+        RoleName: 'SELLER',
+        Description: 'Người bán'
+      },
+      {
+        RoleId: 4,
+        RoleName: 'DRIVER',
+        Description: 'Tài xế'
+      }
+    ]
   },
   {
     name: 'UserRoles',
-    row: (i) => ({ UserId: i, RoleId: i, AssignedAt: demoDate(i) })
+    row: (i) => ({
+      UserId: i,
+      RoleId: i === 1 ? 2 : 1,
+      AssignedAt: demoDate(i)
+    })
   },
   {
     name: 'VerificationCodes',
@@ -69,18 +90,24 @@ const TABLES = [
   },
   {
     name: 'PartnerApplications',
-    row: (i) => ({
-      ApplicationId: i,
-      UserId: i,
-      PartnerType: i % 2 === 0 ? 'SELLER' : 'DRIVER',
-      IdentityImageUrl: `/demo/identity/${pad(i)}.jpg`,
-      IdentityNumberMasked: `***${String(i).slice(-4).padStart(4, '0')}`,
-      Status: ['PENDING', 'APPROVED', 'REJECTED', 'NEED_INFO'][i % 4],
-      ReviewNote: i % 4 === 2 ? 'Hồ sơ minh họa cần kiểm tra lại.' : null,
-      ReviewedBy: i % 4 === 0 ? null : nextId(i),
-      SubmittedAt: demoDate(i),
-      ReviewedAt: i % 4 === 0 ? null : demoDate(i, 2)
-    })
+    rows: [
+      {
+        ApplicationId: 1,
+        UserId: 2,
+        PartnerType: 'SELLER',
+        IdentityImageUrl: null,
+        IdentityNumberMasked: '***1234',
+        Status: 'PENDING'
+      },
+      {
+        ApplicationId: 2,
+        UserId: 3,
+        PartnerType: 'DRIVER',
+        IdentityImageUrl: null,
+        IdentityNumberMasked: '***5678',
+        Status: 'PENDING'
+      }
+    ]
   },
   {
     name: 'Stores',
@@ -353,15 +380,26 @@ const TABLES = [
 
 async function insertInBatches(queryInterface, table) {
   process.stdout.write(`\n[Seeder] ${table.name}: `);
-  for (let start = 1; start <= ROWS_PER_TABLE; start += BATCH_SIZE) {
-    const end = Math.min(start + BATCH_SIZE - 1, ROWS_PER_TABLE);
-    const rows = [];
-    for (let i = start; i <= end; i += 1) {
-      rows.push(table.row(i));
-    }
-    await queryInterface.bulkInsert(table.name, rows, { logging: false });
-    process.stdout.write(`${end}/${ROWS_PER_TABLE} `);
+
+  const rows = table.rows
+    ? table.rows
+    : Array.from(
+      { length: ROWS_PER_TABLE },
+      (_, index) => table.row(index + 1)
+    );
+
+  for (let start = 0; start < rows.length; start += BATCH_SIZE) {
+    const batch = rows.slice(start, start + BATCH_SIZE);
+
+    await queryInterface.bulkInsert(table.name, batch, {
+      logging: false
+    });
+
+    process.stdout.write(
+      `${Math.min(start + batch.length, rows.length)}/${rows.length} `
+    );
   }
+
   process.stdout.write('✓');
 }
 

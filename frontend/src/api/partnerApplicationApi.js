@@ -1,5 +1,14 @@
 import api from "./axios";
-const postPartnerApplication = (UserId, PartnerType, IdentityImageUrl, IdentityNumberMasked) => {
-    return api.post("/partner-applications", { UserId, PartnerType, IdentityImageUrl, IdentityNumberMasked })
+const postPartnerApplication = (formData) => {
+    return api.post("/partner-applications", formData)
 }
-export { postPartnerApplication }
+
+const sendPartnerOtp = (email) => {
+    return api.post("/partner-applications/send-otp", { email });
+}
+
+const verifyPartnerOtp = (email, otp) => {
+    return api.post("/partner-applications/verify-otp", { email, otp });
+};
+
+export { postPartnerApplication, sendPartnerOtp ,verifyPartnerOtp}

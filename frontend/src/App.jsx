@@ -77,11 +77,11 @@ function App() {
 
       <ToastContainer
         position="top-right"
-        autoClose={2800}
-        hideProgressBar
-        newestOnTop
-        closeOnClick
+        autoClose={10000}
+        closeOnClick={false}
         pauseOnHover
+        pauseOnFocusLoss={false}
+        newestOnTop
         theme="light"
       />
     </>

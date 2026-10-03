@@ -1,54 +1,82 @@
 import { useState, useRef } from "react";
-import {
-    Camera,
-    Car,
-    Upload,
-    ShieldCheck,
-    Clock,
-    Users,
-} from "lucide-react";
+import { toast } from "react-toastify";
+import { Camera, Car, Upload, ShieldCheck, Clock, Users } from "lucide-react";
 import Header from "../Header";
-import { postPartnerApplication } from "../../api/partnerApplicationApi";
-
-function generateOtp() {
-    return String(Math.floor(100000 + Math.random() * 900000));
-}
+import { postPartnerApplication, sendPartnerOtp, verifyPartnerOtp } from "../../api/partnerApplicationApi";
 
 export default function RegisterApplication({ onConfirm }) {
-    const [role, setRole] = useState("seller"); // "seller" | "driver"
-    const [phone, setPhone] = useState("");
-    const [otp, setOtp] = useState(generateOtp());
+    const [role, setRole] = useState("seller");
     const [identityNumberMasked, setIdentityNumberMasked] = useState("");
-    const [idImage, setIdImage] = useState(null);
+    const [image, setImage] = useState(null);
+
+    const [email, setEmail] = useState("");
+    const [otp, setOtp] = useState("");
+    const [sendingOtp, setSendingOtp] = useState(false);
 
     const fileInputRef = useRef(null);
 
-    const handleResendOtp = () => setOtp(generateOtp());
+    const handleResendOtp = async () => {
+        if (!email) {
+            toast("nhap email");
+            return;
+        }
+        try {
+            setSendingOtp(true);
+            await sendPartnerOtp(email)
+            toast.success("da gui otp");
+        } catch (error) {
+            console.error("Gửi OTP thất bại:", error);
+            toast.error(error.response?.data?.message || "Gửi OTP thất bại");
+        } finally {
+            setSendingOtp(false);
+        }
+    };
 
     const handleFileChange = (e) => {
         const file = e.target.files?.[0];
-
         if (file) {
-            setIdImage(file);
+            setImage(file);
         }
     };
 
     const handleIdentityNumberChange = (e) => {
         const value = e.target.value;
-
-        // Chỉ cho phép nhập số
         if (/^\d*$/.test(value)) {
             setIdentityNumberMasked(value);
         }
     };
 
     const handleConfirm = async () => {
-        const res = await postPartnerApplication(
-            18,
-            role.toUpperCase(),
-            idImage ? idImage.name : null,
-            identityNumberMasked
-        );
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!email) {
+            toast.error("chua nhap email");
+        }
+        if (!emailRegex.test(email)) {
+            toast.error("Email không hợp lệ");
+        }
+        const cccdRegex = /^\d{12}$/;
+        if (!cccdRegex.test(identityNumberMasked)) {
+            toast.error("Cccd không hợp lệ")
+        }
+        const otpRegex = /^\d{6}$/;
+        if (!otpRegex.test(otp)) {
+            toast.error("Otp phải đủ 6 số")
+        }
+
+        try {
+            await verifyPartnerOtp(email, otp);
+            const formData = new FormData();
+            formData.append("UserId", "7");
+            formData.append("PartnerType", role.toUpperCase());
+            formData.append("IdentityNumberMasked", identityNumberMasked);
+            if (image) {
+                formData.append("IdentityImageUrl", image)
+            }
+            const res = await postPartnerApplication(formData);
+        }
+        catch (er) {
+            console.error("Loi dang ky", er)
+        }
     };
 
     const roleOptions = [
@@ -84,7 +112,7 @@ export default function RegisterApplication({ onConfirm }) {
             <div className="flex min-h-screen flex-col">
                 <Header />
 
-                <div className="flex w-full flex-1 bg-gradient-to-br from-emerald-50 via-white to-white text-slate-900">
+                <div className="flex w-full flex-1 bg-linear-to-br from-emerald-50 via-white to-white text-slate-900">
 
                     {/* LEFT */}
                     <div className="hidden w-1/2 flex-col justify-center gap-8 px-16 lg:flex xl:px-24">
@@ -141,8 +169,8 @@ export default function RegisterApplication({ onConfirm }) {
                                             type="button"
                                             onClick={() => setRole(id)}
                                             className={`flex flex-col items-center justify-center gap-2 rounded-xl border py-5 transition-colors ${active
-                                                    ? "border-emerald-600 bg-emerald-50"
-                                                    : "border-slate-200 bg-white hover:border-emerald-300"
+                                                ? "border-emerald-600 bg-emerald-50"
+                                                : "border-slate-200 bg-white hover:border-emerald-300"
                                                 }`}
                                         >
                                             <Icon
@@ -156,8 +184,8 @@ export default function RegisterApplication({ onConfirm }) {
 
                                             <span
                                                 className={`text-sm font-medium ${active
-                                                        ? "text-emerald-700"
-                                                        : "text-slate-600"
+                                                    ? "text-emerald-700"
+                                                    : "text-slate-600"
                                                     }`}
                                             >
                                                 {label}
@@ -171,7 +199,6 @@ export default function RegisterApplication({ onConfirm }) {
                             <label className="mb-1 block text-sm font-medium text-slate-700">
                                 Số CCCD
                             </label>
-
                             <input
                                 type="text"
                                 value={identityNumberMasked}
@@ -181,7 +208,17 @@ export default function RegisterApplication({ onConfirm }) {
                                 inputMode="numeric"
                                 className="mb-5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
                             />
+                            <label className="mb-1 block text-sm font-medium text-slate-700">
+                                Email nhận OTP
+                            </label>
 
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="Nhập email của bạn"
+                                className="mb-5 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm"
+                            />
                             {/* OTP */}
                             <label className="mb-1 block text-sm font-medium text-slate-700">
                                 Mã OTP
@@ -191,16 +228,14 @@ export default function RegisterApplication({ onConfirm }) {
                                 <input
                                     type="text"
                                     value={otp}
-                                    readOnly
-                                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-center text-sm tracking-widest text-slate-900"
+                                    onChange={(e) => setOtp(e.target.value)}
+                                    placeholder="Nhập mã OTP"
+                                    maxLength={6}
+                                    className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-center tracking-widest"
                                 />
 
-                                <button
-                                    type="button"
-                                    onClick={handleResendOtp}
-                                    className="whitespace-nowrap rounded-lg border border-emerald-600 px-4 py-2.5 text-sm font-medium text-emerald-600 hover:bg-emerald-50"
-                                >
-                                    Gửi lại
+                                <button type="button" onClick={handleResendOtp} disabled={sendingOtp}>
+                                    {sendingOtp ? "Đang gửi..." : "Gửi OTP"}
                                 </button>
                             </div>
 
@@ -220,8 +255,8 @@ export default function RegisterApplication({ onConfirm }) {
                                 />
 
                                 <span className="text-sm">
-                                    {idImage
-                                        ? idImage.name
+                                    {image
+                                        ? image.name
                                         : "Tải ảnh để quản trị duyệt thủ công"}
                                 </span>
                             </button>

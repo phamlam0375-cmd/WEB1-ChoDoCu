@@ -4,7 +4,7 @@ import { Camera, Car, Upload, ShieldCheck, Clock, Users } from "lucide-react";
 import Header from "../Header";
 import { postPartnerApplication, sendPartnerOtp, verifyPartnerOtp } from "../../api/partnerApplicationApi";
 
-export default function RegisterApplication({ onConfirm }) {
+export default function RegisterApplication() {
     const [role, setRole] = useState("seller");
     const [identityNumberMasked, setIdentityNumberMasked] = useState("");
     const [image, setImage] = useState(null);
@@ -66,16 +66,17 @@ export default function RegisterApplication({ onConfirm }) {
         try {
             await verifyPartnerOtp(email, otp);
             const formData = new FormData();
-            formData.append("UserId", "7");
+            formData.append("UserId", "8");
             formData.append("PartnerType", role.toUpperCase());
             formData.append("IdentityNumberMasked", identityNumberMasked);
             if (image) {
                 formData.append("IdentityImageUrl", image)
             }
-            const res = await postPartnerApplication(formData);
+            await postPartnerApplication(formData);
+            toast.success("Đăng ký thành công");
         }
         catch (er) {
-            console.error("Loi dang ky", er)
+            toast.error("Loi dang ky", er)
         }
     };
 
@@ -169,8 +170,8 @@ export default function RegisterApplication({ onConfirm }) {
                                             type="button"
                                             onClick={() => setRole(id)}
                                             className={`flex flex-col items-center justify-center gap-2 rounded-xl border py-5 transition-colors ${active
-                                                    ? "border-emerald-600 bg-emerald-50"
-                                                    : "border-slate-200 bg-white hover:border-emerald-300"
+                                                ? "border-emerald-600 bg-emerald-50"
+                                                : "border-slate-200 bg-white hover:border-emerald-300"
                                                 }`}
                                         >
                                             <Icon

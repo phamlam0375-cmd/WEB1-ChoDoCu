@@ -169,8 +169,8 @@ export default function RegisterApplication({ onConfirm }) {
                                             type="button"
                                             onClick={() => setRole(id)}
                                             className={`flex flex-col items-center justify-center gap-2 rounded-xl border py-5 transition-colors ${active
-                                                ? "border-emerald-600 bg-emerald-50"
-                                                : "border-slate-200 bg-white hover:border-emerald-300"
+                                                    ? "border-emerald-600 bg-emerald-50"
+                                                    : "border-slate-200 bg-white hover:border-emerald-300"
                                                 }`}
                                         >
                                             <Icon

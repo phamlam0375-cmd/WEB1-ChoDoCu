@@ -1,17 +1,20 @@
-import { lazy, Suspense } from 'react'
-import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
-import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import './App.css'
 
+import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
+import { Suspense, lazy } from 'react'
+
+import DevAccountProvider from './context/DevAccountProvider'
 import HomePage from './pages/HomePage'
+import { Loading } from './components/admin/AdminUi'
 import Login from './pages/Login'
 import OrderCreatePage from './pages/OrderCreatePage'
 import RegisterApplication from './components/PartnerApplication/RegisterApplication'
+import { ToastContainer } from 'react-toastify'
 
 // Phân hệ B: quản trị và doanh thu (tải khi cần để không làm nặng trang chủ)
-import DevAccountProvider from './context/DevAccountProvider'
-import { Loading } from './components/admin/AdminUi'
+
+
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'))
 const AdminDashboardPage = lazy(() => import('./pages/admin/AdminDashboardPage'))
 const AdminUsersPage = lazy(() => import('./pages/admin/AdminUsersPage'))

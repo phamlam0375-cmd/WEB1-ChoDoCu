@@ -11,6 +11,7 @@ const adminRoutes = require('./routes/admin.route');
 const memberBRoutes = require('./routes/memberB.route');
 const errorHandler = require('./middlewares/errorHandler');
 const { UPLOAD_DIR } = require('./controllers/uploads.controller');
+const storeRoutes = require('./routes/store.route');
 
 const app = express();
 
@@ -37,9 +38,10 @@ app.use('/api/health', healthRouter);
 app.use('/api/orders', orderRoutes);
 
 
-
 //PARTNER APPLICATION
 app.use("/api/partner-applications", partnerApplicationRoutes);
+//Store
+app.use("/api/stores", storeRoutes);
 
 // PHÂN HỆ B: QUẢN TRỊ VÀ DOANH THU
 app.use('/api/v1/uploads', express.static(UPLOAD_DIR, { index: false, maxAge: '7d' }));

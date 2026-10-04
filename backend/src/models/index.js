@@ -21,6 +21,7 @@ const StatusHistories = require("./StatusHistories.model");
 const AdminAuditLogs = require("./AdminAuditLogs.model");
 const SystemSettings = require("./SystemSettings.model");
 const VerificationCodes = require("./VerificationCodes.model");
+const Store = require("./Store.model");
 
 Users.belongsToMany(Roles, { through: UserRoles, foreignKey: "UserId", otherKey: "RoleId", as: "Roles" });
 Roles.belongsToMany(Users, { through: UserRoles, foreignKey: "RoleId", otherKey: "UserId", as: "Users" });
@@ -84,4 +85,5 @@ module.exports = {
   AdminAuditLogs,
   SystemSettings,
   VerificationCodes,
+  Store,
 };

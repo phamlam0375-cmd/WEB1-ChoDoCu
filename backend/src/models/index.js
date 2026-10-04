@@ -20,6 +20,7 @@ const Notifications = require("./Notifications.model");
 const StatusHistories = require("./StatusHistories.model");
 const AdminAuditLogs = require("./AdminAuditLogs.model");
 const SystemSettings = require("./SystemSettings.model");
+const VerificationCodes = require("./VerificationCodes.model");
 
 Users.belongsToMany(Roles, { through: UserRoles, foreignKey: "UserId", otherKey: "RoleId", as: "Roles" });
 Roles.belongsToMany(Users, { through: UserRoles, foreignKey: "RoleId", otherKey: "UserId", as: "Users" });
@@ -60,6 +61,7 @@ Reports.belongsTo(Orders, { foreignKey: "OrderId", as: "Order" });
 
 AdminAuditLogs.belongsTo(Users, { foreignKey: "AdminId", as: "Admin" });
 SystemSettings.belongsTo(Users, { foreignKey: "UpdatedBy", as: "Updater" });
+VerificationCodes.belongsTo(Users, { foreignKey: "UserId", as: "User" });
 
 module.exports = {
   sequelize,
@@ -81,4 +83,5 @@ module.exports = {
   StatusHistories,
   AdminAuditLogs,
   SystemSettings,
+  VerificationCodes,
 };

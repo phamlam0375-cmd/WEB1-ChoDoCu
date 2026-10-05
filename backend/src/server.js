@@ -53,9 +53,20 @@ app.post('/api/auth/register', async (req, res) => {
 
   try {
     await sequelize.authenticate();
-    app.listen(port, () => {
+    const server = app.listen(port, () => {
       console.log(`Chợ Đồ Cũ API đang chạy tại http://localhost:${port}`);
+      startReservationExpirationJob();
     });
+
+    const shutdown = () => {
+      stopReservationExpirationJob();
+      server.close(async () => {
+        await sequelize.close();
+        process.exit(0);
+      });
+    };
+    process.once('SIGINT', shutdown);
+    process.once('SIGTERM', shutdown);
   } catch (error) {
     console.error('Không thể kết nối cơ sở dữ liệu:', error.message);
     process.exit(1);

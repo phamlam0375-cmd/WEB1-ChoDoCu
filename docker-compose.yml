@@ -15,7 +15,16 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot_password_change_me"]
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-uroot",
+          "-proot_password_change_me"
+        ]
       interval: 10s
       timeout: 5s
       retries: 15
@@ -23,14 +32,24 @@ services:
   api:
     build: ./backend
     restart: unless-stopped
-    env_file:
-      - ./backend/.env
+    # backend/.env (nếu có) được backend tự đọc qua thư mục mount ./backend;
+    # thiếu file thì dùng giá trị mặc định trong config.
+    # Trong Docker, API luôn kết nối MySQL qua tên dịch vụ "mysql", cổng 3306.
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
     ports:
       - "3000:3000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    # Tự chạy migration và nạp dữ liệu mẫu (nếu database trống) rồi mới khởi động API.
+    command: pnpm run docker:dev
     depends_on:
       mysql:
         condition: service_healthy
 
+  # Nginx phục vụ website React đã build và chuyển /api sang backend.
   nginx:
     build:
       context: .

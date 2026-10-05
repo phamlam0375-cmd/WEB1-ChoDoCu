@@ -1,13 +1,103 @@
 const PartnerApplications = require("../models/PartnerApplications.model");
+const UserRoles = require("../models/UserRoles.model");
+const Roles = require("../models/Roles.model");
+const { sendOTPEmail } = require("../services/email.service");
+const crypto = require("crypto");
+const VerificationCodes = require("../models/VerificationCodes.model");
+
+const hashOtp = (otp) => {
+  return crypto
+    .createHash("sha256")
+    .update(otp)
+    .digest("hex")
+}
+
+const sendPartnerOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        message: "Email là bắt buộc",
+      });
+    }
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    const codeHash = hashOtp(otp);
+
+    await VerificationCodes.create({
+      UserId: null,
+      Recipient: email,
+      Channel: "EMAIL",
+      Purpose: "PARTNER_APPLICATION",
+      CodeHash: codeHash,
+      ExpiresAt: new Date(Date.now() + 5 * 60 * 1000),
+      UsedAt: null,
+    });
+
+    await sendOTPEmail(email, otp);
+
+    return res.status(200).json({
+      success: true,
+      message: "Đã gửi OTP vào email",
+    });
+  } catch (error) {
+    console.error("Send OTP error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+const verifyPartnerOtp = async (req, res) => {
+  const { email, otp } = req.body;
+
+  const record = await VerificationCodes.findOne({
+    where: {
+      Recipient: email,
+      Purpose: "PARTNER_APPLICATION",
+      UsedAt: null,
+    },
+    order: [["CreatedAt", "DESC"]],
+  });
+
+  if (!record) {
+    return res.status(400).json({ message: "OTP không tồn tại" });
+  }
+
+  if (new Date() > record.ExpiresAt) {
+    return res.status(400).json({ message: "OTP đã hết hạn" });
+  }
+
+  const codeHash = crypto
+    .createHash("sha256")
+    .update(otp)
+    .digest("hex");
+
+  if (codeHash !== record.CodeHash) {
+    return res.status(400).json({ message: "OTP không đúng" });
+  }
+
+  await record.update({ UsedAt: new Date() });
+
+  return res.json({
+    success: true,
+    message: "Xác thực OTP thành công",
+  });
+};
 
 const createPartnerApplication = async (req, res) => {
   try {
     const {
       UserId,
       PartnerType,
-      IdentityImageUrl,
-      IdentityNumberMasked,
+      IdentityNumberMasked
     } = req.body;
+
+    const IdentityImageUrl = req.file
+      ? `/upload/partnerApplication/${req.file.filename}`
+      : null;
 
     if (!UserId) {
       return res.status(400).json({
@@ -20,11 +110,66 @@ const createPartnerApplication = async (req, res) => {
       });
     }
 
-
     if (!["SELLER", "DRIVER"].includes(PartnerType)) {
       return res.status(400).json({
         message: "Loại partner không hợp lệ ",
       });
+    }
+
+
+    //ktra da co dang ky chua
+    const existingApplication = await PartnerApplications.findOne({
+      where: {
+        UserId,
+        Status: "PENDING",
+      }
+    })
+    if (existingApplication) {
+      return res.status(409).json({
+        success: false,
+        message: "Bạn đã có đơn đăng ký",
+        data: existingApplication
+      })
+    }
+
+    //ktra user co role driver hay seller chua
+    const existingRole = await UserRoles.findOne({
+      where: { UserId },
+      include: [
+        {
+          model: Roles,
+          where: {
+            RoleName: ["DRIVER", "SELLER", "ADMIN"],
+          }
+        }
+      ]
+    })
+    if (existingRole) {
+      return res.status(409).json({
+        success: false,
+        message: `Bạn đã là người bán/tài xế`,
+        data: existingRole
+      })
+    }
+
+    //ktra user role phai admin khong
+    const existingRoleAdmin = await UserRoles.findOne({
+      where: { UserId },
+      include: [
+        {
+          model: Roles,
+          where: {
+            RoleName: ["ADMIN"],
+          }
+        }
+      ]
+    })
+    if (existingRoleAdmin) {
+      return res.status(409).json({
+        success: false,
+        message: `Admin không đăng ký được`,
+        data: existingRoleAdmin
+      })
     }
 
     const application = await PartnerApplications.create({
@@ -92,5 +237,5 @@ const getPatnerApplicationId = async (req, res) => {
   }
 }
 module.exports = {
-  createPartnerApplication, getAllPatnerApplication, getPatnerApplicationId
+  createPartnerApplication, getAllPatnerApplication, getPatnerApplicationId, sendPartnerOtp, verifyPartnerOtp
 };

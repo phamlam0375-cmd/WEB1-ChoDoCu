@@ -17,7 +17,12 @@ const navItems = [
   { label: 'Hỗ trợ', href: '#ho-tro' },
 ]
 
-function Header({ savedCount, savedOnly, onShowSaved, onUnavailable }) {
+function Header({
+  savedCount = 0,
+  savedOnly = false,
+  onShowSaved = () => {},
+  onUnavailable = () => {},
+}) {
   const [menuOpen, setMenuOpen] = useState(false)
 
   const navigate = useNavigate()

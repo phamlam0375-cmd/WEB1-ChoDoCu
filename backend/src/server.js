@@ -29,7 +29,7 @@ const transporter = nodemailer.createTransport({
 });
 
 // 1. ROUTE ĐĂNG KÝ VÀ GỬI OTP
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register'), async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password) {

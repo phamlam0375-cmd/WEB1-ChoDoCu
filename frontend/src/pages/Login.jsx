@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import axios from 'axios'
 import './Login.css'
 
 function Login() {
@@ -7,8 +8,9 @@ function Login() {
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const handleLogin = (event) => {
+  const handleLogin = async (event) => {
     event.preventDefault()
 
     if (!email || !password) {
@@ -16,13 +18,28 @@ function Login() {
       return
     }
 
-    if (email === 'admin@gmail.com' && password === '123456') {
-      alert('Đăng nhập thành công!')
-      navigate('/')
-      return
-    }
+    try {
+      setLoading(true)
+      // Gọi API đăng nhập xuống Backend
+      const response = await axios.post('http://localhost:5000/api/auth/login', {
+        email,
+        password
+      })
 
-    alert('Gmail hoặc mật khẩu không đúng!')
+      alert(response.data.message || 'Đăng nhập thành công!')
+
+      // Lưu thông tin người dùng / token nếu có
+      if (response.data.user) {
+        localStorage.setItem('user', JSON.stringify(response.data.user))
+      }
+
+      navigate('/')
+    } catch (error) {
+      console.error('Lỗi đăng nhập:', error)
+      alert(error.response?.data?.message || 'Gmail hoặc mật khẩu không chính xác!')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleForgotPassword = () => {
@@ -36,25 +53,16 @@ function Login() {
   return (
     <main className="login-page">
       <div className="login-box">
-        {/* Icon */}
-        <div className="login-icon">
-          👋
-        </div>
+        <div className="login-icon">👋</div>
 
-        {/* Tiêu đề */}
         <h1>Chào mừng trở lại!</h1>
-
         <p className="login-description">
           Đăng nhập để tiếp tục sử dụng ChoĐồCũ
         </p>
 
         <form onSubmit={handleLogin}>
-          {/* Gmail */}
           <div className="login-input-group">
-            <label htmlFor="login-email">
-              Gmail
-            </label>
-
+            <label htmlFor="login-email">Gmail</label>
             <input
               id="login-email"
               className="login-email"
@@ -66,12 +74,8 @@ function Login() {
             />
           </div>
 
-          {/* Mật khẩu */}
           <div className="login-input-group">
-            <label htmlFor="login-password">
-              Mật khẩu
-            </label>
-
+            <label htmlFor="login-password">Mật khẩu</label>
             <input
               id="login-password"
               className="login-password"
@@ -83,7 +87,6 @@ function Login() {
             />
           </div>
 
-          {/* Ghi nhớ + Quên mật khẩu */}
           <div className="login-options">
             <label>
               <input type="checkbox" />
@@ -99,23 +102,18 @@ function Login() {
             </button>
           </div>
 
-          {/* Đăng nhập */}
           <button
             type="submit"
             className="login-submit"
+            disabled={loading}
           >
-            Đăng nhập
+            {loading ? 'Đang xử lý...' : 'Đăng nhập'}
           </button>
         </form>
 
-        {/* Đăng ký */}
         <p className="login-register">
-          Chưa có tài khoản?
-
-          <button
-            type="button"
-            onClick={handleRegister}
-          >
+          Chưa có tài khoản?{' '}
+          <button type="button" onClick={handleRegister}>
             Đăng ký ngay
           </button>
         </p>

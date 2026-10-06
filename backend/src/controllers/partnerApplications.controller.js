@@ -202,8 +202,6 @@ const createPartnerApplication = async (req, res) => {
       data: application,
     });
   } catch (error) {
-    console.error("Create partner application error:", error);
-
     return res.status(500).json({
       message: error.message || "Lỗi tạo không thành công",
     });

@@ -12,6 +12,7 @@ const memberBRoutes = require('./routes/memberB.route');
 const errorHandler = require('./middlewares/errorHandler');
 const { UPLOAD_DIR } = require('./controllers/uploads.controller');
 const storeRoutes = require('./routes/store.route');
+const listingRoutes = require('./routes/listing.route');
 
 const app = express();
 
@@ -42,6 +43,8 @@ app.use('/api/orders', orderRoutes);
 app.use("/api/partner-applications", partnerApplicationRoutes);
 //Store
 app.use("/api/stores", storeRoutes);
+//listing
+app.use("/api/listing", listingRoutes);
 
 // PHÂN HỆ B: QUẢN TRỊ VÀ DOANH THU
 app.use('/api/v1/uploads', express.static(UPLOAD_DIR, { index: false, maxAge: '7d' }));

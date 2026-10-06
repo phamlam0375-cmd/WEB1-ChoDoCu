@@ -116,7 +116,6 @@ const verifyPartnerOtp = async (req, res) => {
       message: "Lỗi server"
     })
   }
-
 };
 
 const createPartnerApplication = async (req, res) => {

@@ -1,17 +1,19 @@
 const { z } = require("zod");
 
 const sendPartnerOtpSchema = z.object({
-    phone: z
+    email: z
         .string()
         .trim()
-        .regex(/^0\d{9}$/, "Số điện thoại không hợp lệ"),
+        .min(1, "Chưa nhập email")
+        .email("Email không hợp lệ"),
 });
 
 const verifyPartnerOtpSchema = z.object({
-    phone: z
+    email: z
         .string()
         .trim()
-        .regex(/^0\d{9}$/, "Số điện thoại không hợp lệ"),
+        .min(1, "Chưa nhập email")
+        .email("Email không hợp lệ"),
 
     otp: z
         .string()

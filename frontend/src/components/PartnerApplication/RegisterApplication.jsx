@@ -3,6 +3,7 @@ import { postPartnerApplication, sendPartnerOtp, verifyPartnerOtp, } from "../..
 import { useRef, useState } from "react";
 
 import Header from "../Header";
+import { partnerApplicationSchema } from "../../schema/partnerApplication.schema";
 import { toast } from "react-toastify";
 
 export default function RegisterApplication() {
@@ -98,38 +99,32 @@ export default function RegisterApplication() {
     };
 
     const handleConfirm = async () => {
-        const newErrors = {};
+        const result = partnerApplicationSchema.safeParse({
+            email,
+            identityNumberMasked,
+            otp,
+        });
 
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        const cccdRegex = /^\d{12}$/;
-        const otpRegex = /^\d{6}$/;
+        if (!result.success) {
+            const newErrors = {};
 
-        if (!email) {
-            newErrors.email = "Chưa nhập email";
-        } else if (!emailRegex.test(email)) {
-            newErrors.email = "Email không hợp lệ";
-        }
+            result.error.issues.forEach((issue) => {
+                const field = issue.path[0];
 
-        if (!identityNumberMasked) {
-            newErrors.cccd = "Chưa nhập số CCCD";
-        } else if (!cccdRegex.test(identityNumberMasked)) {
-            newErrors.cccd = "CCCD phải có đúng 12 số";
-        }
+                if (field === "identityNumberMasked") {
+                    newErrors.cccd = issue.message;
+                } else {
+                    newErrors[field] = issue.message;
+                }
+            });
 
-        if (!otp) {
-            newErrors.otp = "Chưa nhập OTP";
-        } else if (!otpRegex.test(otp)) {
-            newErrors.otp = "OTP phải đủ 6 số";
-        }
-
-        setErrors(newErrors);
-
-        if (Object.keys(newErrors).length > 0) {
+            setErrors(newErrors);
             return;
         }
 
         try {
             await verifyPartnerOtp(email, otp);
+
             const formData = new FormData();
 
             formData.append("UserId", "8");
@@ -148,6 +143,7 @@ export default function RegisterApplication() {
                     image
                 );
             }
+
             await postPartnerApplication(formData);
 
             toast.success("Đăng ký thành công");

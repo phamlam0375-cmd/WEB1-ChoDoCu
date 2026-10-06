@@ -17,5 +17,5 @@ export const partnerApplicationSchema = z.object({
         .string()
         .trim()
         .min(1, "Chưa nhập OTP")
-        .regex(/^\d{6}$/, "OTP phải đủ 6 số"), 
+        .regex(/^\d{6}$/, "OTP phải đủ 6 số"),
 });

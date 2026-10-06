@@ -5,6 +5,6 @@ const router = express.Router();
 
 
 router.get("/", getAllStore);
-router.get("/:userId", getStore);
+router.get("/:ownerId", getStore);
 
 module.exports = router;

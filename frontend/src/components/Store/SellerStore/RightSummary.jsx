@@ -1,9 +1,9 @@
 import { Package, Pencil } from "lucide-react";
 
-import ModalEditStore from "./ModalEditStore";
+import ModalEditStore from "./ModalEditStore/ModalEditStore";
 import { useState } from "react";
 
-export default function RightSummary({ store }) {
+export default function RightSummary({ store, onStoreUpdated }) {
     const [openModalEditStore, setOpenModalEditStore] = useState(false);
 
     return (
@@ -43,6 +43,7 @@ export default function RightSummary({ store }) {
                 open={openModalEditStore}
                 onClose={() => setOpenModalEditStore(false)}
                 store={store}
+                onSaved={onStoreUpdated}
             />
         </>
     );

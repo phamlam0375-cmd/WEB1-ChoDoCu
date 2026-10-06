@@ -1,4 +1,8 @@
-const { Store, Users } = require("../models");
+const { Store } = require("../models");
+const {
+    ownerIdSchema,
+    updateStoreSchema,
+} = require("../validators/store.validator");
 
 const getAllStore = async (req, res) => {
     try {
@@ -27,10 +31,18 @@ const getAllStore = async (req, res) => {
 const getStore = async (req, res) => {
     try {
         const { ownerId } = req.params;
+        const ownerIdResult = ownerIdSchema.safeParse(ownerId);
+
+        if (!ownerIdResult.success) {
+            return res.status(400).json({
+                success: false,
+                message: "OwnerId không hợp lệ",
+            });
+        }
 
         const store = await Store.findOne({
             where: {
-                OwnerId: ownerId
+                OwnerId: ownerIdResult.data,
             }
 
         });
@@ -58,9 +70,24 @@ const getStore = async (req, res) => {
 
 const updateStore = async (req, res) => {
     try {
-        const ownerId = 4;
+        const { ownerId } = req.params;
+        const ownerIdResult = ownerIdSchema.safeParse(ownerId);
+        const bodyResult = updateStoreSchema.safeParse(req.body);
+
+        if (!ownerIdResult.success || !bodyResult.success) {
+            return res.status(400).json({
+                success: false,
+                message: !ownerIdResult.success
+                    ? "OwnerId không hợp lệ"
+                    : "Dữ liệu cửa hàng không hợp lệ",
+                errors: bodyResult.success
+                    ? undefined
+                    : bodyResult.error.issues.map((issue) => issue.message),
+            });
+        }
+
         const store = await Store.findOne({
-            where: { OwnerId: ownerId }
+            where: { OwnerId: ownerIdResult.data }
         })
 
         if (!store) {
@@ -70,37 +97,7 @@ const updateStore = async (req, res) => {
             })
         }
 
-        const storeNameRegex = /^.{1,120}$/;
-        const descriptionRegex = /^.{0,500}$/;
-        const addressRegex = /^.{0,255}$/;
-
-        const latitudeRegex = /^-?\d{1,3}(\.\d{1,7})?$/;
-        const longitudeRegex = /^-?\d{1,3}(\.\d{1,7})?$/;
-
-        const bankNameRegex = /^.{0,80}$/;
-        const bankAccountNumberRegex = /^.{0,30}$/;
-        const bankAccountHolderRegex = /^.{0,100}$/;
-
-        const qrImageUrlRegex = /^.{0,255}$/;
-        const statusRegex = /^.{1,20}$/;
-
-        if (
-            !storeNameRegex.test(StoreName) ||
-            !descriptionRegex.test(Description) ||
-            !addressRegex.test(Address) ||
-            !bankNameRegex.test(BankName) ||
-            !bankAccountNumberRegex.test(BankAccountNumber) ||
-            !bankAccountHolderRegex.test(BankAccountHolder) ||
-            !qrImageUrlRegex.test(QrImageUrl) ||
-            !statusRegex.test(Status)
-        ) {
-            return res.status(400).json({
-                success: false,
-                message: "Dữ liệu cửa hàng không hợp lệ"
-            });
-        }
-
-        await store.update(req.body);
+        await store.update(bodyResult.data);
         return res.status(200).json({
             success: true,
             message: `Sửa cửa hàng thành công`,

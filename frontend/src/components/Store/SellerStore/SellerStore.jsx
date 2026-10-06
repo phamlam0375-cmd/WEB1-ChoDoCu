@@ -196,7 +196,12 @@ export default function SellerStore() {
                                 hasLocation={hasLocation}
                             />
                         </div >
-                        <RightSummary store={store} />
+                        <RightSummary
+                            store={store}
+                            onStoreUpdated={(updatedStore) =>
+                                setStore(updatedStore)
+                            }
+                        />
 
                     </div>
                     <StoreProduct

@@ -26,12 +26,13 @@ const getAllStore = async (req, res) => {
 
 const getStore = async (req, res) => {
     try {
-        const { userId } = req.params;
+        const { ownerId } = req.params;
 
         const store = await Store.findOne({
             where: {
-                OwnerId: userId
+                OwnerId: ownerId
             }
+
         });
 
         if (!store) {
@@ -57,9 +58,9 @@ const getStore = async (req, res) => {
 
 const updateStore = async (req, res) => {
     try {
-        const userId = 4;
+        const ownerId = 4;
         const store = await Store.findOne({
-            where: { userId }
+            where: { OwnerId: ownerId }
         })
 
         if (!store) {

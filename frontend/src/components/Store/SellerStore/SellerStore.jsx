@@ -2,12 +2,8 @@ import "leaflet/dist/leaflet.css";
 
 import {
     AlertCircle,
-    MapPin,
-    Navigation,
     Package,
     Pencil,
-    Phone,
-    ShoppingBag,
     Store as StoreIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";

@@ -9,6 +9,7 @@ import {
 import { useEffect, useState } from "react";
 
 import Header from "../../Header";
+import RightSummary from "./RightSummary";
 import StoreInformation from "../StoreInformation";
 import StoreLoadingSkeleton from "../StoreLoadingSkeleton";
 import StoreMap from "../StoreMap";
@@ -39,10 +40,6 @@ export default function SellerStore() {
                 //fake loading 300mls
                 await new Promise((resolve) => setTimeout(resolve, 400))
 
-
-                // =========================
-                // LẤY THÔNG TIN CỬA HÀNG
-                // =========================
                 const storeResponse = await fetch(
                     `/api/stores/${ownerId}`
                 );
@@ -183,68 +180,13 @@ export default function SellerStore() {
         String(store.Status || "").toUpperCase() ===
         "ACTIVE";
 
-    // =========================
-    // RENDER
-    // =========================
-
     return (
         <>
             <Header />
 
             <main className="min-h-screen bg-linear-to-br from-emerald-50 via-white to-white">
                 <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-
-                    {/* =========================
-                        PAGE HEADER
-                    ========================= */}
-
-                    <div className="mb-8">
-                        <div className="mb-3 flex items-center gap-2 text-sm text-emerald-600">
-                            <StoreIcon className="h-4 w-4" />
-
-                            <span>
-                                Cửa hàng
-                            </span>
-
-                            <span className="text-slate-400">
-                                /
-                            </span>
-
-                            <span className="text-slate-500">
-                                Thông tin cửa hàng
-                            </span>
-                        </div>
-
-                        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-                            <div>
-                                <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-                                    {store.StoreName ||
-                                        "Cửa hàng"}
-                                </h1>
-
-                                <p className="mt-2 text-slate-500">
-                                    Thông tin cửa hàng và
-                                    các sản phẩm đang bán
-                                </p>
-                            </div>
-
-                            <button
-                                type="button"
-                                className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 font-medium text-white shadow-sm transition hover:bg-emerald-700"
-                            >
-                                <Pencil className="h-4 w-4" />
-
-                                Chỉnh sửa cửa hàng
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* =========================
-                        STORE + SUMMARY
-                    ========================= */}
-
                     <div className="grid gap-6 lg:grid-cols-3">
-
                         <div className="lg:col-span-2">
                             <StoreInformation
                                 store={store}
@@ -256,51 +198,10 @@ export default function SellerStore() {
                                 longitude={longitude}
                                 hasLocation={hasLocation}
                             />
-
                         </div >
+                        <RightSummary store={store} />
 
-                        {/* =========================
-                            RIGHT SUMMARY
-                        ========================= */}
-
-                        <div className="space-y-6">
-
-                            {/* MANAGEMENT CARD */}
-                            <div className="rounded-2xl border border-emerald-100 bg-white p-6 shadow-sm">
-
-                                <h2 className="mb-4 font-bold text-slate-800">
-                                    Quản lý cửa hàng
-                                </h2>
-
-                                <div className="space-y-3">
-
-                                    <button
-                                        type="button"
-                                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-200 px-4 py-3 font-medium text-emerald-700 transition hover:bg-emerald-50"
-                                    >
-                                        <Pencil className="h-4 w-4" />
-
-                                        Chỉnh sửa thông tin
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 font-medium text-white transition hover:bg-emerald-700"
-                                    >
-                                        <Package className="h-4 w-4" />
-
-                                        Quản lý sản phẩm
-                                    </button>
-
-                                </div>
-                            </div>
-                        </div>
                     </div>
-
-                    {/* =========================
-                        PRODUCTS
-                    ========================= */}
-
                     <StoreProduct
                         products={products}
                         loading={productLoading}

@@ -1,13 +1,10 @@
 import "leaflet/dist/leaflet.css";
 
-import {
-    AlertCircle,
-    Package,
-    Pencil,
-    Store as StoreIcon,
-} from "lucide-react";
 import { useEffect, useState } from "react";
 
+import {
+    AlertCircle
+} from "lucide-react";
 import Header from "../../Header";
 import RightSummary from "./RightSummary";
 import StoreInformation from "../StoreInformation";

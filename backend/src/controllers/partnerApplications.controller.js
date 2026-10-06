@@ -4,7 +4,11 @@ const Roles = require("../models/Roles.model");
 const { sendOTPEmail } = require("../services/email.service");
 const crypto = require("crypto");
 const VerificationCodes = require("../models/VerificationCodes.model");
-
+const {
+  sendPartnerOtpSchema,
+  verifyPartnerOtpSchema,
+  createPartnerApplicationSchema,
+} = require("../validators/partnerApplication.validator");
 const hashOtp = (otp) => {
   return crypto
     .createHash("sha256")
@@ -14,13 +18,16 @@ const hashOtp = (otp) => {
 
 const sendPartnerOtp = async (req, res) => {
   try {
-    const { email } = req.body;
+    const result = sendPartnerOtpSchema.safeParse(req.body);
 
-    if (!email) {
+    if (!result.success) {
       return res.status(400).json({
-        message: "Email là bắt buộc",
+        success: false,
+        message: result.error.issues[0].message,
       });
     }
+    const { email } = result.data;
+
     const otp = String(Math.floor(100000 + Math.random() * 900000));
     const codeHash = hashOtp(otp);
 
@@ -51,71 +58,80 @@ const sendPartnerOtp = async (req, res) => {
 };
 
 const verifyPartnerOtp = async (req, res) => {
-  const { email, otp } = req.body;
+  try {
+    const result = verifyPartnerOtpSchema.safeParse(req.body);
 
-  const record = await VerificationCodes.findOne({
-    where: {
-      Recipient: email,
-      Purpose: "PARTNER_APPLICATION",
-      UsedAt: null,
-    },
-    order: [["CreatedAt", "DESC"]],
-  });
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        message: result.error.issues[0].message,
+      })
+    }
 
-  if (!record) {
-    return res.status(400).json({ message: "OTP không tồn tại" });
+    const email = result.data.email;
+    const otp = result.data.otp;
+
+    const record = await VerificationCodes.findOne({
+      where: {
+        Recipient: email,
+        Purpose: "PARTNER_APPLICATION",
+        UsedAt: null,
+      },
+      order: [["CreatedAt", "DESC"]],
+    });
+
+    if (!record) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP không tồn tại",
+      });
+    }
+
+    if (new Date() > record.ExpiresAt) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP đã hết hạn",
+      });
+    }
+
+    const codeHash = hashOtp(otp);
+
+    if (codeHash !== record.CodeHash) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP không đúng",
+      });
+    }
+
+    await record.update({ UsedAt: new Date() });
+
+    return res.json({
+      success: true,
+      message: "Xác thực OTP thành công",
+    });
   }
-
-  if (new Date() > record.ExpiresAt) {
-    return res.status(400).json({ message: "OTP đã hết hạn" });
+  catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi server"
+    })
   }
-
-  const codeHash = crypto
-    .createHash("sha256")
-    .update(otp)
-    .digest("hex");
-
-  if (codeHash !== record.CodeHash) {
-    return res.status(400).json({ message: "OTP không đúng" });
-  }
-
-  await record.update({ UsedAt: new Date() });
-
-  return res.json({
-    success: true,
-    message: "Xác thực OTP thành công",
-  });
 };
 
 const createPartnerApplication = async (req, res) => {
   try {
-    const {
-      UserId,
-      PartnerType,
-      IdentityNumberMasked
-    } = req.body;
+    const result = createPartnerApplicationSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        message: result.error.issues[0].message
+      })
+    }
+    const { UserId, PartnerType, IdentityNumberMasked } = result.data;
 
     const IdentityImageUrl = req.file
       ? `/upload/partnerApplication/${req.file.filename}`
       : null;
-
-    if (!UserId) {
-      return res.status(400).json({
-        message: "UserId là bắt buộc",
-      });
-    }
-    if (!PartnerType) {
-      return res.status(400).json({
-        message: "PartnerType là bắt buộc",
-      });
-    }
-
-    if (!["SELLER", "DRIVER"].includes(PartnerType)) {
-      return res.status(400).json({
-        message: "Loại partner không hợp lệ ",
-      });
-    }
-
 
     //ktra da co dang ky chua
     const existingApplication = await PartnerApplications.findOne({
@@ -139,7 +155,7 @@ const createPartnerApplication = async (req, res) => {
         {
           model: Roles,
           where: {
-            RoleName: ["DRIVER", "SELLER", "ADMIN"],
+            RoleName: ["DRIVER", "SELLER"],
           }
         }
       ]
@@ -217,7 +233,7 @@ const getPatnerApplicationId = async (req, res) => {
     const applications = await PartnerApplications.findByPk(req.params.id);
 
     if (!applications) {
-      res.status(404).json({
+      return res.status(404).json({
         success: false,
         message: "Không tìm thấy đăng ký"
       })

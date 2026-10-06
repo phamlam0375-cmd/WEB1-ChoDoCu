@@ -8,11 +8,11 @@ export default function ModalEditStore({
     onClose,
     store,
 }) {
-    const [storeName, setStoreName] = useState("");
-    const [description, setDescription] = useState("");
-    const [address, setAddress] = useState("");
-    const [longitude, setLongitude] = useState("");
-    const [latitude, setLatitude] = useState("");
+    const [storeName, setStoreName] = useState(store?.StoreName || "");
+    const [description, setDescription] = useState(store?.Description || "");
+    const [address, setAddress] = useState(store?.Address || "");
+    const [longitude, setLongitude] = useState(store?.Longitude ?? "");
+    const [latitude, setLatitude] = useState(store?.Latitude ?? "");
 
     const [searchingLocation, setSearchingLocation] = useState(false);
     const [locationError, setLocationError] = useState("");
@@ -24,22 +24,22 @@ export default function ModalEditStore({
     const latitudeRef = useRef(null);
 
     useEffect(() => {
-        if (store) {
-            setStoreName(store.StoreName || "");
-            setDescription(store.Description || "");
-            setAddress(store.Address || "");
-            setLongitude(store.Longitude ?? "");
-            setLatitude(store.Latitude ?? "");
-        }
-    }, [store]);
-
-    useEffect(() => {
         if (open) {
             setTimeout(() => {
                 storeNameRef.current?.focus();
             }, 100);
         }
     }, [open]);
+
+    const handleKeyDown = (event, nextInputRef) => {
+        if (
+            event.key === "Enter" &&
+            event.currentTarget.tagName !== "TEXTAREA"
+        ) {
+            event.preventDefault();
+            nextInputRef.current?.focus();
+        }
+    };
 
     // Tìm tọa độ từ địa chỉ
     const handleFindLocation = async () => {

@@ -39,6 +39,7 @@ export default function RightSummary({ store }) {
             </div>
 
             <ModalEditStore
+                key={store?.StoreId}
                 open={openModalEditStore}
                 onClose={() => setOpenModalEditStore(false)}
                 store={store}

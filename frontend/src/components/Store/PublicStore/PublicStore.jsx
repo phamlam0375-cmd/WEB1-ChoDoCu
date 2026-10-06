@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 
 import Header from "../../Header";
 import { useParams } from "react-router-dom";
+import { getStoreByOwnerId } from "../../../api/store";
 
 export default function PublicStore() {
     const { ownerId } = useParams();
@@ -19,13 +20,8 @@ export default function PublicStore() {
     useEffect(() => {
         const fetchStore = async () => {
             try {
-                const response = await fetch(`/api/stores/${ownerId}`);
-
-                if (!response.ok) {
-                    throw new Error("Không thể lấy thông tin cửa hàng");
-                }
-
-                const data = await response.json();
+                const response = await getStoreByOwnerId(ownerId);
+                const data = response.data;
 
                 setStore(data.data || data);
             } catch (error) {

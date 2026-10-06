@@ -2,6 +2,7 @@ import "leaflet/dist/leaflet.css";
 
 import { useEffect, useState } from "react";
 
+import { getStoreByOwnerId } from "../../../api/store";
 import {
     AlertCircle
 } from "lucide-react";
@@ -37,17 +38,8 @@ export default function SellerStore() {
                 //fake loading 300mls
                 await new Promise((resolve) => setTimeout(resolve, 400))
 
-                const storeResponse = await fetch(
-                    `/api/stores/${ownerId}`
-                );
-
-                if (!storeResponse.ok) {
-                    throw new Error(
-                        `HTTP ${storeResponse.status}: Không thể lấy thông tin cửa hàng`
-                    );
-                }
-
-                const storeData = await storeResponse.json();
+                const storeResponse = await getStoreByOwnerId(ownerId);
+                const storeData = storeResponse.data;
 
                 console.log("Store API:", storeData);
 

@@ -1,6 +1,6 @@
 import { Package, Pencil } from "lucide-react";
 
-import ModalEditStore from "./ModalEditStore";
+import ModalEditStore from "./ModalEditStore/ModalEditStore";
 import { useState } from "react";
 
 export default function RightSummary({ store, onStoreUpdated }) {

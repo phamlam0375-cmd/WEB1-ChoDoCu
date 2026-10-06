@@ -2,8 +2,7 @@ import { Upload } from "lucide-react";
 
 export default function StoreQrUpload({
     qrFile,
-    setQrFile,
-    qrImageUrl,
+    setQrFile
 }) {
     return (
         <section>

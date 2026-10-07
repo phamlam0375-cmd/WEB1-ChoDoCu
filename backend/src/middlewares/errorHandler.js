@@ -9,7 +9,14 @@ const errorHandler = (error, req, res, _next) => {
     return res.status(error.status).json({
       success: false,
       message: error.message,
+      ...(error.code ? { code: error.code } : {}),
       ...(error.errors ? { errors: error.errors } : {}),
+      // Tương thích client /api/orders đọc error.code và error.details.
+      error: {
+        code: error.code || 'HTTP_ERROR',
+        message: error.message,
+        ...((error.details ?? error.errors) ? { details: error.details ?? error.errors } : {}),
+      },
     });
   }
 
@@ -38,7 +45,11 @@ const errorHandler = (error, req, res, _next) => {
   }
 
   console.error(error);
-  return res.status(500).json({ success: false, message: "Lỗi server" });
+  return res.status(500).json({
+    success: false,
+    message: "Lỗi server",
+    error: { code: "INTERNAL_ERROR", message: "Lỗi server" },
+  });
 };
 
 module.exports = errorHandler;

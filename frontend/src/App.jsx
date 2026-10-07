@@ -6,7 +6,6 @@ import './App.css'
 
 import HomePage from './pages/HomePage'
 import Login from './pages/Login'
-import OrderCreatePage from './pages/OrderCreatePage'
 import RegisterApplication from './components/PartnerApplication/RegisterApplication'
 
 // Phân hệ B: quản trị và doanh thu (tải khi cần để không làm nặng trang chủ)
@@ -30,6 +29,7 @@ const MyReportsPage = lazy(() => import('./pages/account/MyReportsPage'))
 const RefundCreatePage = lazy(() => import('./pages/account/RefundCreatePage'))
 const MyRefundsPage = lazy(() => import('./pages/account/MyRefundsPage'))
 const SellerFeesPage = lazy(() => import('./pages/account/SellerFeesPage'))
+const OrderCreatePage = lazy(() => import('./pages/OrderCreatePage'))
 
 function App() {
   return (
@@ -37,7 +37,6 @@ function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/orders/create/:listingId" element={<OrderCreatePage />} />
 
         <Route path="/partner-application" element={<RegisterApplication />} />
 
@@ -50,6 +49,7 @@ function App() {
             </DevAccountProvider>
           }
         >
+          <Route path="/orders/create/:listingId" element={<OrderCreatePage />} />
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboardPage />} />
             <Route path="users" element={<AdminUsersPage />} />

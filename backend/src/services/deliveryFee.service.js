@@ -1,22 +1,23 @@
 'use strict';
 
-const AppError = require('../errors/AppError');
+const { HttpError } = require('../utils/httpError');
 
-// D12 chưa có trong repository. Adapter này là điểm tích hợp duy nhất để D12
-// cung cấp việc xác thực quote ở backend mà không làm D01 tin số tiền từ client.
+// D12 chưa có trong repository. Đây là điểm tích hợp duy nhất để D12 cung cấp
+// việc xác thực báo giá ở backend; D01 không nhận số tiền do client tự gửi.
 function getCapability() {
   return {
     available: false,
-    estimateEndpoint: '/api/delivery-fees/estimate',
+    estimateEndpoint: '/api/v1/delivery-fees/estimate',
     message: 'Dịch vụ ước tính phí giao hàng chưa sẵn sàng.'
   };
 }
 
 async function verifyQuote() {
-  throw new AppError(
+  throw new HttpError(
     503,
-    'DELIVERY_SERVICE_UNAVAILABLE',
-    'Dịch vụ ước tính phí giao hàng chưa sẵn sàng; hãy chọn tự đến lấy.'
+    'Dịch vụ ước tính phí giao hàng chưa sẵn sàng; hãy chọn tự đến lấy.',
+    null,
+    'DELIVERY_SERVICE_UNAVAILABLE'
   );
 }
 

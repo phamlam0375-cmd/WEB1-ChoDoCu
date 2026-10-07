@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { getAccessToken } from './auth'
 
 // Tài khoản thử nghiệm: tạm dùng cho tới khi A02 (đăng nhập) hoàn thành.
 // Backend đọc header x-user-id (chỉ bật ngoài production).
@@ -27,8 +28,12 @@ export const api = axios.create({
 })
 
 api.interceptors.request.use((config) => {
-  const userId = getDevUserId()
-  if (userId) config.headers['x-user-id'] = userId
+  const token = getAccessToken()
+  if (token) config.headers.Authorization = `Bearer ${token}`
+  else {
+    const userId = getDevUserId()
+    if (userId) config.headers['x-user-id'] = userId
+  }
   return config
 })
 

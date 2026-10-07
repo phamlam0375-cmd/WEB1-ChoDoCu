@@ -1,9 +1,12 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { setDevUserId } from '../lib/api'
 import './Login.css'
 
 function Login() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const [searchParams] = useSearchParams()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -17,8 +20,16 @@ function Login() {
     }
 
     if (email === 'admin@gmail.com' && password === '123456') {
-      alert('Đăng nhập thành công!')
-      navigate('/')
+      // Temporary demo identity until A02 provides a real authenticated session.
+      setDevUserId(2)
+      const requestedPath = searchParams.get('returnTo')
+        || location.state?.from
+        || sessionStorage.getItem('postLoginRedirect')
+      const returnTo = requestedPath?.startsWith('/') && !requestedPath.startsWith('//')
+        ? requestedPath
+        : '/'
+      sessionStorage.removeItem('postLoginRedirect')
+      navigate(returnTo, { replace: true })
       return
     }
 

@@ -1,4 +1,4 @@
-import api from '../lib/api'
+import { api } from '../lib/api'
 
 export async function getOrderPreview(listingId, options = {}) {
   const response = await api.get(`/orders/preview/${listingId}`, options)

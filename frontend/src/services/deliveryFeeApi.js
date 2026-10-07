@@ -1,9 +1,7 @@
-import api from '../lib/api'
+import { api } from '../lib/api'
 
-export async function estimateDeliveryFee({ listingId, receiverAddress }) {
-  const response = await api.post('/delivery-fees/estimate', {
-    listingId,
-    receiverAddress,
-  })
+// Diem tich hop danh rieng cho D12. D01 chi goi khi backend thong bao dich vu san sang.
+export async function estimateDeliveryFee(payload) {
+  const response = await api.post('/delivery-fees/estimate', payload)
   return response.data.data
 }

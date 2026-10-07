@@ -2,6 +2,7 @@
   "name": "cho-do-cu-backend",
   "version": "1.0.0",
   "private": true,
+  "packageManager": "pnpm@10.34.5",
   "description": "Backend đồ án website Chợ Đồ Cũ - nhóm 4 sinh viên",
   "main": "src/server.js",
   "scripts": {

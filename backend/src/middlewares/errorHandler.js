@@ -1,10 +1,24 @@
 "use strict";
 
 const { HttpError } = require("../utils/httpError");
+const AppError = require("../errors/AppError");
 
 // Express 5 tự chuyển lỗi của hàm async vào đây, controller không cần try/catch.
 // eslint-disable-next-line no-unused-vars
 const errorHandler = (error, req, res, _next) => {
+  // Lỗi của phân hệ đặt hàng (D01) và 404 đường dẫn: giữ nguyên dạng phản hồi của D.
+  if (error instanceof AppError) {
+    return res.status(error.status).json({
+      success: false,
+      message: error.message,
+      error: {
+        code: error.code,
+        message: error.message,
+        ...(error.details ? { details: error.details } : {}),
+      },
+    });
+  }
+
   if (error instanceof HttpError) {
     return res.status(error.status).json({
       success: false,

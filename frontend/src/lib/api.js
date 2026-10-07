@@ -1,7 +1,8 @@
 import axios from 'axios'
+import { getAccessToken } from './auth'
 
-// Tài khoản thử nghiệm: tạm dùng cho tới khi A02 (đăng nhập) hoàn thành.
-// Backend đọc header x-user-id (chỉ bật ngoài production).
+// Tài khoản thử nghiệm: backend đọc header x-user-id (chỉ bật ngoài production).
+// Nếu đã đăng nhập (token JWT dùng chung với phần đặt hàng) thì gửi kèm Authorization.
 const DEV_USER_KEY = 'choDoCu.devUserId'
 
 export function getDevUserId() {
@@ -29,6 +30,13 @@ export const api = axios.create({
 api.interceptors.request.use((config) => {
   const userId = getDevUserId()
   if (userId) config.headers['x-user-id'] = userId
+  let token = null
+  try {
+    token = getAccessToken()
+  } catch {
+    // Trình duyệt chặn localStorage: coi như chưa đăng nhập.
+  }
+  if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
 

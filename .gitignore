@@ -9,3 +9,4 @@ coverage/
 
 # Ảnh người dùng tải lên (phân hệ B)
 backend/uploads/
+backend/upload/

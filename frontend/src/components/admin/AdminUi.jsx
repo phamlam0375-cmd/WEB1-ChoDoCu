@@ -4,14 +4,32 @@ import { btn, card, input, label as labelClass, tones } from './styles'
 
 export function PageHeader({ code, title, description, actions }) {
   return (
-    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-      <div>
+    <div className={`${card} mb-5 flex flex-col gap-3 p-5 sm:flex-row sm:items-end sm:justify-between`}>
+      <div className="min-w-0">
         {code && <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">{code}</p>}
         <h1 className="mt-0.5 text-2xl font-bold text-slate-900">{title}</h1>
         {description && <p className="mt-1 max-w-3xl text-sm text-slate-500">{description}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
     </div>
+  )
+}
+
+// Một phần của trang trong khung riêng, có thanh tiêu đề. flush: nội dung sát viền (bảng).
+export function Section({ title, meta, actions, children, flush = false, bodyClassName = 'p-4', className = '' }) {
+  return (
+    <section className={`${card} mb-5 overflow-hidden ${className}`}>
+      {(title || actions) && (
+        <header className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-4 py-2.5">
+          <h2 className="text-sm font-semibold text-slate-800">
+            {title}
+            {meta && <span className="ml-2 font-normal text-slate-500">{meta}</span>}
+          </h2>
+          {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+        </header>
+      )}
+      <div className={flush ? '' : bodyClassName}>{children}</div>
+    </section>
   )
 }
 
@@ -163,29 +181,29 @@ export function DataTable({ columns, rows, rowKey, onRowClick, loading, error, o
   if (!rows?.length) return <EmptyState text={empty} />
   return (
     <div className={`overflow-x-auto ${loading ? 'opacity-60' : ''}`}>
-      <table className="min-w-full divide-y divide-slate-200 text-sm">
-        <thead className="bg-slate-50">
+      <table className="min-w-full border-collapse text-sm">
+        <thead className="bg-emerald-50/70">
           <tr>
             {columns.map((column) => (
               <th
                 key={column.key}
                 scope="col"
-                className={`whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 ${column.className || ''}`}
+                className={`whitespace-nowrap border-b-2 border-r border-emerald-100 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-emerald-900 last:border-r-0 ${column.className || ''}`}
               >
                 {column.title}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100 bg-white">
+        <tbody className="bg-white">
           {rows.map((row) => (
             <tr
               key={rowKey(row)}
               onClick={onRowClick ? () => onRowClick(row) : undefined}
-              className={onRowClick ? 'cursor-pointer transition hover:bg-emerald-50/40' : ''}
+              className={`even:bg-slate-50/70 ${onRowClick ? 'cursor-pointer transition hover:bg-emerald-50/60' : ''}`}
             >
               {columns.map((column) => (
-                <td key={column.key} className={`px-4 py-3 align-top text-slate-700 ${column.className || ''}`}>
+                <td key={column.key} className={`border-b border-r border-slate-200 px-4 py-3 align-top text-slate-700 last:border-r-0 ${column.className || ''}`}>
                   {column.render ? column.render(row) : row[column.key]}
                 </td>
               ))}
@@ -319,9 +337,9 @@ function ConfirmDialogBody({
 // Cặp nhãn - giá trị trong trang chi tiết.
 export function InfoRow({ label, children }) {
   return (
-    <div className="grid grid-cols-3 gap-3 py-2 text-sm">
-      <dt className="text-slate-500">{label}</dt>
-      <dd className="col-span-2 break-words text-slate-900">{children ?? '—'}</dd>
+    <div className="grid grid-cols-3 text-sm">
+      <dt className="border-r border-slate-200 bg-slate-50 px-3 py-2 font-medium text-slate-600">{label}</dt>
+      <dd className="col-span-2 break-words px-3 py-2 text-slate-900">{children ?? '—'}</dd>
     </div>
   )
 }

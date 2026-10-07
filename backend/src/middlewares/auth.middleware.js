@@ -2,10 +2,11 @@
 
 const { Users, Roles } = require("../models");
 const { HttpError, forbidden } = require("../utils/httpError");
+const { verifyToken } = require("../middleware/authenticate");
 
-// TẠM THỜI cho tới khi A02 (đăng nhập) hoàn thành: nhận mã người dùng qua header
-// x-user-id. Chỉ bật ngoài production. Khi có JWT, chỉ cần thay hàm resolveUserId
-// để đọc Authorization: Bearer <token>; phần còn lại giữ nguyên.
+// Nhận người dùng theo hai cách:
+// 1. Header x-user-id (tài khoản thử nghiệm, chỉ bật ngoài production) — ưu tiên vì là lựa chọn chủ động.
+// 2. Authorization: Bearer <JWT> — cùng token với phần đặt hàng (ký bằng JWT_SECRET).
 const devHeaderEnabled = () =>
   process.env.NODE_ENV !== "production" && process.env.AUTH_DEV_HEADER !== "false";
 
@@ -14,12 +15,25 @@ const resolveUserId = (req) => {
     const id = Number(req.get("x-user-id"));
     if (Number.isInteger(id) && id > 0) return id;
   }
+  const match = (req.get("authorization") || "").match(/^Bearer\s+(.+)$/i);
+  if (match && process.env.JWT_SECRET) {
+    try {
+      return verifyToken(match[1]).userId;
+    } catch (error) {
+      throw new HttpError(401, error.code === "TOKEN_EXPIRED" ? "Phiên đăng nhập đã hết hạn" : "Phiên đăng nhập không hợp lệ");
+    }
+  }
   return null;
 };
 
 // Gắn req.user = { UserId, FullName, Email, Status, roles: ["USER", "ADMIN", ...] }.
 const requireAuth = async (req, _res, next) => {
-  const userId = resolveUserId(req);
+  let userId;
+  try {
+    userId = resolveUserId(req);
+  } catch (error) {
+    return next(error);
+  }
   if (!userId) {
     return next(new HttpError(401, "Vui lòng đăng nhập"));
   }

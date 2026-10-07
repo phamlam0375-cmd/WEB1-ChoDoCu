@@ -1,75 +1,61 @@
 'use strict';
 
-const AppError = require('../errors/AppError');
+const { HttpError } = require('../utils/httpError');
 
 const PHONE_PATTERN = /^(?:\+84|84|0)(?:3|5|7|8|9)\d{8}$/;
 const FORBIDDEN_FIELDS = [
-  'buyerId',
-  'sellerId',
-  'productAmount',
-  'deliveryFee',
-  'totalAmount',
-  'commissionRate',
-  'status',
-  'reservedUntil'
+  'buyerId', 'sellerId', 'productAmount', 'deliveryFee', 'totalAmount',
+  'commissionRate', 'status', 'reservedUntil'
 ];
 
-function trimmedString(value) {
+function trimmed(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function validationError(details) {
-  return new AppError(
+function validationError(fields) {
+  return new HttpError(
     422,
-    'VALIDATION_ERROR',
     'Thông tin đặt hàng không hợp lệ.',
-    details
+    { fields },
+    'VALIDATION_ERROR'
   );
 }
 
 function validateCreateOrder(payload = {}) {
-  const invalidControlledFields = FORBIDDEN_FIELDS.filter((field) => (
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw validationError({ body: 'Nội dung đặt hàng phải là một đối tượng.' });
+  }
+  const controlled = FORBIDDEN_FIELDS.filter((field) => (
     Object.prototype.hasOwnProperty.call(payload, field)
   ));
-  if (invalidControlledFields.length > 0) {
-    throw validationError({
-      fields: invalidControlledFields,
-      message: 'Các trường này do máy chủ quyết định.'
-    });
+  if (controlled.length) {
+    const error = validationError(Object.fromEntries(controlled.map((field) => [field, 'Trường này do máy chủ quyết định.'])));
+    // Giữ cấu trúc details cũ; API v1 vẫn nhận errors.fields theo từng trường.
+    error.details = { fields: controlled, message: 'Các trường này do máy chủ quyết định.' };
+    throw error;
   }
 
   const listingId = Number(payload.listingId);
-  const deliveryMethod = trimmedString(payload.deliveryMethod).toUpperCase();
-  const receiverName = trimmedString(payload.receiverName);
-  const receiverPhone = trimmedString(payload.receiverPhone).replace(/[.\s-]/g, '');
-  const receiverAddress = trimmedString(payload.receiverAddress);
-  const note = trimmedString(payload.note);
-  const deliveryQuoteId = trimmedString(payload.deliveryQuoteId);
+  const deliveryMethod = trimmed(payload.deliveryMethod).toUpperCase();
+  const receiverName = trimmed(payload.receiverName);
+  const receiverPhone = trimmed(payload.receiverPhone).replace(/[.\s-]/g, '');
+  const receiverAddress = trimmed(payload.receiverAddress);
+  const note = trimmed(payload.note);
+  const deliveryQuoteId = trimmed(payload.deliveryQuoteId);
   const fields = {};
 
-  if (!Number.isSafeInteger(listingId) || listingId <= 0) {
-    fields.listingId = 'Mã sản phẩm không hợp lệ.';
-  }
-  if (!['DELIVERY', 'PICKUP'].includes(deliveryMethod)) {
-    fields.deliveryMethod = 'Hình thức nhận hàng không hợp lệ.';
-  }
+  if (!Number.isSafeInteger(listingId) || listingId <= 0) fields.listingId = 'Mã sản phẩm không hợp lệ.';
+  if (!['DELIVERY', 'PICKUP'].includes(deliveryMethod)) fields.deliveryMethod = 'Hình thức nhận hàng không hợp lệ.';
   if (!receiverName) fields.receiverName = 'Vui lòng nhập họ tên người nhận.';
-  if (receiverName.length > 100) fields.receiverName = 'Họ tên tối đa 100 ký tự.';
+  else if (receiverName.length > 100) fields.receiverName = 'Họ tên tối đa 100 ký tự.';
   if (!receiverPhone) fields.receiverPhone = 'Vui lòng nhập số điện thoại.';
-  else if (!PHONE_PATTERN.test(receiverPhone)) {
-    fields.receiverPhone = 'Số điện thoại Việt Nam không hợp lệ.';
-  }
-  if (deliveryMethod === 'DELIVERY' && !receiverAddress) {
-    fields.receiverAddress = 'Vui lòng nhập địa chỉ nhận hàng.';
-  }
+  else if (!PHONE_PATTERN.test(receiverPhone)) fields.receiverPhone = 'Số điện thoại Việt Nam không hợp lệ.';
+  if (deliveryMethod === 'DELIVERY' && !receiverAddress) fields.receiverAddress = 'Vui lòng nhập địa chỉ nhận hàng.';
   if (receiverAddress.length > 255) fields.receiverAddress = 'Địa chỉ tối đa 255 ký tự.';
   if (note.length > 500) fields.note = 'Ghi chú tối đa 500 ký tự.';
-  if (deliveryMethod === 'DELIVERY' && !deliveryQuoteId) {
-    fields.deliveryQuoteId = 'Vui lòng tính phí giao hàng trước khi đặt.';
-  }
+  if (deliveryMethod === 'DELIVERY' && !deliveryQuoteId) fields.deliveryQuoteId = 'Vui lòng tính phí giao hàng trước khi đặt.';
 
-  if (Object.keys(fields).length > 0) throw validationError({ fields });
-
+  if (Object.keys(fields).length) throw validationError(fields);
   return {
     listingId,
     deliveryMethod,

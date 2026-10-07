@@ -2,9 +2,7 @@
 
 function toCents(value) {
   const normalized = String(value).trim();
-  if (!/^\d+(?:\.\d{1,2})?$/.test(normalized)) {
-    throw new TypeError('Invalid money value');
-  }
+  if (!/^\d+(?:\.\d{1,2})?$/.test(normalized)) throw new TypeError('Invalid money value');
   const [whole, fraction = ''] = normalized.split('.');
   return BigInt(whole) * 100n + BigInt(fraction.padEnd(2, '0'));
 }
@@ -21,10 +19,7 @@ function addMoney(first, second) {
 
 function asApiNumber(value) {
   const numeric = Number(value);
-  if (!Number.isSafeInteger(numeric) && !Number.isSafeInteger(numeric * 100)) {
-    return String(value);
-  }
-  return numeric;
+  return Number.isSafeInteger(numeric * 100) ? numeric : String(value);
 }
 
 module.exports = { addMoney, asApiNumber };

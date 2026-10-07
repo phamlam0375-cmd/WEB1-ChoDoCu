@@ -1,11 +1,8 @@
 'use strict';
 
 const { Op, QueryTypes, Transaction } = require('sequelize');
-const sequelize = require('../database');
-const Listing = require('../models/Listing.model');
-const Notification = require('../models/Notification.model');
-const Order = require('../models/Order.model');
-const StatusHistory = require('../models/StatusHistory.model');
+const { sequelize, Listings, Orders, StatusHistories } = require('../models');
+const { notify } = require('../services/notification.service');
 
 async function withTransaction(work) {
   return sequelize.transaction(
@@ -15,7 +12,7 @@ async function withTransaction(work) {
 }
 
 async function findListingByIdForUpdate(listingId, transaction) {
-  return Listing.findByPk(listingId, {
+  return Listings.findByPk(listingId, {
     transaction,
     lock: transaction.LOCK.UPDATE,
     raw: true
@@ -25,38 +22,24 @@ async function findListingByIdForUpdate(listingId, transaction) {
 async function findListingPreview(listingId) {
   const rows = await sequelize.query(
     `SELECT
-       l.ListingId,
-       l.SellerId,
-       l.Title,
-       l.Description,
-       l.Price,
-       l.ConditionLevel,
-       l.Location,
-       l.Status,
+       l.ListingId, l.SellerId, l.Title, l.Description, l.Price,
+       l.ConditionLevel, l.Location, l.Status,
        u.FullName AS SellerName,
        (u.EmailVerified = 1 OR u.PhoneVerified = 1) AS SellerVerified,
-       (
-         SELECT lm.MediaUrl
-         FROM ListingMedia lm
-         WHERE lm.ListingId = l.ListingId AND lm.MediaType = 'IMAGE'
-         ORDER BY lm.SortOrder ASC, lm.MediaId ASC
-         LIMIT 1
-       ) AS ImageUrl
+       (SELECT lm.MediaUrl FROM ListingMedia lm
+        WHERE lm.ListingId = l.ListingId AND lm.MediaType = 'IMAGE'
+        ORDER BY lm.SortOrder ASC, lm.MediaId ASC LIMIT 1) AS ImageUrl
      FROM Listings l
      INNER JOIN Users u ON u.UserId = l.SellerId
      WHERE l.ListingId = :listingId
      LIMIT 1`,
-    {
-      replacements: { listingId },
-      type: QueryTypes.SELECT
-    }
+    { replacements: { listingId }, type: QueryTypes.SELECT }
   );
-
   return rows[0] || null;
 }
 
 async function reserveListing(listingId, transaction) {
-  const [affectedCount] = await Listing.update(
+  const [affectedCount] = await Listings.update(
     { Status: 'RESERVED', UpdatedAt: new Date() },
     { where: { ListingId: listingId, Status: 'ACTIVE' }, transaction }
   );
@@ -64,15 +47,23 @@ async function reserveListing(listingId, transaction) {
 }
 
 async function createOrder(data, transaction) {
-  return Order.create(data, { transaction });
+  return Orders.create(data, { transaction });
 }
 
 async function createHistory(data, transaction) {
-  return StatusHistory.create(data, { transaction });
+  return StatusHistories.create(data, { transaction });
 }
 
 async function createNotification(data, transaction) {
-  return Notification.create(data, { transaction });
+  // Chấp nhận cả contract D01 cũ và service thông báo dùng chung.
+  return notify(data.userId ?? data.UserId, {
+    type: data.type ?? data.Type,
+    title: data.title ?? data.Title,
+    message: data.message ?? data.Message,
+    referenceType: data.referenceType ?? data.ReferenceType,
+    referenceId: data.referenceId ?? data.ReferenceId,
+    createdAt: data.createdAt ?? data.CreatedAt
+  }, { transaction });
 }
 
 async function findExpiredReservations(now, limit, transaction) {
@@ -83,16 +74,12 @@ async function findExpiredReservations(now, limit, transaction) {
      ORDER BY ReservedUntil ASC, OrderId ASC
      LIMIT :limit
      FOR UPDATE SKIP LOCKED`,
-    {
-      replacements: { now, limit },
-      type: QueryTypes.SELECT,
-      transaction
-    }
+    { replacements: { now, limit }, type: QueryTypes.SELECT, transaction }
   );
 }
 
 async function cancelExpiredOrder(orderId, now, reason, transaction) {
-  const [affectedCount] = await Order.update(
+  const [affectedCount] = await Orders.update(
     { Status: 'CANCELLED', CancelReason: reason },
     {
       where: {
@@ -107,7 +94,7 @@ async function cancelExpiredOrder(orderId, now, reason, transaction) {
 }
 
 async function reopenListing(listingId, transaction) {
-  const [affectedCount] = await Listing.update(
+  const [affectedCount] = await Listings.update(
     { Status: 'ACTIVE', UpdatedAt: new Date() },
     { where: { ListingId: listingId, Status: 'RESERVED' }, transaction }
   );

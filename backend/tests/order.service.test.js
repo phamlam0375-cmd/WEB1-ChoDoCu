@@ -1,73 +1,70 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { describe, test } = require('node:test');
-const AppError = require('../src/errors/AppError');
-const { createOrderService } = require('../src/services/order.service');
+const { test } = require('node:test');
+const { createOrderService, EXPIRED_REASON } = require('../src/services/order.service');
+const { HttpError } = require('../src/utils/httpError');
 
-const NOW = new Date('2026-10-02T07:15:00.000Z');
-const CONFIG = {
-  reservationMinutes: 15,
-  expirationBatchSize: 50,
-  commissionRate: '5.00'
-};
-
-const pickupPayload = {
+const NOW = new Date('2026-10-02T03:00:00.000Z');
+const DEFAULT_PAYLOAD = {
   listingId: 10,
   deliveryMethod: 'PICKUP',
-  receiverName: ' Nguyễn Văn A ',
-  receiverPhone: '0912 345 678',
-  note: ' Đến lấy buổi chiều '
+  receiverName: 'Nguyen Van B',
+  receiverPhone: '0901234567',
+  receiverAddress: '',
+  note: 'Goi truoc khi den'
 };
 
-function activeListing(overrides = {}) {
-  return {
-    ListingId: 10,
-    SellerId: 1,
-    Title: 'Bàn học cũ',
-    Description: 'Còn tốt',
-    Price: '1000000.00',
-    ConditionLevel: 'GOOD',
-    Location: 'TP. Hồ Chí Minh',
-    Status: 'ACTIVE',
-    SellerName: 'Người bán',
-    SellerVerified: 1,
-    ImageUrl: null,
-    ...overrides
-  };
+function clone(value) {
+  return structuredClone(value);
 }
 
-function makeRepository(options = {}) {
-  let state = {
-    listing: options.listing === undefined ? activeListing() : options.listing,
-    orders: structuredClone(options.orders || []),
+function fakeRepository(overrides = {}) {
+  const state = {
+    listing: {
+      ListingId: 10,
+      SellerId: 2,
+      Title: 'Ban hoc go',
+      Description: 'Con tot',
+      Price: '790000.00',
+      ConditionLevel: 'USED',
+      Location: 'Can Tho',
+      Status: 'ACTIVE',
+      ImageUrl: '/image.jpg',
+      SellerName: 'Nguoi ban',
+      SellerVerified: 1
+    },
+    orders: [],
     histories: [],
-    notifications: []
+    notifications: [],
+    nextOrderId: 1,
+    ...clone(overrides.state || {})
   };
-  let nextOrderId = 100;
-  let queue = Promise.resolve();
 
+  let queue = Promise.resolve();
   const repository = {
-    withTransaction(work) {
-      const operation = queue.then(async () => {
-        const snapshot = structuredClone(state);
-        const snapshotId = nextOrderId;
-        try {
-          return await work({ LOCK: { UPDATE: 'UPDATE' } });
-        } catch (error) {
-          state = snapshot;
-          nextOrderId = snapshotId;
-          throw error;
-        }
-      });
-      queue = operation.catch(() => undefined);
-      return operation;
+    state,
+    async withTransaction(work) {
+      let unlock;
+      const turn = queue;
+      queue = new Promise((resolve) => { unlock = resolve; });
+      await turn;
+      const before = clone(state);
+      try {
+        return await work({ LOCK: { UPDATE: 'UPDATE' } });
+      } catch (error) {
+        Object.keys(state).forEach((key) => delete state[key]);
+        Object.assign(state, before);
+        throw error;
+      } finally {
+        unlock();
+      }
     },
     async findListingPreview() {
-      return state.listing;
+      return state.listing ? clone(state.listing) : null;
     },
     async findListingByIdForUpdate() {
-      return state.listing;
+      return state.listing ? clone(state.listing) : null;
     },
     async reserveListing() {
       if (!state.listing || state.listing.Status !== 'ACTIVE') return 0;
@@ -75,270 +72,292 @@ function makeRepository(options = {}) {
       return 1;
     },
     async createOrder(data) {
-      const order = { ...data, OrderId: nextOrderId++ };
+      const order = { ...clone(data), OrderId: state.nextOrderId++ };
       state.orders.push(order);
-      return order;
+      return clone(order);
     },
     async createHistory(data) {
-      state.histories.push(data);
-      return data;
+      state.histories.push(clone(data));
     },
     async createNotification(data) {
-      if (options.failNotification) throw new Error('notification failed');
-      state.notifications.push(data);
-      return data;
+      state.notifications.push(clone(data));
     },
     async findExpiredReservations(now, limit) {
       return state.orders
-        .filter((order) => order.Status === 'RESERVED' && order.ReservedUntil <= now)
-        .slice(0, limit);
+        .filter((order) => order.Status === 'RESERVED' && new Date(order.ReservedUntil) <= now)
+        .slice(0, limit)
+        .map(clone);
     },
     async cancelExpiredOrder(orderId, now, reason) {
-      const order = state.orders.find((item) => item.OrderId === orderId);
-      if (!order || order.Status !== 'RESERVED' || order.ReservedUntil > now) return 0;
+      const order = state.orders.find((item) => (
+        item.OrderId === orderId
+        && item.Status === 'RESERVED'
+        && new Date(item.ReservedUntil) <= now
+      ));
+      if (!order) return 0;
       order.Status = 'CANCELLED';
       order.CancelReason = reason;
       return 1;
     },
     async reopenListing() {
-      if (state.listing?.Status !== 'RESERVED') return 0;
+      if (!state.listing || state.listing.Status !== 'RESERVED') return 0;
       state.listing.Status = 'ACTIVE';
       return 1;
     }
   };
-
-  return { repository, getState: () => state };
+  return Object.assign(repository, overrides.methods || {});
 }
 
-function makeService(repository, deliveryFeeService = null) {
+function fakeDeliveryService(overrides = {}) {
+  return {
+    getCapability: () => ({ available: true }),
+    verifyQuote: async () => ({
+      amount: '35000.00',
+      deliveryFeeRuleId: 7,
+      expiresAt: new Date(NOW.getTime() + 60000).toISOString()
+    }),
+    ...overrides
+  };
+}
+
+function serviceFor(repository, deliveryFeeService = fakeDeliveryService()) {
   return createOrderService({
     repository,
-    config: CONFIG,
+    deliveryFeeService,
     clock: () => new Date(NOW),
-    deliveryFeeService: deliveryFeeService || {
-      getCapability: () => ({ available: false }),
-      verifyQuote: async () => {
-        throw new AppError(503, 'DELIVERY_SERVICE_UNAVAILABLE', 'D12 unavailable');
-      }
+    config: {
+      reservationMinutes: 15,
+      expirationBatchSize: 50,
+      commissionRate: '0.00'
     }
   });
 }
 
-async function expectAppError(promise, code, status) {
+async function rejectsWithCode(promise, status, code) {
   await assert.rejects(promise, (error) => {
+    assert.equal(error.status, status);
     assert.equal(error.code, code);
-    if (status) assert.equal(error.status, status);
     return true;
   });
 }
 
-describe('D01 createOrder', () => {
-  test('creates a valid PICKUP reservation from database values', async () => {
-    const fixture = makeRepository();
-    const result = await makeService(fixture.repository).createOrder(pickupPayload, 2);
-    const state = fixture.getState();
+test('tao don PICKUP bang gia tren server va giu mon 15 phut', async () => {
+  const repository = fakeRepository();
+  const result = await serviceFor(repository).createOrder(DEFAULT_PAYLOAD, 1);
 
-    assert.equal(result.data.status, 'RESERVED');
-    assert.equal(result.data.productAmount, 1000000);
-    assert.equal(result.data.deliveryFee, 0);
-    assert.equal(result.data.totalAmount, 1000000);
-    assert.equal(result.data.reservedUntil, '2026-10-02T07:30:00.000Z');
-    assert.equal(state.listing.Status, 'RESERVED');
-    assert.equal(state.orders[0].BuyerId, 2);
-    assert.equal(state.orders[0].SellerId, 1);
-    assert.equal(state.orders[0].ReceiverAddress, null);
-    assert.equal(state.orders[0].BuyerNote, 'Đến lấy buổi chiều');
-    assert.equal(state.histories[0].StatusValue, 'RESERVED');
-    assert.equal(state.notifications[0].UserId, 1);
-  });
-
-  test('creates DELIVERY only with a server-verified quote', async () => {
-    const fixture = makeRepository();
-    const deliveryFeeService = {
-      getCapability: () => ({ available: true }),
-      verifyQuote: async () => ({
-        deliveryFeeRuleId: 7,
-        amount: '30000.00',
-        expiresAt: '2026-10-02T07:20:00.000Z'
-      })
-    };
-    const result = await makeService(fixture.repository, deliveryFeeService).createOrder({
-      ...pickupPayload,
-      deliveryMethod: 'DELIVERY',
-      receiverAddress: 'Thủ Đức, TP. Hồ Chí Minh',
-      deliveryQuoteId: 'quote-1'
-    }, 2);
-
-    assert.equal(result.data.deliveryFee, 30000);
-    assert.equal(result.data.totalAmount, 1030000);
-    assert.equal(fixture.getState().orders[0].DeliveryFeeRuleId, 7);
-  });
-
-  test('rejects a delivery quote that has expired', async () => {
-    const fixture = makeRepository();
-    const deliveryFeeService = {
-      getCapability: () => ({ available: true }),
-      verifyQuote: async () => ({
-        deliveryFeeRuleId: 7,
-        amount: '30000.00',
-        expiresAt: '2026-10-02T07:14:59.000Z'
-      })
-    };
-    await expectAppError(makeService(fixture.repository, deliveryFeeService).createOrder({
-      ...pickupPayload,
-      deliveryMethod: 'DELIVERY',
-      receiverAddress: 'Thủ Đức',
-      deliveryQuoteId: 'expired'
-    }, 2), 'DELIVERY_QUOTE_EXPIRED', 422);
-  });
-
-  test('does not accept client-controlled monetary fields or buyerId', async () => {
-    const fixture = makeRepository();
-    await expectAppError(makeService(fixture.repository).createOrder({
-      ...pickupPayload,
-      buyerId: 99,
-      totalAmount: 1
-    }, 2), 'VALIDATION_ERROR', 422);
-    assert.equal(fixture.getState().orders.length, 0);
-  });
-
-  for (const [name, patch] of [
-    ['missing receiver name', { receiverName: '   ' }],
-    ['missing phone', { receiverPhone: '' }],
-    ['invalid phone', { receiverPhone: '123' }],
-    ['invalid listing id', { listingId: 0 }],
-    ['invalid delivery method', { deliveryMethod: 'SHIP' }],
-    ['note longer than 500 characters', { note: 'x'.repeat(501) }]
-  ]) {
-    test(`rejects ${name}`, async () => {
-      const fixture = makeRepository();
-      await expectAppError(
-        makeService(fixture.repository).createOrder({ ...pickupPayload, ...patch }, 2),
-        'VALIDATION_ERROR',
-        422
-      );
-    });
-  }
-
-  test('requires address and quote for DELIVERY', async () => {
-    const fixture = makeRepository();
-    await expectAppError(makeService(fixture.repository).createOrder({
-      ...pickupPayload,
-      deliveryMethod: 'DELIVERY'
-    }, 2), 'VALIDATION_ERROR', 422);
-  });
-
-  test('rejects buying own listing', async () => {
-    const fixture = makeRepository();
-    await expectAppError(
-      makeService(fixture.repository).createOrder(pickupPayload, 1),
-      'CANNOT_BUY_OWN_LISTING',
-      403
-    );
-  });
-
-  test('returns 404 for a missing listing', async () => {
-    const fixture = makeRepository({ listing: null });
-    await expectAppError(
-      makeService(fixture.repository).createOrder(pickupPayload, 2),
-      'LISTING_NOT_FOUND',
-      404
-    );
-  });
-
-  test('returns 409 for a listing that is not ACTIVE', async () => {
-    const fixture = makeRepository({ listing: activeListing({ Status: 'SOLD' }) });
-    await expectAppError(
-      makeService(fixture.repository).createOrder(pickupPayload, 2),
-      'LISTING_UNAVAILABLE',
-      409
-    );
-  });
-
-  test('allows only one of two concurrent buyers to reserve a listing', async () => {
-    const fixture = makeRepository();
-    const service = makeService(fixture.repository);
-    const results = await Promise.allSettled([
-      service.createOrder(pickupPayload, 2),
-      service.createOrder(pickupPayload, 3)
-    ]);
-
-    assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1);
-    const rejected = results.find((result) => result.status === 'rejected');
-    assert.equal(rejected.reason.code, 'LISTING_UNAVAILABLE');
-    assert.equal(rejected.reason.status, 409);
-    assert.equal(fixture.getState().orders.length, 1);
-  });
-
-  test('rolls the complete transaction back when notification creation fails', async () => {
-    const fixture = makeRepository({ failNotification: true });
-    await assert.rejects(makeService(fixture.repository).createOrder(pickupPayload, 2));
-
-    const state = fixture.getState();
-    assert.equal(state.listing.Status, 'ACTIVE');
-    assert.equal(state.orders.length, 0);
-    assert.equal(state.histories.length, 0);
-  });
+  assert.equal(result.data.status, 'RESERVED');
+  assert.equal(result.data.productAmount, 790000);
+  assert.equal(result.data.deliveryFee, 0);
+  assert.equal(result.data.totalAmount, 790000);
+  assert.equal(result.data.reservedUntil, '2026-10-02T03:15:00.000Z');
+  assert.equal(repository.state.listing.Status, 'RESERVED');
+  assert.equal(repository.state.orders[0].SellerId, 2);
+  assert.equal(repository.state.orders[0].BuyerId, 1);
+  assert.equal(repository.state.orders[0].ReceiverAddress, null);
+  assert.equal(repository.state.histories.length, 1);
+  assert.equal(repository.state.notifications.length, 1);
 });
 
-describe('D01 expireReservations', () => {
-  test('expires only RESERVED orders and is idempotent', async () => {
-    const fixture = makeRepository({
-      listing: activeListing({ Status: 'RESERVED' }),
-      orders: [
-        {
-          OrderId: 11,
-          BuyerId: 2,
-          SellerId: 1,
-          ListingId: 10,
-          Status: 'RESERVED',
-          ReservedUntil: new Date('2026-10-02T07:14:00.000Z')
-        },
-        {
-          OrderId: 12,
-          BuyerId: 3,
-          SellerId: 1,
-          ListingId: 10,
-          Status: 'WAITING_PAYMENT',
-          ReservedUntil: new Date('2026-10-02T07:10:00.000Z')
-        },
-        {
-          OrderId: 13,
-          BuyerId: 4,
-          SellerId: 1,
-          ListingId: 10,
-          Status: 'RESERVED',
-          ReservedUntil: new Date('2026-10-02T07:20:00.000Z')
-        }
-      ]
-    });
-    const service = makeService(fixture.repository);
+test('tao don DELIVERY bang bao gia da duoc backend xac thuc', async () => {
+  const repository = fakeRepository();
+  const payload = {
+    ...DEFAULT_PAYLOAD,
+    deliveryMethod: 'DELIVERY',
+    receiverAddress: '12 Nguyen Hue, Quan 1',
+    deliveryQuoteId: 'quote-1'
+  };
+  const result = await serviceFor(repository).createOrder(payload, 1);
 
-    assert.deepEqual(await service.expireReservations(), { expiredCount: 1 });
-    assert.deepEqual(await service.expireReservations(), { expiredCount: 0 });
+  assert.equal(result.data.deliveryFee, 35000);
+  assert.equal(result.data.totalAmount, 825000);
+  assert.equal(repository.state.orders[0].DeliveryFeeRuleId, 7);
+});
 
-    const state = fixture.getState();
-    assert.equal(state.orders[0].Status, 'CANCELLED');
-    assert.equal(state.orders[1].Status, 'WAITING_PAYMENT');
-    assert.equal(state.orders[2].Status, 'RESERVED');
-    assert.equal(state.listing.Status, 'ACTIVE');
-    assert.equal(state.histories.length, 1);
-    assert.equal(state.notifications.length, 2);
+test('tu choi bao gia DELIVERY het han', async () => {
+  const repository = fakeRepository();
+  const delivery = fakeDeliveryService({
+    verifyQuote: async () => ({ amount: '1.00', deliveryFeeRuleId: 1, expiresAt: NOW.toISOString() })
   });
+  await rejectsWithCode(serviceFor(repository, delivery).createOrder({
+    ...DEFAULT_PAYLOAD,
+    deliveryMethod: 'DELIVERY',
+    receiverAddress: 'Da Nang',
+    deliveryQuoteId: 'expired'
+  }, 1), 422, 'DELIVERY_QUOTE_EXPIRED');
+});
 
-  test('does not reopen a listing already marked SOLD', async () => {
-    const fixture = makeRepository({
-      listing: activeListing({ Status: 'SOLD' }),
-      orders: [{
-        OrderId: 20,
-        BuyerId: 2,
-        SellerId: 1,
-        ListingId: 10,
-        Status: 'RESERVED',
-        ReservedUntil: new Date('2026-10-02T07:00:00.000Z')
-      }]
-    });
-    await makeService(fixture.repository).expireReservations();
-    assert.equal(fixture.getState().listing.Status, 'SOLD');
+test('bao loi khi tuyen DELIVERY chua duoc ho tro', async () => {
+  const repository = fakeRepository();
+  const delivery = fakeDeliveryService({
+    verifyQuote: async () => {
+      throw new HttpError(422, 'Chua ho tro tuyen giao nay', null, 'DELIVERY_ROUTE_UNSUPPORTED');
+    }
   });
+  await rejectsWithCode(serviceFor(repository, delivery).createOrder({
+    ...DEFAULT_PAYLOAD,
+    deliveryMethod: 'DELIVERY',
+    receiverAddress: 'Huyen dao xa',
+    deliveryQuoteId: 'unsupported'
+  }, 1), 422, 'DELIVERY_ROUTE_UNSUPPORTED');
+});
+
+test('tu choi cac truong tien va trang thai do client gui', async () => {
+  const repository = fakeRepository();
+  await rejectsWithCode(serviceFor(repository).createOrder({
+    ...DEFAULT_PAYLOAD,
+    productAmount: 1,
+    sellerId: 99,
+    status: 'COMPLETED'
+  }, 1), 422, 'VALIDATION_ERROR');
+  assert.equal(repository.state.orders.length, 0);
+});
+
+test('bat buoc ho ten nguoi nhan', async () => {
+  await rejectsWithCode(serviceFor(fakeRepository()).createOrder({
+    ...DEFAULT_PAYLOAD,
+    receiverName: ' '
+  }, 1), 422, 'VALIDATION_ERROR');
+});
+
+test('tu choi so dien thoai khong hop le', async () => {
+  await rejectsWithCode(serviceFor(fakeRepository()).createOrder({
+    ...DEFAULT_PAYLOAD,
+    receiverPhone: '123'
+  }, 1), 422, 'VALIDATION_ERROR');
+});
+
+test('bat buoc so dien thoai nguoi nhan', async () => {
+  await rejectsWithCode(serviceFor(fakeRepository()).createOrder({
+    ...DEFAULT_PAYLOAD,
+    receiverPhone: ' '
+  }, 1), 422, 'VALIDATION_ERROR');
+});
+
+test('tu choi ma tin dang khong hop le', async () => {
+  await rejectsWithCode(serviceFor(fakeRepository()).createOrder({
+    ...DEFAULT_PAYLOAD,
+    listingId: 0
+  }, 1), 422, 'VALIDATION_ERROR');
+});
+
+test('tu choi phuong thuc nhan hang khong hop le', async () => {
+  await rejectsWithCode(serviceFor(fakeRepository()).createOrder({
+    ...DEFAULT_PAYLOAD,
+    deliveryMethod: 'DRONE'
+  }, 1), 422, 'VALIDATION_ERROR');
+});
+
+test('gioi han ghi chu 500 ky tu', async () => {
+  await rejectsWithCode(serviceFor(fakeRepository()).createOrder({
+    ...DEFAULT_PAYLOAD,
+    note: 'x'.repeat(501)
+  }, 1), 422, 'VALIDATION_ERROR');
+});
+
+test('DELIVERY bat buoc dia chi', async () => {
+  await rejectsWithCode(serviceFor(fakeRepository()).createOrder({
+    ...DEFAULT_PAYLOAD,
+    deliveryMethod: 'DELIVERY',
+    deliveryQuoteId: 'quote-1'
+  }, 1), 422, 'VALIDATION_ERROR');
+});
+
+test('DELIVERY bat buoc ma bao gia', async () => {
+  await rejectsWithCode(serviceFor(fakeRepository()).createOrder({
+    ...DEFAULT_PAYLOAD,
+    deliveryMethod: 'DELIVERY',
+    receiverAddress: 'Ha Noi'
+  }, 1), 422, 'VALIDATION_ERROR');
+});
+
+test('khong cho mua tin cua chinh minh', async () => {
+  await rejectsWithCode(serviceFor(fakeRepository()).createOrder(DEFAULT_PAYLOAD, 2), 403, 'CANNOT_BUY_OWN_LISTING');
+});
+
+test('khong tao don khi chua dang nhap', async () => {
+  await rejectsWithCode(serviceFor(fakeRepository()).createOrder(DEFAULT_PAYLOAD, null), 401, 'UNAUTHORIZED');
+});
+
+test('bao 404 khi tin dang khong ton tai', async () => {
+  const repository = fakeRepository({ state: { listing: null } });
+  await rejectsWithCode(serviceFor(repository).createOrder(DEFAULT_PAYLOAD, 1), 404, 'LISTING_NOT_FOUND');
+});
+
+test('chi cho dat tin ACTIVE', async () => {
+  const repository = fakeRepository();
+  repository.state.listing.Status = 'RESERVED';
+  await rejectsWithCode(serviceFor(repository).createOrder(DEFAULT_PAYLOAD, 1), 409, 'LISTING_UNAVAILABLE');
+});
+
+test('hai nguoi dat dong thoi chi mot nguoi thanh cong', async () => {
+  const repository = fakeRepository();
+  const service = serviceFor(repository);
+  const results = await Promise.allSettled([
+    service.createOrder(DEFAULT_PAYLOAD, 1),
+    service.createOrder(DEFAULT_PAYLOAD, 3)
+  ]);
+
+  assert.equal(results.filter((item) => item.status === 'fulfilled').length, 1);
+  const failure = results.find((item) => item.status === 'rejected').reason;
+  assert.equal(failure.status, 409);
+  assert.equal(repository.state.orders.length, 1);
+  assert.equal(repository.state.histories.length, 1);
+  assert.equal(repository.state.notifications.length, 1);
+});
+
+test('loi thong bao rollback toan bo giao dich', async () => {
+  const repository = fakeRepository({
+    methods: { createNotification: async () => { throw new Error('notification failed'); } }
+  });
+  await assert.rejects(serviceFor(repository).createOrder(DEFAULT_PAYLOAD, 1), /notification failed/);
+  assert.equal(repository.state.listing.Status, 'ACTIVE');
+  assert.equal(repository.state.orders.length, 0);
+  assert.equal(repository.state.histories.length, 0);
+});
+
+test('job het han la idempotent va gui thong bao cho hai ben', async () => {
+  const repository = fakeRepository();
+  repository.state.listing.Status = 'RESERVED';
+  repository.state.orders.push({
+    OrderId: 5,
+    BuyerId: 1,
+    SellerId: 2,
+    ListingId: 10,
+    Status: 'RESERVED',
+    ReservedUntil: new Date(NOW.getTime() - 1000)
+  });
+  const service = serviceFor(repository);
+
+  assert.deepEqual(await service.expireReservations(), { expiredCount: 1 });
+  assert.deepEqual(await service.expireReservations(), { expiredCount: 0 });
+  assert.equal(repository.state.orders[0].Status, 'CANCELLED');
+  assert.equal(repository.state.orders[0].CancelReason, EXPIRED_REASON);
+  assert.equal(repository.state.listing.Status, 'ACTIVE');
+  assert.equal(repository.state.histories.length, 1);
+  assert.deepEqual(repository.state.notifications.map((item) => item.userId), [1, 2]);
+});
+
+test('job khong huy don chua het han hoac khac RESERVED', async () => {
+  const repository = fakeRepository();
+  repository.state.orders.push(
+    { OrderId: 1, BuyerId: 1, SellerId: 2, ListingId: 10, Status: 'RESERVED', ReservedUntil: new Date(NOW.getTime() + 1000) },
+    { OrderId: 2, BuyerId: 1, SellerId: 2, ListingId: 10, Status: 'WAITING_PAYMENT', ReservedUntil: new Date(NOW.getTime() - 1000) }
+  );
+  assert.deepEqual(await serviceFor(repository).expireReservations(), { expiredCount: 0 });
+  assert.equal(repository.state.histories.length, 0);
+});
+
+test('job khong mo lai tin da duoc chuyen sang SOLD', async () => {
+  const repository = fakeRepository();
+  repository.state.listing.Status = 'SOLD';
+  repository.state.orders.push({
+    OrderId: 8,
+    BuyerId: 1,
+    SellerId: 2,
+    ListingId: 10,
+    Status: 'RESERVED',
+    ReservedUntil: new Date(NOW.getTime() - 1000)
+  });
+  assert.deepEqual(await serviceFor(repository).expireReservations(), { expiredCount: 1 });
+  assert.equal(repository.state.listing.Status, 'SOLD');
 });

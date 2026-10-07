@@ -6,19 +6,18 @@ import { getSellerListing } from "../../api/listingApi";
 export default function CrudListing() {
     const [listing, setListing] = useState([]);
 
+useEffect(() => {
     const fetchSellerListing = async () => {
         try {
             const data = await getSellerListing(6);
-
             setListing(data.data);
         } catch (error) {
             console.log("error day", error);
         }
     };
 
-    useEffect(() => {
-        fetchSellerListing();
-    }, []);
+    fetchSellerListing();
+}, []);
 
     return (
         <>

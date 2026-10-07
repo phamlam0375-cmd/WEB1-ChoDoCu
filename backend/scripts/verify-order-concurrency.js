@@ -1,226 +1,171 @@
 'use strict';
 
+require('dotenv').config();
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
-const { QueryTypes } = require('sequelize');
-process.env.JWT_SECRET = process.env.JWT_SECRET || 'd01-integration-test-secret-not-for-production';
-
+if (process.env.NODE_ENV === 'production') throw new Error('Không chạy fixture trên production.');
+// Chỉ cấu hình tiến trình test riêng; không sửa .env/server đang chạy.
+process.env.JWT_SECRET ||= crypto.randomBytes(32).toString('hex');
+process.env.AUTH_DEV_HEADER = 'true';
 const app = require('../src/app');
-const sequelize = require('../src/database');
+const { QueryTypes } = require('sequelize');
+const { sequelize, Categories, Listings, Notifications, Orders, StatusHistories, Users } = require('../src/models');
+const repository = require('../src/repositories/order.repository');
+const { createOrderService } = require('../src/services/order.service');
 
-const suffix = `${Date.now()}_${crypto.randomInt(1000, 9999)}`;
-const baseId = 3000000000 + crypto.randomInt(1000000, 900000000);
-const ids = {
-  seller: baseId,
-  buyerOne: baseId + 1,
-  buyerTwo: baseId + 2,
-  category: baseId,
-  listing: baseId
-};
-let server;
-
-function signToken(userId) {
-  const now = Math.floor(Date.now() / 1000);
-  const encode = (value) => Buffer.from(JSON.stringify(value)).toString('base64url');
-  const header = encode({ alg: 'HS256', typ: 'JWT' });
-  const payload = encode({ sub: userId, iat: now, exp: now + 300 });
-  const signature = crypto
-    .createHmac('sha256', process.env.JWT_SECRET)
-    .update(`${header}.${payload}`)
-    .digest('base64url');
+function tokenFor(userId) {
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+  const payload = Buffer.from(JSON.stringify({
+    sub: String(userId), exp: Math.floor(Date.now() / 1000) + 3600
+  })).toString('base64url');
+  const signature = crypto.createHmac('sha256', process.env.JWT_SECRET)
+    .update(`${header}.${payload}`).digest('base64url');
   return `${header}.${payload}.${signature}`;
 }
 
-async function setup() {
-  await sequelize.transaction(async (transaction) => {
-    for (const [userId, name] of [
-      [ids.seller, 'D01 Seller'],
-      [ids.buyerOne, 'D01 Buyer One'],
-      [ids.buyerTwo, 'D01 Buyer Two']
-    ]) {
-      await sequelize.query(
-        `INSERT INTO Users
-          (UserId, Username, PasswordHash, FullName, Email, Phone, EmailVerified, PhoneVerified, Status, CreatedAt)
-         VALUES
-          (:userId, :username, NULL, :name, :email, NULL, 1, 0, 'ACTIVE', CURRENT_TIMESTAMP)`,
-        {
-          replacements: {
-            userId,
-            username: `d01_${userId}_${suffix}`,
-            name,
-            email: `d01_${userId}_${suffix}@example.local`
-          },
-          type: QueryTypes.INSERT,
-          transaction
-        }
-      );
-    }
-
-    await sequelize.query(
-      `INSERT INTO Categories (CategoryId, CategoryName, Description, Status, CreatedAt)
-       VALUES (:categoryId, :name, 'D01 integration test', 'ACTIVE', CURRENT_TIMESTAMP)`,
-      {
-        replacements: { categoryId: ids.category, name: `D01 Category ${suffix}` },
-        type: QueryTypes.INSERT,
-        transaction
-      }
-    );
-    await sequelize.query(
-      `INSERT INTO Listings
-        (ListingId, SellerId, StoreId, CategoryId, Title, Description, Price,
-         ConditionLevel, KnownDefects, Location, Status, CreatedAt)
-       VALUES
-        (:listingId, :sellerId, NULL, :categoryId, 'D01 concurrency product',
-         'Temporary integration test data', 1000000.00, 'GOOD', NULL,
-         'TP. Hồ Chí Minh', 'ACTIVE', CURRENT_TIMESTAMP)`,
-      {
-        replacements: {
-          listingId: ids.listing,
-          sellerId: ids.seller,
-          categoryId: ids.category
-        },
-        type: QueryTypes.INSERT,
-        transaction
-      }
-    );
+async function request(baseUrl, path, headers = {}, body) {
+  const response = await fetch(`${baseUrl}${path}`, {
+    method: body ? 'POST' : 'GET', headers: { 'content-type': 'application/json', ...headers },
+    ...(body ? { body: JSON.stringify(body) } : {})
   });
+  return { status: response.status, body: await response.json() };
 }
 
-async function cleanup() {
-  await sequelize.transaction(async (transaction) => {
-    const orderRows = await sequelize.query(
-      'SELECT OrderId FROM Orders WHERE ListingId = :listingId',
-      { replacements: { listingId: ids.listing }, type: QueryTypes.SELECT, transaction }
-    );
-    const orderIds = orderRows.map((row) => row.OrderId);
-    if (orderIds.length > 0) {
-      await sequelize.query(
-        'DELETE FROM Notifications WHERE ReferenceType = \'ORDER\' AND ReferenceId IN (:orderIds)',
-        { replacements: { orderIds }, type: QueryTypes.DELETE, transaction }
-      );
-      await sequelize.query(
-        'DELETE FROM StatusHistories WHERE OrderId IN (:orderIds)',
-        { replacements: { orderIds }, type: QueryTypes.DELETE, transaction }
-      );
-    }
-    await sequelize.query(
-      'DELETE FROM Orders WHERE ListingId = :listingId',
-      { replacements: { listingId: ids.listing }, type: QueryTypes.DELETE, transaction }
-    );
-    await sequelize.query(
-      'DELETE FROM Listings WHERE ListingId = :listingId',
-      { replacements: { listingId: ids.listing }, type: QueryTypes.DELETE, transaction }
-    );
-    await sequelize.query(
-      'DELETE FROM Categories WHERE CategoryId = :categoryId',
-      { replacements: { categoryId: ids.category }, type: QueryTypes.DELETE, transaction }
-    );
-    await sequelize.query(
-      'DELETE FROM Users WHERE UserId IN (:userIds)',
-      {
-        replacements: { userIds: [ids.seller, ids.buyerOne, ids.buyerTwo] },
-        type: QueryTypes.DELETE,
-        transaction
-      }
-    );
-  });
-}
-
-async function run() {
-  await sequelize.authenticate();
-  await setup();
+async function main() {
+  let server;
+  let fixture;
+  const suffix = `${Date.now()}-${process.pid}`;
   try {
-    server = await new Promise((resolve) => {
-      const instance = app.listen(0, '127.0.0.1', () => resolve(instance));
+    await sequelize.authenticate();
+    // Setup nguyên tử, ID auto-increment bình thường; không seed/reset dữ liệu.
+    fixture = await sequelize.transaction(async (transaction) => {
+      const users = [];
+      for (const name of ['seller', 'buyer-a', 'buyer-b']) {
+        users.push(await Users.create({
+          Username: `d01-${name}-${suffix}`, FullName: `D01 ${name}`,
+          Email: `d01-${name}-${suffix}@example.test`,
+          Address: 'Dia chi fixture D01', Status: 'ACTIVE'
+        }, { transaction }));
+      }
+      const category = await Categories.create({
+        CategoryName: `D01 concurrency ${suffix}`, Status: 'ACTIVE'
+      }, { transaction });
+      const listings = [];
+      for (let i = 0; i < 3; i += 1) {
+        listings.push(await Listings.create({
+          SellerId: users[0].UserId, CategoryId: category.CategoryId,
+          Title: `D01 concurrency ${i}`, Description: 'Fixture tam, tu dong don dep',
+          Price: '1234567.00', ConditionLevel: 'USED_GOOD',
+          Location: 'TP. Ho Chi Minh', Status: 'ACTIVE'
+        }, { transaction }));
+      }
+      return { users, category, listings };
     });
-    const { port } = server.address();
-    const endpoint = `http://127.0.0.1:${port}/api/orders`;
-    const payload = {
-      listingId: ids.listing,
-      deliveryMethod: 'PICKUP',
-      receiverName: 'Nguyễn Văn A',
-      receiverPhone: '0912345678',
-      note: 'Kiểm tra đồng thời D01'
-    };
-
-    const unauthorized = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+    server = app.listen(0, '127.0.0.1');
+    await new Promise((resolve, reject) => {
+      server.once('listening', resolve); server.once('error', reject);
     });
-    assert.equal(unauthorized.status, 401, 'Request chưa đăng nhập phải nhận HTTP 401.');
-
-    const responses = await Promise.all([
-      fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${signToken(ids.buyerOne)}`
-        },
-        body: JSON.stringify(payload)
-      }),
-      fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${signToken(ids.buyerTwo)}`
-        },
-        body: JSON.stringify(payload)
-      })
-    ]);
-    const responseBodies = await Promise.all(responses.map((response) => response.json()));
-    const successful = responses.filter((response) => response.status === 201);
-    const conflicts = responses.filter((response) => response.status === 409);
-    const conflictIndex = responses.findIndex((response) => response.status === 409);
-
-    assert.equal(successful.length, 1, 'Phải có đúng một request HTTP 201.');
-    assert.equal(conflicts.length, 1, 'Phải có đúng một request HTTP 409.');
-    assert.ok(
-      ['LISTING_UNAVAILABLE', 'RESERVATION_CONFLICT'].includes(
-        responseBodies[conflictIndex].error.code
-      )
-    );
-
-    const [counts] = await sequelize.query(
-      `SELECT
-        (SELECT COUNT(*) FROM Orders WHERE ListingId = :listingId AND Status = 'RESERVED') AS OrdersCount,
-        (SELECT COUNT(*) FROM StatusHistories sh INNER JOIN Orders o ON o.OrderId = sh.OrderId
-          WHERE o.ListingId = :listingId AND sh.StatusValue = 'RESERVED') AS HistoriesCount,
-        (SELECT COUNT(*) FROM Notifications n INNER JOIN Orders o ON o.OrderId = n.ReferenceId
-          WHERE n.ReferenceType = 'ORDER' AND o.ListingId = :listingId) AS NotificationsCount,
-        (SELECT Status FROM Listings WHERE ListingId = :listingId) AS ListingStatus`,
-      { replacements: { listingId: ids.listing }, type: QueryTypes.SELECT }
-    );
-
-    assert.equal(Number(counts.OrdersCount), 1);
-    assert.equal(Number(counts.HistoriesCount), 1);
-    assert.equal(Number(counts.NotificationsCount), 1);
-    assert.equal(counts.ListingStatus, 'RESERVED');
-
-    console.log(JSON.stringify({
-      passed: true,
-      unauthorizedStatus: unauthorized.status,
-      successfulRequests: successful.length,
-      conflictRequests: conflicts.length,
-      conflictStatus: responses[conflictIndex].status,
-      conflictCode: responseBodies[conflictIndex].error.code,
-      orders: Number(counts.OrdersCount),
-      histories: Number(counts.HistoriesCount),
-      notifications: Number(counts.NotificationsCount),
-      listingStatus: counts.ListingStatus
-    }, null, 2));
-  } finally {
-    if (server) {
-      await new Promise((resolve, reject) => server.close((error) => (
-        error ? reject(error) : resolve()
-      )));
+    const baseUrl = `http://127.0.0.1:${server.address().port}`;
+    const [seller, buyerA, buyerB] = fixture.users;
+    const jwt = (user) => ({ authorization: `Bearer ${tokenFor(user.UserId)}` });
+    const dev = (user) => ({ 'x-user-id': String(user.UserId) });
+    const payload = (listing) => ({
+      listingId: listing.ListingId, deliveryMethod: 'PICKUP',
+      receiverName: 'Nguoi mua thu nghiem', receiverPhone: '0901234567', note: 'Kiem tra tranh dat trung'
+    });
+    for (const path of ['/api/orders', '/api/v1/orders']) {
+      const anonymous = await request(baseUrl, path, {}, payload(fixture.listings[0]));
+      assert.equal(anonymous.status, 401);
+      assert.equal(anonymous.body.code, 'UNAUTHORIZED');
+      assert.equal(anonymous.body.error.code, 'UNAUTHORIZED');
+      assert.equal((await request(baseUrl, path, jwt(seller), payload(fixture.listings[0]))).status, 403);
+      const preview = await request(baseUrl, `${path}/preview/${fixture.listings[0].ListingId}`, jwt(buyerA));
+      assert.equal(preview.status, 200);
+      assert.equal(preview.body.data.buyer.fullName, buyerA.FullName);
+      assert.equal(preview.body.data.buyer.address, buyerA.Address);
     }
-    await cleanup();
-    await sequelize.close();
+    assert.equal((await request(baseUrl, '/api/orders', dev(buyerA), payload(fixture.listings[0]))).status, 401);
+    assert.equal((await request(baseUrl, '/api/v1/me', jwt(buyerA))).status, 200);
+    assert.equal((await request(baseUrl, '/api/v1/me', dev(buyerA))).status, 200);
+    assert.equal((await request(baseUrl, '/api/v1/admin/users', jwt(buyerA))).status, 403);
+    assert.equal((await request(baseUrl, '/api/v1/categories')).status, 200);
+    assert.equal((await request(baseUrl, '/api/v1/me', { ...dev(buyerA), authorization: 'Bearer invalid' })).status, 401);
+    const missing = await request(baseUrl, '/api/not-a-route');
+    assert.equal(missing.status, 404);
+    assert.equal(missing.body.error.code, 'ROUTE_NOT_FOUND');
+
+    const cases = [
+      [['/api/orders', jwt(buyerA)], ['/api/orders', jwt(buyerB)]],
+      [['/api/v1/orders', dev(buyerA)], ['/api/v1/orders', dev(buyerB)]],
+      [['/api/orders', jwt(buyerA)], ['/api/v1/orders', dev(buyerB)]]
+    ];
+    const results = [];
+    for (let i = 0; i < cases.length; i += 1) {
+      const listing = fixture.listings[i];
+      const responses = await Promise.all(cases[i].map(([path, headers]) => request(baseUrl, path, headers, payload(listing))));
+      const statuses = responses.map((r) => r.status).sort();
+      assert.deepEqual(statuses, [201, 409]);
+      const rejected = responses.find((r) => r.status === 409);
+      assert.equal(rejected.body.code, 'LISTING_UNAVAILABLE');
+      assert.equal(rejected.body.error.code, 'LISTING_UNAVAILABLE');
+      const orders = await Orders.findAll({ where: { ListingId: listing.ListingId }, raw: true });
+      assert.equal(orders.length, 1);
+      assert.equal(orders[0].Status, 'RESERVED');
+      assert.equal(String(orders[0].ProductAmount), '1234567.00');
+      assert.equal(String(orders[0].TotalAmount), '1234567.00');
+      const orderId = orders[0].OrderId;
+      assert.equal(await StatusHistories.count({ where: { OrderId: orderId, StatusValue: 'RESERVED' } }), 1);
+      assert.equal(await Notifications.count({ where: { ReferenceType: 'ORDER', ReferenceId: orderId } }), 1);
+      assert.equal((await Listings.findByPk(listing.ListingId)).Status, 'RESERVED');
+      results.push({ routes: cases[i].map(([path]) => path), statuses });
+    }
+    // Job chỉ nhìn thấy đơn fixture, không được quét/hủy đơn có sẵn.
+    const listingIds = fixture.listings.map((listing) => listing.ListingId);
+    const orders = await Orders.findAll({ where: { ListingId: listingIds }, raw: true });
+    const afterExpiry = new Date(Math.max(...orders.map((order) => new Date(order.ReservedUntil).getTime())) + 1000);
+    const scopedRepository = {
+      ...repository,
+      findExpiredReservations: (now, limit, transaction) => sequelize.query(
+        `SELECT OrderId, BuyerId, SellerId, ListingId FROM Orders
+         WHERE ListingId IN (:listingIds) AND Status = 'RESERVED' AND ReservedUntil <= :now
+         ORDER BY ReservedUntil, OrderId LIMIT :limit FOR UPDATE SKIP LOCKED`,
+        { replacements: { listingIds, now, limit }, type: QueryTypes.SELECT, transaction }
+      )
+    };
+    const service = createOrderService({ repository: scopedRepository, clock: () => afterExpiry });
+    const expiration = await Promise.all([service.expireReservations(), service.expireReservations()]);
+    assert.equal(expiration.reduce((total, item) => total + item.expiredCount, 0), 3);
+    assert.deepEqual(await service.expireReservations(), { expiredCount: 0 });
+    for (const order of orders) {
+      assert.equal((await Orders.findByPk(order.OrderId)).Status, 'CANCELLED');
+      assert.equal((await Listings.findByPk(order.ListingId)).Status, 'ACTIVE');
+      assert.equal(await StatusHistories.count({ where: { OrderId: order.OrderId, StatusValue: 'CANCELLED' } }), 1);
+      assert.equal(await Notifications.count({ where: { ReferenceType: 'ORDER', ReferenceId: order.OrderId } }), 3);
+    }
+    console.log(JSON.stringify({ ok: true, races: results, expiration, fixtureOnly: true }, null, 2));
+  } finally {
+    try {
+      if (server) await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+      if (fixture) {
+        await sequelize.transaction(async (transaction) => {
+          const listingIds = fixture.listings.map((listing) => listing.ListingId);
+          const orders = await Orders.findAll({ where: { ListingId: listingIds }, attributes: ['OrderId'], raw: true, transaction });
+          const orderIds = orders.map((order) => order.OrderId);
+          if (orderIds.length) {
+            await Notifications.destroy({ where: { ReferenceType: 'ORDER', ReferenceId: orderIds }, transaction });
+            await StatusHistories.destroy({ where: { OrderId: orderIds }, transaction });
+            await Orders.destroy({ where: { OrderId: orderIds }, transaction });
+          }
+          await Listings.destroy({ where: { ListingId: listingIds }, transaction });
+          await Categories.destroy({ where: { CategoryId: fixture.category.CategoryId }, transaction });
+          await Users.destroy({ where: { UserId: fixture.users.map((user) => user.UserId) }, transaction });
+        });
+        console.log('Da don dep chi du lieu fixture D01.');
+      }
+    } finally {
+      await sequelize.close();
+    }
   }
 }
 
-run().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+main().catch((error) => { console.error(error); process.exitCode = 1; });

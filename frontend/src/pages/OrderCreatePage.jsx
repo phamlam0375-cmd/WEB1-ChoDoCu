@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertCircle,
   ArrowLeft,
@@ -18,11 +18,17 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import Footer from '../components/Footer'
 import Header from '../components/Header'
+import { errorMessage, getDevUserId } from '../lib/api'
 import { getAccessToken, rememberPostLoginUrl } from '../lib/auth'
 import { estimateDeliveryFee } from '../services/deliveryFeeApi'
 import { createOrder, getOrderPreview } from '../services/orderApi'
 
 const inputClass = 'mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15 disabled:cursor-not-allowed disabled:bg-slate-100'
+const conditionLabels = {
+  LIKE_NEW: 'Như mới', GOOD: 'Còn tốt', FAIR: 'Đã qua sử dụng',
+  POOR: 'Cần sửa chữa', USED_GOOD: 'Đã qua sử dụng',
+}
+const hasSession = () => Boolean(getAccessToken() || getDevUserId())
 const phonePattern = /^(?:\+84|84|0)(?:3|5|7|8|9)\d{8}$/
 
 const formatCurrency = (value) => new Intl.NumberFormat('vi-VN', {
@@ -38,16 +44,16 @@ const formatDateTime = (value) => new Intl.DateTimeFormat('vi-VN', {
   hour: '2-digit',
   minute: '2-digit',
   second: '2-digit',
+  timeZone: 'Asia/Ho_Chi_Minh',
 }).format(new Date(value))
 
 function getErrorCode(error) {
-  return error.response?.data?.error?.code
+  return error.response?.data?.code || error.response?.data?.error?.code
 }
 
 function getErrorMessage(error) {
-  return error.response?.data?.error?.message
-    || error.response?.data?.message
-    || 'Không thể xử lý yêu cầu. Vui lòng thử lại.'
+  return errorMessage(error, error.response?.data?.error?.message
+    || 'Không thể xử lý yêu cầu. Vui lòng thử lại.')
 }
 
 function getCountdown(target, now) {
@@ -81,7 +87,7 @@ function OrderSkeleton() {
   )
 }
 
-function StateCard({ icon: Icon, title, description, actionLabel, onAction }) {
+function StateCard({ icon: Icon, title, description, actionLabel, onAction, onRetry }) {
   return (
     <div className="mx-auto grid min-h-[520px] max-w-2xl place-items-center px-4 py-12 text-center">
       <div className="w-full rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
@@ -94,6 +100,7 @@ function StateCard({ icon: Icon, title, description, actionLabel, onAction }) {
           <ArrowLeft size={17} />
           {actionLabel}
         </button>
+        {onRetry && <button type="button" onClick={onRetry} className="ml-3 mt-6 inline-flex h-11 items-center gap-2 rounded-xl border border-emerald-600 px-5 text-sm font-bold text-emerald-700 hover:bg-emerald-50"><RefreshCw size={17} /> Thử lại</button>}
       </div>
     </div>
   )
@@ -105,8 +112,10 @@ function OrderCreatePage() {
   const location = useLocation()
   const submitLock = useRef(false)
   const expirationToastShown = useRef(false)
+  const quoteRequest = useRef(0)
   const [preview, setPreview] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [reloadKey, setReloadKey] = useState(0)
   const [loadError, setLoadError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [estimating, setEstimating] = useState(false)
@@ -134,7 +143,7 @@ function OrderCreatePage() {
   }, [navigate, returnTo])
 
   useEffect(() => {
-    if (!getAccessToken()) {
+    if (!hasSession()) {
       redirectToLogin()
       return undefined
     }
@@ -143,7 +152,14 @@ function OrderCreatePage() {
     const load = async () => {
       try {
         const data = await getOrderPreview(listingId, { signal: controller.signal })
+        if (controller.signal.aborted) return
         setPreview(data)
+        setForm((current) => ({
+          ...current,
+          receiverName: current.receiverName || data.buyer?.fullName || '',
+          receiverPhone: current.receiverPhone || data.buyer?.phone || '',
+          receiverAddress: current.receiverAddress || data.buyer?.address || '',
+        }))
         setLoadError(null)
       } catch (error) {
         if (error.code === 'ERR_CANCELED') return
@@ -163,7 +179,20 @@ function OrderCreatePage() {
     }
     void load()
     return () => controller.abort()
-  }, [listingId, redirectToLogin])
+  }, [listingId, redirectToLogin, reloadKey])
+
+  useLayoutEffect(() => {
+    if (success) {
+      document.documentElement.scrollTop = 0
+      document.body.scrollTop = 0
+    }
+  }, [success])
+
+  const retry = useCallback(() => {
+    setLoading(true)
+    setLoadError(null)
+    setReloadKey((value) => value + 1)
+  }, [])
 
   useEffect(() => {
     if (!success && !quote) return undefined
@@ -172,7 +201,8 @@ function OrderCreatePage() {
   }, [quote, success])
 
   const quoteValid = Boolean(
-    quote
+    quote?.quoteId
+    && preview?.delivery?.available
     && Number.isFinite(new Date(quote.expiresAt).getTime())
     && new Date(quote.expiresAt).getTime() > nowMs,
   )
@@ -194,6 +224,7 @@ function OrderCreatePage() {
     hasRequiredFields
     && preview?.listing?.isAvailable
     && !preview?.listing?.isOwnListing
+    && form.note.trim().length <= 500
     && !submitting,
   )
 
@@ -225,10 +256,14 @@ function OrderCreatePage() {
     setForm((current) => ({ ...current, [field]: value }))
     setErrors((current) => ({ ...current, [field]: '', deliveryQuote: '' }))
     setSubmitError('')
-    if (field === 'receiverAddress') setQuote(null)
+    if (field === 'receiverAddress') {
+      quoteRequest.current += 1
+      setQuote(null)
+    }
   }
 
   const handleMethodChange = (deliveryMethod) => {
+    quoteRequest.current += 1
     setForm((current) => ({ ...current, deliveryMethod }))
     setQuote(null)
     setErrors((current) => ({
@@ -251,12 +286,14 @@ function OrderCreatePage() {
       return
     }
 
+    const requestId = ++quoteRequest.current
     setEstimating(true)
     try {
       const result = await estimateDeliveryFee({
         listingId: Number(listingId),
         receiverAddress: form.receiverAddress.trim(),
       })
+      if (requestId !== quoteRequest.current) return
       setQuote({
         quoteId: result.quoteId || result.signedQuoteToken || result.token,
         amount: result.amount,
@@ -266,6 +303,7 @@ function OrderCreatePage() {
       setNowMs(Date.now())
       setErrors((current) => ({ ...current, deliveryQuote: '' }))
     } catch (error) {
+      if (requestId !== quoteRequest.current) return
       const code = getErrorCode(error)
       if (code === 'DELIVERY_ROUTE_UNSUPPORTED') {
         setSubmitError('Chưa hỗ trợ tuyến giao này; hãy chọn tự đến lấy.')
@@ -308,6 +346,10 @@ function OrderCreatePage() {
       toast.success(response.message, { toastId: `order-created-${response.data.orderId}` })
     } catch (error) {
       const code = getErrorCode(error)
+      const fields = error.response?.data?.errors?.fields || error.response?.data?.error?.details?.fields
+      if (fields && !Array.isArray(fields)) {
+        setErrors({ ...fields, deliveryQuote: fields.deliveryQuoteId })
+      }
       if (error.response?.status === 401) {
         redirectToLogin()
         return
@@ -355,11 +397,14 @@ function OrderCreatePage() {
           description={loadError.message}
           actionLabel="Quay lại trang chủ"
           onAction={() => navigate('/')}
+          onRetry={retry}
         />
       )
     }
     return null
-  }, [loadError, loading, navigate])
+  }, [loadError, loading, navigate, retry])
+
+  if (!hasSession()) return null
 
   if (loading || loadError) {
     return (
@@ -386,6 +431,9 @@ function OrderCreatePage() {
             <div className="mx-auto mt-7 grid max-w-lg gap-3 rounded-2xl bg-slate-50 p-5 text-left text-sm sm:grid-cols-2">
               <div><span className="text-slate-500">Mã đơn hàng</span><strong className="mt-1 block text-lg text-slate-900">#{success.orderId}</strong></div>
               <div><span className="text-slate-500">Trạng thái</span><strong className="mt-1 block text-emerald-700">{expired ? 'ĐÃ HẾT HẠN' : 'ĐANG GIỮ MÓN'}</strong></div>
+              <div className="sm:col-span-2"><span className="text-slate-500">Sản phẩm</span><strong className="mt-1 block text-slate-900">{preview.listing.title}</strong></div>
+              <div><span className="text-slate-500">Hình thức nhận</span><strong className="mt-1 block text-slate-900">{success.deliveryMethod === 'PICKUP' ? 'Tự đến lấy' : 'Giao hàng'}</strong></div>
+              <div><span className="text-slate-500">Tổng thanh toán</span><strong className="mt-1 block text-emerald-700">{formatCurrency(success.totalAmount)}</strong></div>
               <div className="sm:col-span-2"><span className="text-slate-500">Giữ đến</span><strong className="mt-1 block text-slate-900">{formatDateTime(success.reservedUntil)}</strong></div>
             </div>
             <div className={`mx-auto mt-5 flex max-w-lg items-center justify-center gap-2 rounded-xl px-4 py-3 font-mono text-2xl font-black ${expired ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}`}>
@@ -395,7 +443,7 @@ function OrderCreatePage() {
             <p className="mx-auto mt-5 max-w-lg text-sm leading-6 text-slate-500">
               {expired
                 ? 'Thời gian giữ đã hết. Hệ thống sẽ tự động hủy đơn và mở lại sản phẩm.'
-                : 'Người bán đã nhận được thông báo. Chức năng theo dõi đơn D05 chưa có nên trạng thái xác nhận được hiển thị tại đây.'}
+                : 'Người bán đã nhận được thông báo. Liên hệ người bán để thống nhất thời gian nhận món.'}
             </p>
             <button type="button" onClick={() => navigate('/')} className="mt-7 inline-flex h-11 items-center gap-2 rounded-xl bg-emerald-600 px-6 text-sm font-bold text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">
               <Store size={17} />
@@ -458,7 +506,7 @@ function OrderCreatePage() {
             </div>
             <div className="mt-5 flex items-center justify-between gap-3">
               <span className="rounded-lg bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-800">Còn hàng</span>
-              <span className="rounded-lg bg-white px-2.5 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">{listing.condition}</span>
+              <span className="rounded-lg bg-white px-2.5 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">{conditionLabels[listing.condition] || listing.condition}</span>
             </div>
             <h2 className="mt-4 text-xl font-black leading-7 text-slate-900">{listing.title}</h2>
             <p className="mt-2 text-2xl font-black text-emerald-700">{formatCurrency(listing.price)}</p>
@@ -492,7 +540,7 @@ function OrderCreatePage() {
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 {[
                   { value: 'PICKUP', label: 'Tự đến lấy hàng', icon: Store, description: 'Không mất phí giao hàng' },
-                  { value: 'DELIVERY', label: 'Giao hàng tận nơi', icon: Truck, description: 'Phí tính theo D12' },
+                  { value: 'DELIVERY', label: 'Giao hàng tận nơi', icon: Truck, description: preview.delivery.available ? 'Phí theo báo giá giao hàng' : preview.delivery.message },
                 ].map(({ value, label, icon: Icon, description }) => (
                   <label key={value} className={`flex cursor-pointer gap-3 rounded-xl border p-4 transition focus-within:ring-2 focus-within:ring-emerald-500 ${form.deliveryMethod === value ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 hover:border-emerald-200'}`}>
                     <input type="radio" name="deliveryMethod" value={value} checked={form.deliveryMethod === value} onChange={() => handleMethodChange(value)} className="mt-1 accent-emerald-600" />

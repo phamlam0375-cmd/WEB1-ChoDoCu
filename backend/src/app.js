@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const healthRouter = require('./routes/health');
 const orderRoutes = require('./routes/order.route');
+const { requireAuth } = require('./middlewares/auth.middleware');
 const AppError = require('./errors/AppError');
 
 const partnerApplicationRoutes = require('./routes/partnerApplication.route');
@@ -37,6 +38,7 @@ app.get('/api/test', (_request, response) => {
 
 app.use('/api/health', healthRouter);
 app.use('/api/orders', orderRoutes);
+app.use('/api/v1/orders', orderRoutes.createOrderRouter(requireAuth));
 
 
 //PARTNER APPLICATION

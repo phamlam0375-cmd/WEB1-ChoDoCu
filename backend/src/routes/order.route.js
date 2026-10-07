@@ -4,9 +4,14 @@ const express = require('express');
 const orderController = require('../controllers/order.controller');
 const { authenticate } = require('../middleware/authenticate');
 
-const router = express.Router();
+// Cùng controller/contract cho hai prefix; chính sách auth được giữ riêng:
+// /api/orders chỉ JWT, /api/v1/orders dùng requireAuth của phân hệ dùng chung.
+function createOrderRouter(authMiddleware = authenticate) {
+  const router = express.Router();
+  router.get('/preview/:listingId', authMiddleware, orderController.getOrderPreview);
+  router.post('/', authMiddleware, orderController.createOrder);
+  return router;
+}
 
-router.get('/preview/:listingId', authenticate, orderController.getOrderPreview);
-router.post('/', authenticate, orderController.createOrder);
-
-module.exports = router;
+module.exports = createOrderRouter();
+module.exports.createOrderRouter = createOrderRouter;

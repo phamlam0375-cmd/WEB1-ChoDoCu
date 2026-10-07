@@ -55,12 +55,14 @@ async function createHistory(data, transaction) {
 }
 
 async function createNotification(data, transaction) {
-  return notify(data.userId, {
-    type: data.type,
-    title: data.title,
-    message: data.message,
-    referenceType: data.referenceType,
-    referenceId: data.referenceId
+  // Chấp nhận cả contract D01 cũ và service thông báo dùng chung.
+  return notify(data.userId ?? data.UserId, {
+    type: data.type ?? data.Type,
+    title: data.title ?? data.Title,
+    message: data.message ?? data.Message,
+    referenceType: data.referenceType ?? data.ReferenceType,
+    referenceId: data.referenceId ?? data.ReferenceId,
+    createdAt: data.createdAt ?? data.CreatedAt
   }, { transaction });
 }
 

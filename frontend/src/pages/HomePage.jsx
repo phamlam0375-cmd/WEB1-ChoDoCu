@@ -142,11 +142,12 @@ function HomePage() {
   }
 
   const handleBuyProduct = (product) => {
-    if (product?.id) {
-      navigate(`/orders/create/${product.id}`)
+    const listingId = Number(product?.id)
+    if (!Number.isSafeInteger(listingId) || listingId <= 0) {
+      toast.error('Sản phẩm chưa có mã tin đăng hợp lệ.')
       return
     }
-    toast.success(`Đã chọn “${product.name}”. Hãy liên hệ người bán để tiếp tục.`)
+    navigate(`/orders/create/${listingId}`)
   }
 
   return (

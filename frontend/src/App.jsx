@@ -1,16 +1,22 @@
-import { lazy, Suspense } from 'react'
-import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
-import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import './App.css'
 
+import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
+import { Suspense, lazy } from 'react'
+
+import DevAccountProvider from './context/DevAccountProvider'
 import HomePage from './pages/HomePage'
+import { Loading } from './components/admin/AdminUi'
 import Login from './pages/Login'
+import OrderCreatePage from './pages/OrderCreatePage'
+import PublicStore from './components/Store/PublicStore/PublicStore'
 import RegisterApplication from './components/PartnerApplication/RegisterApplication'
+import SellerStore from './components/Store/SellerStore/SellerStore'
+import { ToastContainer } from 'react-toastify'
 
 // Phân hệ B: quản trị và doanh thu (tải khi cần để không làm nặng trang chủ)
-import DevAccountProvider from './context/DevAccountProvider'
-import { Loading } from './components/admin/AdminUi'
+
+
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'))
 const AdminDashboardPage = lazy(() => import('./pages/admin/AdminDashboardPage'))
 const AdminUsersPage = lazy(() => import('./pages/admin/AdminUsersPage'))
@@ -29,7 +35,7 @@ const MyReportsPage = lazy(() => import('./pages/account/MyReportsPage'))
 const RefundCreatePage = lazy(() => import('./pages/account/RefundCreatePage'))
 const MyRefundsPage = lazy(() => import('./pages/account/MyRefundsPage'))
 const SellerFeesPage = lazy(() => import('./pages/account/SellerFeesPage'))
-const OrderCreatePage = lazy(() => import('./pages/OrderCreatePage'))
+
 
 function App() {
   return (
@@ -37,8 +43,11 @@ function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/orders/create/:listingId" element={<OrderCreatePage />} />
 
         <Route path="/partner-application" element={<RegisterApplication />} />
+        <Route path="store/:ownerId" element={<PublicStore />} />
+        <Route path="/seller/store" element={<SellerStore />} />
 
         <Route
           element={
@@ -49,7 +58,6 @@ function App() {
             </DevAccountProvider>
           }
         >
-          <Route path="/orders/create/:listingId" element={<OrderCreatePage />} />
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboardPage />} />
             <Route path="users" element={<AdminUsersPage />} />
@@ -77,11 +85,11 @@ function App() {
 
       <ToastContainer
         position="top-right"
-        autoClose={2800}
-        hideProgressBar
-        newestOnTop
-        closeOnClick
+        autoClose={10000}
+        closeOnClick={false}
         pauseOnHover
+        pauseOnFocusLoss={false}
+        newestOnTop
         theme="light"
       />
     </>

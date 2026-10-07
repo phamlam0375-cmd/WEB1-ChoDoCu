@@ -1,39 +1,50 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { setDevUserId } from '../lib/api'
+import { errorMessage, setDevUserId } from '../lib/api'
+import { completeLogin } from '../lib/auth'
+import { loginWithPassword } from '../services/authApi'
 import './Login.css'
 
 function Login() {
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams] = useSearchParams()
+  const submitLock = useRef(false)
+  const [loginError, setLoginError] = useState('')
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const handleLogin = (event) => {
+  const handleLogin = async (event) => {
     event.preventDefault()
+    if (submitLock.current) return
 
     if (!email || !password) {
       alert('Vui lòng nhập đầy đủ Gmail và mật khẩu!')
       return
     }
 
-    if (email === 'admin@gmail.com' && password === '123456') {
-      // Temporary demo identity until A02 provides a real authenticated session.
-      setDevUserId(2)
-      const requestedPath = searchParams.get('returnTo')
-        || location.state?.from
-        || sessionStorage.getItem('postLoginRedirect')
-      const returnTo = requestedPath?.startsWith('/') && !requestedPath.startsWith('//')
-        ? requestedPath
-        : '/'
-      sessionStorage.removeItem('postLoginRedirect')
-      navigate(returnTo, { replace: true })
-      return
+    submitLock.current = true
+    setLoginError('')
+    setLoading(true)
+    try {
+      const session = await loginWithPassword(email.trim(), password)
+      completeLogin(session, {
+        storage: window.localStorage,
+        redirectStorage: window.sessionStorage,
+        queryReturnTo: searchParams.get('returnTo'),
+        stateFrom: location.state?.from,
+        clearDevIdentity: () => setDevUserId(''),
+        navigate,
+      })
+      alert(session.message)
+    } catch (error) {
+      setLoginError(errorMessage(error, error.message || 'Gmail hoặc mật khẩu không chính xác!'))
+    } finally {
+      submitLock.current = false
+      setLoading(false)
     }
-
-    alert('Gmail hoặc mật khẩu không đúng!')
   }
 
   const handleForgotPassword = () => {
@@ -47,25 +58,17 @@ function Login() {
   return (
     <main className="login-page">
       <div className="login-box">
-        {/* Icon */}
-        <div className="login-icon">
-          👋
-        </div>
+        <div className="login-icon">👋</div>
 
-        {/* Tiêu đề */}
         <h1>Chào mừng trở lại!</h1>
-
         <p className="login-description">
           Đăng nhập để tiếp tục sử dụng ChoĐồCũ
         </p>
 
-        <form onSubmit={handleLogin}>
-          {/* Gmail */}
+        <form onSubmit={handleLogin} aria-busy={loading}>
+          {loginError && <p role="alert" className="mb-4 text-sm text-red-600">{loginError}</p>}
           <div className="login-input-group">
-            <label htmlFor="login-email">
-              Gmail
-            </label>
-
+            <label htmlFor="login-email">Gmail</label>
             <input
               id="login-email"
               className="login-email"
@@ -77,12 +80,8 @@ function Login() {
             />
           </div>
 
-          {/* Mật khẩu */}
           <div className="login-input-group">
-            <label htmlFor="login-password">
-              Mật khẩu
-            </label>
-
+            <label htmlFor="login-password">Mật khẩu</label>
             <input
               id="login-password"
               className="login-password"
@@ -94,7 +93,6 @@ function Login() {
             />
           </div>
 
-          {/* Ghi nhớ + Quên mật khẩu */}
           <div className="login-options">
             <label>
               <input type="checkbox" />
@@ -110,23 +108,18 @@ function Login() {
             </button>
           </div>
 
-          {/* Đăng nhập */}
           <button
             type="submit"
             className="login-submit"
+            disabled={loading}
           >
-            Đăng nhập
+            {loading ? 'Đang xử lý...' : 'Đăng nhập'}
           </button>
         </form>
 
-        {/* Đăng ký */}
         <p className="login-register">
-          Chưa có tài khoản?
-
-          <button
-            type="button"
-            onClick={handleRegister}
-          >
+          Chưa có tài khoản?{' '}
+          <button type="button" onClick={handleRegister}>
             Đăng ký ngay
           </button>
         </p>

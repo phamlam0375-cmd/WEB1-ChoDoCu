@@ -2,6 +2,7 @@
 
 const { DataTypes } = require("sequelize");
 const sequelize = require("../database");
+const Roles = require("./Roles.model");
 
 const UserRoles = sequelize.define(
   "UserRoles",
@@ -41,5 +42,11 @@ const UserRoles = sequelize.define(
     timestamps: false,
   }
 );
+
+// Quan hệ UserRoles -> Roles
+UserRoles.belongsTo(Roles, {
+  foreignKey: "RoleId",
+  targetKey: "RoleId",
+});
 
 module.exports = UserRoles;

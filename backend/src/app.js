@@ -3,12 +3,17 @@ const express = require('express');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const healthRouter = require('./routes/health');
+const orderRoutes = require('./routes/order.route');
+const { requireAuth } = require('./middlewares/auth.middleware');
+const AppError = require('./errors/AppError');
 
 const partnerApplicationRoutes = require('./routes/partnerApplication.route');
 const adminRoutes = require('./routes/admin.route');
 const memberBRoutes = require('./routes/memberB.route');
 const errorHandler = require('./middlewares/errorHandler');
 const { UPLOAD_DIR } = require('./controllers/uploads.controller');
+const storeRoutes = require('./routes/store.route');
+const listingRoutes = require('./routes/listing.route');
 
 const app = express();
 
@@ -32,11 +37,16 @@ app.get('/api/test', (_request, response) => {
 });
 
 app.use('/api/health', healthRouter);
-
+app.use('/api/orders', orderRoutes);
+app.use('/api/v1/orders', orderRoutes.createOrderRouter(requireAuth));
 
 
 //PARTNER APPLICATION
 app.use("/api/partner-applications", partnerApplicationRoutes);
+//Store
+app.use("/api/stores", storeRoutes);
+//listing
+app.use("/api/listing", listingRoutes);
 
 // PHÂN HỆ B: QUẢN TRỊ VÀ DOANH THU
 app.use('/api/v1/uploads', express.static(UPLOAD_DIR, { index: false, maxAge: '7d' }));
@@ -45,8 +55,8 @@ app.use('/api/v1', memberBRoutes);
 
 
 
-app.use((_request, response) => {
-  response.status(404).json({ message: '404 NOT FOUND' });
+app.use((_request, _response, next) => {
+  next(new AppError(404, 'ROUTE_NOT_FOUND', 'Không tìm thấy đường dẫn API.'));
 });
 
 app.use(errorHandler);

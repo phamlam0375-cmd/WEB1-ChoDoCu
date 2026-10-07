@@ -1,3 +1,5 @@
+'use strict';
+
 require('dotenv').config();
 
 const app = require('./app');
@@ -12,24 +14,32 @@ const port = Number(process.env.PORT || 3000);
 async function start() {
   try {
     await sequelize.authenticate();
-    const server = app.listen(port, () => {
-      console.log(`Chợ Đồ Cũ API đang chạy tại http://localhost:${port}`);
-      startReservationExpirationJob();
-    });
-
-    const shutdown = () => {
-      stopReservationExpirationJob();
-      server.close(async () => {
-        await sequelize.close();
-        process.exit(0);
-      });
-    };
-    process.once('SIGINT', shutdown);
-    process.once('SIGTERM', shutdown);
+    console.log('Đã kết nối cơ sở dữ liệu.');
   } catch (error) {
     console.error('Không thể kết nối cơ sở dữ liệu:', error.message);
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
+
+  const server = app.listen(port, () => {
+    console.log(`Chợ Đồ Cũ API đang chạy tại http://localhost:${port}`);
+    startReservationExpirationJob();
+  });
+
+  const shutdown = () => {
+    stopReservationExpirationJob();
+    server.close(async () => {
+      await sequelize.close();
+      process.exit(0);
+    });
+  };
+
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
 }
 
-start();
+if (require.main === module) {
+  start();
+}
+
+module.exports = { start };

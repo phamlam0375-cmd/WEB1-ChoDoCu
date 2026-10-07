@@ -43,6 +43,8 @@ function createOrderService({
   clock = () => new Date()
 } = {}) {
   async function getOrderPreview(listingId, buyer) {
+    // Tương thích caller cũ truyền buyerId và caller v1 truyền hồ sơ người dùng.
+    const profile = buyer && typeof buyer === 'object' ? buyer : { UserId: buyer };
     const normalizedListingId = Number(listingId);
     if (!Number.isSafeInteger(normalizedListingId) || normalizedListingId <= 0) {
       throw orderError(400, 'VALIDATION_ERROR', 'Mã sản phẩm không hợp lệ.');
@@ -62,13 +64,13 @@ function createOrderService({
         status: listing.Status,
         imageUrl: listing.ImageUrl,
         seller: { name: listing.SellerName, verified: Boolean(listing.SellerVerified) },
-        isOwnListing: Number(listing.SellerId) === Number(buyer.UserId),
+        isOwnListing: Number(listing.SellerId) === Number(profile.UserId ?? profile.userId),
         isAvailable: listing.Status === 'ACTIVE'
       },
       buyer: {
-        fullName: buyer.FullName || '',
-        phone: buyer.Phone || '',
-        address: buyer.Address || ''
+        fullName: profile.FullName || '',
+        phone: profile.Phone || '',
+        address: profile.Address || ''
       },
       reservationMinutes: config.reservationMinutes,
       delivery: deliveryFeeService.getCapability()
@@ -158,7 +160,8 @@ function createOrderService({
           title: 'Có đơn hàng mới',
           message: `Sản phẩm ${listing.Title} đã được giữ đến ${formatVietnameseDate(reservedUntil)}.`,
           referenceType: 'ORDER',
-          referenceId: orderId
+          referenceId: orderId,
+          createdAt: now
         }, transaction);
 
         return {
@@ -215,7 +218,8 @@ function createOrderService({
             title: 'Đơn hàng đã hết thời gian giữ',
             message,
             referenceType: 'ORDER',
-            referenceId: order.OrderId
+            referenceId: order.OrderId,
+            createdAt: now
           }, transaction);
         }
         expiredCount += 1;

@@ -11,7 +11,9 @@ async function runOnce() {
   running = true;
   try {
     const { expiredCount } = await expireReservations();
-    if (expiredCount > 0) console.log(`[ReservationJob] Đã hủy ${expiredCount} đơn hết thời gian giữ.`);
+    if (expiredCount > 0) {
+      console.log(`[ReservationJob] Đã hủy ${expiredCount} đơn hết thời gian giữ.`);
+    }
   } catch (error) {
     console.error('[ReservationJob] Không thể xử lý đơn hết hạn:', error.message);
   } finally {
@@ -33,4 +35,8 @@ function stopReservationExpirationJob() {
   timer = null;
 }
 
-module.exports = { runOnce, startReservationExpirationJob, stopReservationExpirationJob };
+module.exports = {
+  runOnce,
+  startReservationExpirationJob,
+  stopReservationExpirationJob
+};

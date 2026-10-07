@@ -5,12 +5,24 @@ const { HttpError } = require("../utils/httpError");
 // Express 5 tự chuyển lỗi của hàm async vào đây, controller không cần try/catch.
 // eslint-disable-next-line no-unused-vars
 const errorHandler = (error, req, res, _next) => {
-  if (error instanceof HttpError) {
+  // Tương thích AppError cũ của D01 (extends Error) và bản mới (extends HttpError).
+  // Không chỉ tin status của lỗi bất kỳ: lỗi không xác định vẫn là 500.
+  const legacyAppError = error instanceof Error && error.name === "AppError"
+    && typeof error.code === "string" && error.code.length > 0;
+  const validStatus = Number.isInteger(error.status) && error.status >= 400 && error.status <= 599;
+  if (validStatus && (error instanceof HttpError || legacyAppError)) {
+    const errors = error.errors ?? error.details;
     return res.status(error.status).json({
       success: false,
       message: error.message,
       ...(error.code ? { code: error.code } : {}),
-      ...(error.errors ? { errors: error.errors } : {}),
+      ...(errors ? { errors } : {}),
+      // Tương thích client /api/orders đọc error.code và error.details.
+      error: {
+        code: error.code || 'HTTP_ERROR',
+        message: error.message,
+        ...((error.details ?? error.errors) ? { details: error.details ?? error.errors } : {}),
+      },
     });
   }
 
@@ -39,7 +51,11 @@ const errorHandler = (error, req, res, _next) => {
   }
 
   console.error(error);
-  return res.status(500).json({ success: false, message: "Lỗi server" });
+  return res.status(500).json({
+    success: false,
+    message: "Lỗi server",
+    error: { code: "INTERNAL_ERROR", message: "Lỗi server" },
+  });
 };
 
 module.exports = errorHandler;

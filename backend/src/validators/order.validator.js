@@ -22,11 +22,17 @@ function validationError(fields) {
 }
 
 function validateCreateOrder(payload = {}) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw validationError({ body: 'Nội dung đặt hàng phải là một đối tượng.' });
+  }
   const controlled = FORBIDDEN_FIELDS.filter((field) => (
     Object.prototype.hasOwnProperty.call(payload, field)
   ));
   if (controlled.length) {
-    throw validationError(Object.fromEntries(controlled.map((field) => [field, 'Trường này do máy chủ quyết định.'])));
+    const error = validationError(Object.fromEntries(controlled.map((field) => [field, 'Trường này do máy chủ quyết định.'])));
+    // Giữ cấu trúc details cũ; API v1 vẫn nhận errors.fields theo từng trường.
+    error.details = { fields: controlled, message: 'Các trường này do máy chủ quyết định.' };
+    throw error;
   }
 
   const listingId = Number(payload.listingId);

@@ -1,4 +1,4 @@
-import { api } from '../lib/api'
+import { api } from '../lib/api.js'
 
 // Diem tich hop danh rieng cho D12. D01 chi goi khi backend thong bao dich vu san sang.
 export async function estimateDeliveryFee(payload) {

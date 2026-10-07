@@ -1,10 +1,16 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import axios from 'axios'
+import { useRef, useState } from 'react'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { errorMessage, setDevUserId } from '../lib/api'
+import { completeLogin } from '../lib/auth'
+import { loginWithPassword } from '../services/authApi'
 import './Login.css'
 
 function Login() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const [searchParams] = useSearchParams()
+  const submitLock = useRef(false)
+  const [loginError, setLoginError] = useState('')
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -12,32 +18,31 @@ function Login() {
 
   const handleLogin = async (event) => {
     event.preventDefault()
+    if (submitLock.current) return
 
     if (!email || !password) {
       alert('Vui lòng nhập đầy đủ Gmail và mật khẩu!')
       return
     }
 
+    submitLock.current = true
+    setLoginError('')
+    setLoading(true)
     try {
-      setLoading(true)
-      // Gọi API đăng nhập xuống Backend
-      const response = await axios.post('http://localhost:5000/api/auth/login', {
-        email,
-        password
+      const session = await loginWithPassword(email.trim(), password)
+      completeLogin(session, {
+        storage: window.localStorage,
+        redirectStorage: window.sessionStorage,
+        queryReturnTo: searchParams.get('returnTo'),
+        stateFrom: location.state?.from,
+        clearDevIdentity: () => setDevUserId(''),
+        navigate,
       })
-
-      alert(response.data.message || 'Đăng nhập thành công!')
-
-      // Lưu thông tin người dùng / token nếu có
-      if (response.data.user) {
-        localStorage.setItem('user', JSON.stringify(response.data.user))
-      }
-
-      navigate('/')
+      alert(session.message)
     } catch (error) {
-      console.error('Lỗi đăng nhập:', error)
-      alert(error.response?.data?.message || 'Gmail hoặc mật khẩu không chính xác!')
+      setLoginError(errorMessage(error, error.message || 'Gmail hoặc mật khẩu không chính xác!'))
     } finally {
+      submitLock.current = false
       setLoading(false)
     }
   }
@@ -60,7 +65,8 @@ function Login() {
           Đăng nhập để tiếp tục sử dụng ChoĐồCũ
         </p>
 
-        <form onSubmit={handleLogin}>
+        <form onSubmit={handleLogin} aria-busy={loading}>
+          {loginError && <p role="alert" className="mb-4 text-sm text-red-600">{loginError}</p>}
           <div className="login-input-group">
             <label htmlFor="login-email">Gmail</label>
             <input

@@ -1,6 +1,6 @@
 'use strict';
 
-const AppError = require('../errors/AppError');
+const { HttpError } = require('../utils/httpError');
 const orderConfig = require('../config/order.config');
 const defaultDeliveryFeeService = require('./deliveryFee.service');
 const defaultRepository = require('../repositories/order.repository');
@@ -9,45 +9,31 @@ const { addMoney, asApiNumber } = require('../utils/money');
 
 const EXPIRED_REASON = 'Hết thời gian giữ sản phẩm.';
 
+function orderError(status, code, message, errors) {
+  return new HttpError(status, message, errors, code);
+}
+
 function formatVietnameseDate(date) {
   return new Intl.DateTimeFormat('vi-VN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
     timeZone: 'Asia/Ho_Chi_Minh'
   }).format(date);
 }
 
 function normalizeQuote(quote, now) {
   if (!quote || quote.amount === undefined || quote.amount === null) {
-    throw new AppError(
-      422,
-      'DELIVERY_QUOTE_REQUIRED',
-      'Vui lòng tính phí giao hàng trước khi đặt.'
-    );
+    throw orderError(422, 'DELIVERY_QUOTE_REQUIRED', 'Vui lòng tính phí giao hàng trước khi đặt.');
   }
-
   const expiresAt = new Date(quote.expiresAt);
   if (!Number.isFinite(expiresAt.getTime()) || expiresAt <= now) {
-    throw new AppError(
-      422,
-      'DELIVERY_QUOTE_EXPIRED',
-      'Báo giá giao hàng đã hết hạn. Vui lòng tính lại phí.'
-    );
+    throw orderError(422, 'DELIVERY_QUOTE_EXPIRED', 'Báo giá giao hàng đã hết hạn. Vui lòng tính lại phí.');
   }
-
   const deliveryFeeRuleId = Number(quote.deliveryFeeRuleId);
   if (!Number.isSafeInteger(deliveryFeeRuleId) || deliveryFeeRuleId <= 0) {
-    throw new AppError(422, 'DELIVERY_QUOTE_INVALID', 'Báo giá giao hàng không hợp lệ.');
+    throw orderError(422, 'DELIVERY_QUOTE_INVALID', 'Báo giá giao hàng không hợp lệ.');
   }
-
-  return {
-    amount: String(quote.amount),
-    deliveryFeeRuleId
-  };
+  return { amount: String(quote.amount), deliveryFeeRuleId };
 }
 
 function createOrderService({
@@ -56,16 +42,15 @@ function createOrderService({
   config = orderConfig,
   clock = () => new Date()
 } = {}) {
-  async function getOrderPreview(listingId, buyerId) {
+  async function getOrderPreview(listingId, buyer) {
+    // Tương thích caller cũ truyền buyerId và caller v1 truyền hồ sơ người dùng.
+    const profile = buyer && typeof buyer === 'object' ? buyer : { UserId: buyer };
     const normalizedListingId = Number(listingId);
     if (!Number.isSafeInteger(normalizedListingId) || normalizedListingId <= 0) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'Mã sản phẩm không hợp lệ.');
+      throw orderError(400, 'VALIDATION_ERROR', 'Mã sản phẩm không hợp lệ.');
     }
-
     const listing = await repository.findListingPreview(normalizedListingId);
-    if (!listing) {
-      throw new AppError(404, 'LISTING_NOT_FOUND', 'Không tìm thấy sản phẩm.');
-    }
+    if (!listing) throw orderError(404, 'LISTING_NOT_FOUND', 'Không tìm thấy sản phẩm.');
 
     return {
       listing: {
@@ -78,12 +63,14 @@ function createOrderService({
         location: listing.Location,
         status: listing.Status,
         imageUrl: listing.ImageUrl,
-        seller: {
-          name: listing.SellerName,
-          verified: Boolean(listing.SellerVerified)
-        },
-        isOwnListing: Number(listing.SellerId) === Number(buyerId),
+        seller: { name: listing.SellerName, verified: Boolean(listing.SellerVerified) },
+        isOwnListing: Number(listing.SellerId) === Number(profile.UserId ?? profile.userId),
         isAvailable: listing.Status === 'ACTIVE'
+      },
+      buyer: {
+        fullName: profile.FullName || '',
+        phone: profile.Phone || '',
+        address: profile.Address || ''
       },
       reservationMinutes: config.reservationMinutes,
       delivery: deliveryFeeService.getCapability()
@@ -94,39 +81,33 @@ function createOrderService({
     const data = validateCreateOrder(payload);
     const normalizedBuyerId = Number(buyerId);
     if (!Number.isSafeInteger(normalizedBuyerId) || normalizedBuyerId <= 0) {
-      throw new AppError(401, 'UNAUTHORIZED', 'Vui lòng đăng nhập để tiếp tục.');
+      throw orderError(401, 'UNAUTHORIZED', 'Vui lòng đăng nhập để tiếp tục.');
     }
 
     try {
       return await repository.withTransaction(async (transaction) => {
         const now = clock();
         const listing = await repository.findListingByIdForUpdate(data.listingId, transaction);
-
-        if (!listing) {
-          throw new AppError(404, 'LISTING_NOT_FOUND', 'Không tìm thấy sản phẩm.');
-        }
+        if (!listing) throw orderError(404, 'LISTING_NOT_FOUND', 'Không tìm thấy sản phẩm.');
         if (Number(listing.SellerId) === normalizedBuyerId) {
-          throw new AppError(403, 'CANNOT_BUY_OWN_LISTING', 'Bạn không thể mua sản phẩm của chính mình.');
+          throw orderError(403, 'CANNOT_BUY_OWN_LISTING', 'Bạn không thể mua sản phẩm của chính mình.');
         }
         if (listing.Status !== 'ACTIVE') {
-          throw new AppError(409, 'LISTING_UNAVAILABLE', 'Sản phẩm hiện không còn khả dụng.');
+          throw orderError(409, 'LISTING_UNAVAILABLE', 'Sản phẩm hiện không còn khả dụng.');
         }
 
         let deliveryFee = '0.00';
         let deliveryFeeRuleId = null;
         if (data.deliveryMethod === 'DELIVERY') {
-          const verifiedQuote = normalizeQuote(
-            await deliveryFeeService.verifyQuote({
-              quoteId: data.deliveryQuoteId,
-              receiverAddress: data.receiverAddress,
-              listing,
-              buyerId: normalizedBuyerId,
-              transaction
-            }),
-            now
-          );
-          deliveryFee = verifiedQuote.amount;
-          deliveryFeeRuleId = verifiedQuote.deliveryFeeRuleId;
+          const quote = normalizeQuote(await deliveryFeeService.verifyQuote({
+            quoteId: data.deliveryQuoteId,
+            receiverAddress: data.receiverAddress,
+            listing,
+            buyerId: normalizedBuyerId,
+            transaction
+          }), now);
+          deliveryFee = quote.amount;
+          deliveryFeeRuleId = quote.deliveryFeeRuleId;
         }
 
         const productAmount = String(listing.Price);
@@ -134,15 +115,12 @@ function createOrderService({
         try {
           totalAmount = addMoney(productAmount, deliveryFee);
         } catch (_error) {
-          throw new AppError(500, 'INVALID_MONEY_VALUE', 'Không thể tính tổng thanh toán.');
+          throw orderError(500, 'INVALID_MONEY_VALUE', 'Không thể tính tổng thanh toán.');
         }
 
-        const reservedUntil = new Date(
-          now.getTime() + config.reservationMinutes * 60 * 1000
-        );
-        const affectedListings = await repository.reserveListing(data.listingId, transaction);
-        if (affectedListings !== 1) {
-          throw new AppError(409, 'RESERVATION_CONFLICT', 'Sản phẩm hiện không còn khả dụng.');
+        const reservedUntil = new Date(now.getTime() + config.reservationMinutes * 60 * 1000);
+        if (await repository.reserveListing(data.listingId, transaction) !== 1) {
+          throw orderError(409, 'RESERVATION_CONFLICT', 'Sản phẩm hiện không còn khả dụng.');
         }
 
         const order = await repository.createOrder({
@@ -176,16 +154,14 @@ function createOrderService({
           ChangedBy: normalizedBuyerId,
           CreatedAt: now
         }, transaction);
-
         await repository.createNotification({
-          UserId: Number(listing.SellerId),
-          Type: 'ORDER',
-          Title: 'Có đơn hàng mới',
-          Message: `Sản phẩm ${listing.Title} đã được giữ đến ${formatVietnameseDate(reservedUntil)}.`,
-          ReferenceType: 'ORDER',
-          ReferenceId: orderId,
-          IsRead: false,
-          CreatedAt: now
+          userId: Number(listing.SellerId),
+          type: 'ORDER',
+          title: 'Có đơn hàng mới',
+          message: `Sản phẩm ${listing.Title} đã được giữ đến ${formatVietnameseDate(reservedUntil)}.`,
+          referenceType: 'ORDER',
+          referenceId: orderId,
+          createdAt: now
         }, transaction);
 
         return {
@@ -203,9 +179,9 @@ function createOrderService({
         };
       });
     } catch (error) {
-      const databaseCode = error.original?.code || error.parent?.code;
-      if (['ER_LOCK_DEADLOCK', 'ER_LOCK_WAIT_TIMEOUT'].includes(databaseCode)) {
-        throw new AppError(409, 'RESERVATION_CONFLICT', 'Sản phẩm vừa được người khác giữ.');
+      const code = error.original?.code || error.parent?.code;
+      if (['ER_LOCK_DEADLOCK', 'ER_LOCK_WAIT_TIMEOUT'].includes(code)) {
+        throw orderError(409, 'RESERVATION_CONFLICT', 'Sản phẩm vừa được người khác giữ.');
       }
       throw error;
     }
@@ -215,18 +191,12 @@ function createOrderService({
     const now = clock();
     return repository.withTransaction(async (transaction) => {
       const expiredOrders = await repository.findExpiredReservations(
-        now,
-        config.expirationBatchSize,
-        transaction
+        now, config.expirationBatchSize, transaction
       );
       let expiredCount = 0;
-
       for (const order of expiredOrders) {
         const updated = await repository.cancelExpiredOrder(
-          order.OrderId,
-          now,
-          EXPIRED_REASON,
-          transaction
+          order.OrderId, now, EXPIRED_REASON, transaction
         );
         if (updated !== 1) continue;
 
@@ -240,23 +210,20 @@ function createOrderService({
           ChangedBy: null,
           CreatedAt: now
         }, transaction);
-
         const message = `Đơn #${order.OrderId} đã tự hủy do hết thời gian giữ sản phẩm.`;
         for (const userId of [order.BuyerId, order.SellerId]) {
           await repository.createNotification({
-            UserId: userId,
-            Type: 'ORDER',
-            Title: 'Đơn hàng đã hết thời gian giữ',
-            Message: message,
-            ReferenceType: 'ORDER',
-            ReferenceId: order.OrderId,
-            IsRead: false,
-            CreatedAt: now
+            userId,
+            type: 'ORDER',
+            title: 'Đơn hàng đã hết thời gian giữ',
+            message,
+            referenceType: 'ORDER',
+            referenceId: order.OrderId,
+            createdAt: now
           }, transaction);
         }
         expiredCount += 1;
       }
-
       return { expiredCount };
     });
   }
@@ -265,7 +232,6 @@ function createOrderService({
 }
 
 const service = createOrderService();
-
 module.exports = {
   EXPIRED_REASON,
   createOrder: service.createOrder,

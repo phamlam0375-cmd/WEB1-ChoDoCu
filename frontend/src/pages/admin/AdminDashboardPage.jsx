@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Banknote, CircleDollarSign, PackageCheck, RotateCcw, Table2 } from 'lucide-react'
-import { Card, ErrorState, Field, Loading, PageHeader, StatCard } from '../../components/admin/AdminUi'
+import { ErrorState, Field, Loading, PageHeader, Section, StatCard } from '../../components/admin/AdminUi'
 import { btn, input } from '../../components/admin/styles'
 import TimeSeriesChart from '../../components/admin/TimeSeriesChart'
 import { useApi } from '../../hooks/useApi'
@@ -40,7 +40,8 @@ export default function AdminDashboardPage() {
     <>
       <PageHeader title="Thống kê hoạt động và doanh thu" description="Đơn hoàn tất và hủy, giá trị giao dịch, hoa hồng phải thu và đã thu, phí tin VIP theo thời gian." />
 
-      <div className="mb-6 flex flex-wrap items-end gap-3">
+      <Section title="Khoảng thời gian">
+      <div className="flex flex-wrap items-end gap-3">
         <div className="flex flex-wrap gap-1 rounded-lg border border-slate-200 bg-white p-1">
           {PRESETS.map((preset) => {
             const next = rangeOf(preset.days)
@@ -71,6 +72,7 @@ export default function AdminDashboardPage() {
           </select>
         </Field>
       </div>
+      </Section>
 
       {error ? (
         <ErrorState message={error} onRetry={reload} />
@@ -110,8 +112,7 @@ export default function AdminDashboardPage() {
           </div>
 
           <div className="grid gap-6 xl:grid-cols-2">
-            <Card className="p-5">
-              <h2 className="font-semibold text-slate-900">Doanh thu website</h2>
+            <Section title="Doanh thu website" className="!mb-0" bodyClassName="p-5">
               <p className="mb-3 text-xs text-slate-500">Hoa hồng đã xác nhận thu và phí tin VIP, theo {period.toLowerCase()}</p>
               <TimeSeriesChart
                 type="bar"
@@ -124,9 +125,8 @@ export default function AdminDashboardPage() {
                 formatValue={formatMoney}
                 formatAxis={formatCompactMoney}
               />
-            </Card>
-            <Card className="p-5">
-              <h2 className="font-semibold text-slate-900">Đơn hàng</h2>
+            </Section>
+            <Section title="Đơn hàng" className="!mb-0" bodyClassName="p-5">
               <p className="mb-3 text-xs text-slate-500">Số đơn hoàn tất và đơn hủy, theo {period.toLowerCase()}</p>
               <TimeSeriesChart
                 type="line"
@@ -139,28 +139,31 @@ export default function AdminDashboardPage() {
                 formatValue={formatNumber}
                 integer
               />
-            </Card>
+            </Section>
           </div>
 
           <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
-            <Card>
-              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
-                <h2 className="font-semibold text-slate-900">Số liệu theo {period.toLowerCase()}</h2>
+            <Section
+              title={`Số liệu theo ${period.toLowerCase()}`}
+              className="!mb-0"
+              flush
+              actions={
                 <button type="button" className={btn.ghost} onClick={() => setShowTable((value) => !value)}>
                   <Table2 size={15} /> {showTable ? 'Ẩn bảng' : 'Xem bảng'}
                 </button>
-              </div>
+              }
+            >
               {showTable ? (
                 <div className="max-h-96 overflow-auto">
                   <table className="min-w-full text-sm">
-                    <thead className="sticky top-0 bg-slate-50 text-xs uppercase text-slate-500">
+                    <thead className="sticky top-0 bg-emerald-50 text-xs uppercase text-emerald-900">
                       <tr>
                         {[period, 'Đơn HT', 'Đơn hủy', 'Giá trị GD', 'HH phải thu', 'HH đã thu', 'Phí VIP', 'Hoàn tiền'].map((head) => (
-                          <th key={head} className="whitespace-nowrap px-3 py-2 text-right first:text-left">{head}</th>
+                          <th key={head} className="whitespace-nowrap border-b-2 border-r border-emerald-100 px-3 py-2 text-right first:text-left last:border-r-0">{head}</th>
                         ))}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 tabular-nums">
+                    <tbody className="tabular-nums [&_td]:border-b [&_td]:border-r [&_td]:border-slate-200 [&_td:last-child]:border-r-0 [&_tr:nth-child(even)]:bg-slate-50/70">
                       {data.series.map((row) => (
                         <tr key={row.period}>
                           <td className="px-3 py-1.5">{row.period}</td>
@@ -199,10 +202,9 @@ export default function AdminDashboardPage() {
                   </p>
                 </div>
               )}
-            </Card>
+            </Section>
 
-            <Card className="p-5">
-              <h2 className="mb-3 font-semibold text-slate-900">Việc cần xử lý</h2>
+            <Section title="Việc cần xử lý" className="!mb-0" bodyClassName="px-5 py-2">
               <ul className="divide-y divide-slate-100">
                 {QUEUES.map((queue) => (
                   <li key={queue.key}>
@@ -215,7 +217,7 @@ export default function AdminDashboardPage() {
                   </li>
                 ))}
               </ul>
-            </Card>
+            </Section>
           </div>
         </div>
       )}

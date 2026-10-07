@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { getAccessToken } from './auth.js'
 
 // Tài khoản thử nghiệm: tạm dùng cho tới khi A02 (đăng nhập) hoàn thành.
 // Backend đọc header x-user-id (chỉ bật ngoài production).
@@ -22,13 +23,19 @@ export function setDevUserId(userId) {
 }
 
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api/v1',
+  baseURL: import.meta.env?.VITE_API_URL || '/api/v1',
   timeout: 20000,
 })
 
 api.interceptors.request.use((config) => {
-  const userId = getDevUserId()
-  if (userId) config.headers['x-user-id'] = userId
+  // Login không được dùng token/header dev cũ; /me có Bearer mới được truyền rõ.
+  if (config.skipSession) return config
+  const token = getAccessToken()
+  if (token) config.headers.Authorization = `Bearer ${token}`
+  else {
+    const userId = getDevUserId()
+    if (userId) config.headers['x-user-id'] = userId
+  }
   return config
 })
 

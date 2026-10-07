@@ -27,6 +27,14 @@ module.exports = {
   },
 
   async down(queryInterface) {
+    // Cả hai tên migration có thể đã được triển khai. Undo bản tương thích
+    // không được xóa schema vẫn thuộc migration D01 của nhánh Lam.
+    const [earlier] = await queryInterface.sequelize.query(
+      'SELECT name FROM SequelizeMeta WHERE name = :name',
+      { replacements: { name: '20261002000100-add-d01-order-fields.js' } }
+    );
+    if (earlier.length) return;
+
     const indexes = await queryInterface.showIndex('Orders');
     if (indexes.some((index) => index.name === 'orders_status_reserved_until')) {
       await queryInterface.removeIndex('Orders', 'orders_status_reserved_until');

@@ -40,5 +40,6 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
-  }
+  },
+  "packageManager": "pnpm@10.34.5"
 }

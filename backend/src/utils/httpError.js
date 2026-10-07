@@ -2,10 +2,11 @@
 
 // Lỗi nghiệp vụ có mã HTTP; errorHandler sẽ trả về { success: false, message, errors }.
 class HttpError extends Error {
-  constructor(status, message, errors) {
+  constructor(status, message, errors, code) {
     super(message);
     this.status = status;
     this.errors = errors;
+    this.code = code;
   }
 }
 

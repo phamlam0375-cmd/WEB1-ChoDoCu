@@ -16,7 +16,7 @@ export default function AccountShell() {
   const { userId, me, loading, error } = useDevAccount()
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50">
+    <div className="flex min-h-screen flex-col bg-green-100">
       <Header savedCount={0} onShowSaved={() => {}} onUnavailable={() => {}} />
       <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:px-6">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">

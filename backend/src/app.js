@@ -46,7 +46,7 @@ app.use("/api/partner-applications", partnerApplicationRoutes);
 //Store
 app.use("/api/stores", storeRoutes);
 //listing
-app.use("/api/listing", listingRoutes);
+app.use("/api/seller/listing", listingRoutes);
 
 // PHÂN HỆ B: QUẢN TRỊ VÀ DOANH THU
 app.use('/api/v1/uploads', express.static(UPLOAD_DIR, { index: false, maxAge: '7d' }));

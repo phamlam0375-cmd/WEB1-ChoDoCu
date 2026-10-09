@@ -38,6 +38,9 @@ services:
     environment:
       DB_HOST: mysql
       DB_PORT: 3306
+      # Cùng một cờ cấp cho backend runtime và frontend build; mặc định an toàn.
+      D01_DEMO_MODE: ${D01_DEMO_MODE:-false}
+      D01_DEMO_USER_ID: ${D01_DEMO_USER_ID:-}
     ports:
       - "3000:3000"
     volumes:
@@ -54,6 +57,8 @@ services:
     build:
       context: .
       dockerfile: nginx/Dockerfile
+      args:
+        VITE_D01_DEMO_MODE: ${D01_DEMO_MODE:-false}
     restart: unless-stopped
     ports:
       - "8081:80"

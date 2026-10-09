@@ -5,6 +5,7 @@ import { ROLE_LABELS } from '../lib/labels'
 import { btn, input } from './admin/styles'
 
 // Đã đăng nhập thật: hiện người đang đăng nhập và nút Đăng xuất (không còn ô tài khoản thử nghiệm).
+// Bộ chọn dev không thay danh tính JWT của phiên thật.
 function SessionAccount({ compact, me, error, logout }) {
   return (
     <div className={`flex flex-wrap items-center gap-2 ${compact ? '' : 'rounded-xl border border-emerald-200 bg-emerald-50 p-3'}`}>

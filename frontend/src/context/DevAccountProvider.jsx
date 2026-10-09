@@ -10,6 +10,7 @@ const SESSION_KEYS = ['accessToken', 'token', 'user']
 // - Đã đăng nhập thật (có token từ trang Đăng nhập): dùng tài khoản đó, ẩn ô tài khoản thử nghiệm.
 // - Chưa đăng nhập: chọn tạm bằng mã người dùng (tài khoản thử nghiệm).
 // Đổi tài khoản thì nội dung trang được tải lại.
+// D01/D02 demo được giới hạn tại API riêng, không cấp phiên cho phân hệ B/admin.
 export default function DevAccountProvider({ children }) {
   const [token, setToken] = useState(getAccessToken)
   const [devUserId, setDevUser] = useState(getDevUserId)
@@ -26,21 +27,27 @@ export default function DevAccountProvider({ children }) {
     try {
       SESSION_KEYS.forEach((key) => window.localStorage.removeItem(key))
     } catch {
-      // Trình duyệt chặn localStorage: vẫn bỏ phiên trong trang hiện tại.
+      // Trình duyệt chặn storage: vẫn bỏ phiên khỏi context hiện tại.
     }
+    // Không tự kích hoạt lại danh tính dev cũ sau khi đăng xuất phiên thật.
+    setDevUserId('')
+    setDevUser('')
     setToken(null)
   }, [])
 
   const value = useMemo(
-    () => ({
-      userId: identity,
-      loggedIn,
-      me: identity && !loading && !error ? me : null,
-      loading,
-      error: identity ? error : null,
-      switchUser,
-      logout,
-    }),
+    () => {
+      const currentUser = identity && !loading && !error ? me : null
+      return {
+        userId: currentUser?.UserId || identity,
+        loggedIn,
+        me: currentUser,
+        loading,
+        error: identity ? error : null,
+        switchUser,
+        logout,
+      }
+    },
     [identity, loggedIn, me, loading, error, switchUser, logout],
   )
 

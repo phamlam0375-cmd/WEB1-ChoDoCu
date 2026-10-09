@@ -99,7 +99,7 @@ const SETTING_DEFINITIONS = [
     description: "Dùng để tạo mã QR chuyển khoản (VietQR) khi người bán nộp phí.",
     type: "bank",
     options: BANKS.map((bank) => ({ value: bank.code, label: `${bank.shortName} — ${bank.name}` })),
-    defaultValue: "970436",
+    defaultValue: "970418",
   },
   {
     key: "FEE_BANK_ACCOUNT_NUMBER",
@@ -109,7 +109,7 @@ const SETTING_DEFINITIONS = [
     type: "text",
     pattern: /^\d{6,20}$/,
     patternMessage: "Số tài khoản ngân hàng phải gồm 6–20 chữ số",
-    defaultValue: "0123456789",
+    defaultValue: "5811768917",
   },
   {
     key: "FEE_BANK_ACCOUNT_HOLDER",

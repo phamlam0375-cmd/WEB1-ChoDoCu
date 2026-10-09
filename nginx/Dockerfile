@@ -8,6 +8,8 @@ COPY frontend/package.json frontend/pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
 COPY frontend/ ./
+ARG VITE_D01_DEMO_MODE=false
+ENV VITE_D01_DEMO_MODE=${VITE_D01_DEMO_MODE}
 RUN pnpm run build
 
 FROM nginx:alpine

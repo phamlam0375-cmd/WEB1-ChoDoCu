@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Banknote, CircleDollarSign, PackageCheck, RotateCcw, Table2 } from 'lucide-react'
+import { Banknote, CircleDollarSign, FileSpreadsheet, PackageCheck, RotateCcw, Table2 } from 'lucide-react'
 import { ErrorState, Field, Loading, PageHeader, Section, StatCard } from '../../components/admin/AdminUi'
 import { btn, input } from '../../components/admin/styles'
 import TimeSeriesChart from '../../components/admin/TimeSeriesChart'
@@ -16,6 +16,48 @@ const PRESETS = [
   { label: '90 ngày', days: 90 },
   { label: '12 tháng', days: 365, groupBy: 'month' },
 ]
+
+// Xuất thống kê ra file Excel: tách cột bằng tab, mã UTF-16 có BOM để Excel mở đúng
+// tiếng Việt và đúng cột ở mọi cài đặt vùng (dấu phân cách "," hay ";").
+function exportStatistics(data) {
+  const { summary, range } = data
+  const periodLabel = range.groupBy === 'month' ? 'Tháng' : 'Ngày'
+  const rows = [
+    ['Thống kê hoạt động và doanh thu — Chợ Đồ Cũ'],
+    ['Từ ngày', range.from, 'Đến ngày', range.to],
+    [],
+    ['Tổng hợp', 'Giá trị'],
+    ['Doanh thu website (đồng)', summary.revenue],
+    ['Hoa hồng đã thu (đồng)', summary.commissionCollected],
+    ['Phí tin VIP (đồng)', summary.vipFees],
+    ['Giá trị giao dịch (đồng)', summary.gmv],
+    ['Hoa hồng phải thu (đồng)', summary.commissionDue],
+    ['Hoàn tiền (đồng)', summary.refundAmount],
+    ['Đơn hoàn tất', summary.completedOrders],
+    ['Đơn hủy', summary.cancelledOrders],
+    ['Tài khoản mới', summary.newUsers],
+    ['Tin đăng mới', summary.newListings],
+    [],
+    [periodLabel, 'Đơn hoàn tất', 'Đơn hủy', 'Giá trị giao dịch', 'Hoa hồng phải thu', 'Hoa hồng đã thu', 'Phí VIP', 'Hoàn tiền'],
+    ...data.series.map((row) => [row.period, row.completedOrders, row.cancelledOrders, row.gmv, row.commissionDue, row.commissionCollected, row.vipFees, row.refundAmount]),
+    [],
+    ['Người bán có giá trị giao dịch cao nhất', 'Số đơn', 'Giá trị giao dịch'],
+    ...data.topSellers.map((seller) => [seller.FullName, seller.orders, seller.gmv]),
+  ]
+  const cell = (value) => String(value ?? '').replace(/[\t\r\n]+/g, ' ')
+  const text = rows.map((row) => row.map(cell).join('\t')).join('\r\n')
+  const codes = new Uint16Array(text.length + 1)
+  codes[0] = 0xfeff
+  for (let i = 0; i < text.length; i += 1) codes[i + 1] = text.charCodeAt(i)
+  const url = URL.createObjectURL(new Blob([codes], { type: 'text/csv;charset=utf-16le' }))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `thong-ke_${range.from}_${range.to}.csv`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
 
 const rangeOf = (days) => ({ from: toDateInput(new Date(Date.now() - (days - 1) * 86400000)), to: toDateInput(new Date()) })
 
@@ -38,7 +80,15 @@ export default function AdminDashboardPage() {
 
   return (
     <>
-      <PageHeader title="Thống kê hoạt động và doanh thu" description="Đơn hoàn tất và hủy, giá trị giao dịch, hoa hồng phải thu và đã thu, phí tin VIP theo thời gian." />
+      <PageHeader
+        title="Thống kê hoạt động và doanh thu"
+        description="Đơn hoàn tất và hủy, giá trị giao dịch, hoa hồng phải thu và đã thu, phí tin VIP theo thời gian."
+        actions={
+          <button type="button" className={btn.secondary} disabled={!data} onClick={() => exportStatistics(data)}>
+            <FileSpreadsheet size={16} /> Xuất Excel
+          </button>
+        }
+      />
 
       <Section title="Khoảng thời gian">
       <div className="flex flex-wrap items-end gap-3">

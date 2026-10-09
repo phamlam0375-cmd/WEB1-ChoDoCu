@@ -20,6 +20,7 @@ import Footer from '../components/Footer'
 import Header from '../components/Header'
 import { errorMessage, getDevUserId } from '../lib/api'
 import { getAccessToken, rememberPostLoginUrl } from '../lib/auth'
+import { isD01DemoEnabled } from '../lib/d01Demo'
 import { estimateDeliveryFee } from '../services/deliveryFeeApi'
 import { createOrder, getOrderPreview } from '../services/orderApi'
 
@@ -28,8 +29,13 @@ const conditionLabels = {
   LIKE_NEW: 'Như mới', GOOD: 'Còn tốt', FAIR: 'Đã qua sử dụng',
   POOR: 'Cần sửa chữa', USED_GOOD: 'Đã qua sử dụng',
 }
-const hasSession = () => Boolean(getAccessToken() || getDevUserId())
+const hasSession = () => Boolean(getAccessToken() || getDevUserId() || isD01DemoEnabled())
 const phonePattern = /^(?:\+84|84|0)(?:3|5|7|8|9)\d{8}$/
+
+function D01DemoNotice() {
+  if (!isD01DemoEnabled() || getAccessToken()) return null
+  return <p role="status" className="bg-amber-50 px-4 py-3 text-center text-sm text-amber-900">Chế độ test D01: đơn hàng sử dụng tài khoản demo của nhóm, không phải phiên đăng nhập.</p>
+}
 
 const formatCurrency = (value) => new Intl.NumberFormat('vi-VN', {
   style: 'currency',
@@ -410,6 +416,7 @@ function OrderCreatePage() {
     return (
       <div className="min-h-screen bg-slate-50 text-slate-900">
         <Header />
+        <D01DemoNotice />
         <main>{content}</main>
         <Footer />
       </div>
@@ -421,6 +428,7 @@ function OrderCreatePage() {
     return (
       <div className="min-h-screen bg-slate-50 text-slate-900">
         <Header />
+        <D01DemoNotice />
         <main className="mx-auto grid min-h-[620px] max-w-3xl place-items-center px-4 py-12 sm:px-6">
           <section className="w-full rounded-2xl border border-emerald-200 bg-white p-6 text-center shadow-lg shadow-emerald-900/5 sm:p-10" aria-live="polite">
             <span className="mx-auto grid size-18 place-items-center rounded-full bg-emerald-100 text-emerald-700">
@@ -449,6 +457,7 @@ function OrderCreatePage() {
               <Store size={17} />
               Về trang chủ
             </button>
+            <button type="button" onClick={() => navigate(`/orders/${success.orderId}/cancel`)} className="ml-3 mt-7 inline-flex h-11 items-center rounded-xl border border-rose-300 px-6 text-sm font-bold text-rose-700 hover:bg-rose-50">Hủy đơn</button>
           </section>
         </main>
         <Footer />
@@ -480,6 +489,7 @@ function OrderCreatePage() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <Header />
+      <D01DemoNotice />
       <main className="mx-auto max-w-6xl px-4 py-9 sm:px-6 sm:py-12 lg:px-8">
         <button type="button" onClick={goBack} className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">
           <ArrowLeft size={17} />

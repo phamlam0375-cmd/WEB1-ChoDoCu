@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { getDevUserId, setDevUserId } from '../lib/api'
+import { getAccessToken } from '../lib/auth'
 import { useApi } from '../hooks/useApi'
 import { DevAccountContext } from './devAccountContext'
 
@@ -7,7 +8,8 @@ import { DevAccountContext } from './devAccountContext'
 // cho tới khi có đăng nhập thật (A02); đổi tài khoản thì nội dung trang được tải lại.
 export default function DevAccountProvider({ children }) {
   const [userId, setUserId] = useState(getDevUserId)
-  const { data: me, loading, error } = useApi(userId ? '/me' : null, { u: userId })
+  const signedIn = Boolean(getAccessToken())
+  const { data: me, loading, error } = useApi(signedIn || userId ? '/me' : null, { u: userId })
 
   const switchUser = useCallback((id) => {
     setDevUserId(id)
@@ -15,8 +17,8 @@ export default function DevAccountProvider({ children }) {
   }, [])
 
   const value = useMemo(
-    () => ({ userId, me: userId && !loading && !error ? me : null, loading, error: userId ? error : null, switchUser }),
-    [userId, me, loading, error, switchUser],
+    () => ({ userId: me?.UserId || userId, me: (signedIn || userId) && !loading && !error ? me : null, loading, error: signedIn || userId ? error : null, switchUser }),
+    [userId, me, loading, error, switchUser, signedIn],
   )
 
   return (

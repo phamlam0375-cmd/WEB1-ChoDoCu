@@ -1,4 +1,4 @@
 import { createContext } from 'react'
 
-// { userId, me, loading, error, switchUser(id) } — xem DevAccountProvider.
+// { userId, loggedIn, me, loading, error, switchUser(id), logout() } — xem DevAccountProvider.
 export const DevAccountContext = createContext(null)

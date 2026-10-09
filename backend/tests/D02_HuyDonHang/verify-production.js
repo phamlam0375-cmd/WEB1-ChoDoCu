@@ -113,7 +113,10 @@ async function main() {
 
     const paid = await createFixtureOrder('PAID', 'CONFIRMED');
     const signedContext = await browser.newContext();
-    await signedContext.addInitScript(accessToken => localStorage.setItem('accessToken', accessToken), token(demoId));
+    await signedContext.addInitScript(({ accessToken, oldDevUserId }) => {
+      localStorage.setItem('accessToken', accessToken);
+      localStorage.setItem('choDoCu.devUserId', String(oldDevUserId));
+    }, { accessToken: token(demoId), oldDevUserId: seller.UserId });
     const signedPage = await signedContext.newPage();
     signedPage.on('pageerror', error => errors.push(error.message));
     await signedPage.goto(`${origin}/orders/${paid.order.OrderId}/cancel`);
@@ -141,6 +144,15 @@ async function main() {
     assert.equal((await refundAction(demoId, { action: 'CONFIRM_RECEIVED' })).data.Status, 'COMPLETED');
     assert.equal((await Orders.findByPk(paid.order.OrderId, { transaction: tx })).Status, 'REFUNDED');
     console.log('PASS real JWT: D02 paid -> existing B06 form (opening is read-only) -> PENDING/REFUND_PENDING -> B07 approve/transfer/confirm -> REFUNDED.');
+    // Provider đã tích hợp master/D02: JWT thắng dev ID cũ; UI phiên thật không
+    // hiện bộ chọn dev. Logout phải xóa phiên và không kích hoạt lại dev ID đó.
+    const logout = signedPage.getByRole('button', { name: 'Đăng xuất', exact: true });
+    await logout.waitFor();
+    assert.equal(await signedPage.getByRole('spinbutton', { name: 'Mã tài khoản thử nghiệm' }).count(), 0);
+    await logout.click();
+    await signedPage.getByText('Vui lòng chọn tài khoản', { exact: true }).waitFor();
+    assert.equal(await signedPage.evaluate(() => ['accessToken', 'token', 'user', 'choDoCu.devUserId'].every(key => localStorage.getItem(key) === null)), true);
+    console.log('PASS merged session provider: JWT priority, dev selector hidden, logout clears session/stale dev identity and returns to guest.');
 
     const forbidden = await context.request.get(`${origin}/api/v1/orders/${reported.order.OrderId}/cancellation-preview`, { headers: { authorization: `Bearer ${token(seller.UserId)}` } });
     assert.equal(forbidden.status(), 403);

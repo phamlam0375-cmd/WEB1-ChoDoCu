@@ -1,13 +1,29 @@
 import { useState } from 'react'
-import { KeyRound } from 'lucide-react'
+import { KeyRound, LogOut, UserCircle2 } from 'lucide-react'
 import { useDevAccount } from '../hooks/useDevAccount'
 import { ROLE_LABELS } from '../lib/labels'
 import { btn, input } from './admin/styles'
 
+// Giữ giao diện phiên thật của master, không cho bộ chọn dev thay danh tính JWT.
+function SessionAccount({ compact, me, error, logout }) {
+  return (
+    <div className={`flex flex-wrap items-center gap-2 ${compact ? '' : 'rounded-xl border border-emerald-200 bg-emerald-50 p-3'}`}>
+      <UserCircle2 size={18} className="shrink-0 text-emerald-600" aria-hidden="true" />
+      <span className="text-xs text-slate-600">
+        {me ? <><b className="text-slate-900">{me.FullName}</b> · {me.roles.map(role => ROLE_LABELS[role] || role).join(', ')}</>
+          : error ? <span className="text-red-600">{error}</span> : 'Đang tải tài khoản...'}
+      </span>
+      <button type="button" className={`${btn.ghost} py-1.5`} onClick={logout}><LogOut size={15} /> Đăng xuất</button>
+    </div>
+  )
+}
+
 // Ô chọn tài khoản thử nghiệm (tạm thay đăng nhập). compact = dạng gọn trên thanh tiêu đề.
 export default function DevAccountSwitcher({ compact = false }) {
-  const { userId, me, error, switchUser } = useDevAccount()
-  const [draft, setDraft] = useState(userId)
+  const { userId, loggedIn, me, error, switchUser, logout } = useDevAccount()
+  const [draft, setDraft] = useState(loggedIn ? '' : userId)
+
+  if (loggedIn) return <SessionAccount compact={compact} me={me} error={error} logout={logout} />
 
   const submit = (event) => {
     event.preventDefault()

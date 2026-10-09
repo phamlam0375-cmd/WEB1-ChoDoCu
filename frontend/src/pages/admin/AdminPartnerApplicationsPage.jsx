@@ -78,6 +78,8 @@ function ApplicationDetail({ id, onClose, onSaved }) {
     try {
       const result = await run('patch', `/admin/partner-applications/${id}`, { status: decision, note, expectedStatus: app.Status })
       toast.success(result.message)
+      if (result.email?.sent) toast.info('Đã gửi email kết quả cho người đăng ký')
+      else if (result.email?.reason) toast.warn(`Chưa gửi được email: ${result.email.reason}`)
       setDecision(null)
       reload()
       onSaved()

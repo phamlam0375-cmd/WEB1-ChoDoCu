@@ -1,16 +1,6 @@
 import { useState } from 'react'
 import { Eye } from 'lucide-react'
-import {
-  Card,
-  DataTable,
-  Field,
-  FilterBar,
-  PageHeader,
-  Pagination,
-  SearchInput,
-  StatusBadge,
-  StatusTabs,
-} from '../../components/admin/AdminUi'
+import { DataTable, Field, FilterBar, PageHeader, Pagination, SearchInput, Section, StatusBadge, StatusTabs } from '../../components/admin/AdminUi'
 import { btn, input } from '../../components/admin/styles'
 import CommissionDetail from '../../components/admin/CommissionDetail'
 import { commissionColumns } from '../../components/admin/commissionColumns'
@@ -58,8 +48,7 @@ export default function AdminCommissionsPage() {
         ))}
       </div>
 
-      <Card>
-        <div className="p-4 pb-0">
+      <Section title="Tìm kiếm và lọc" bodyClassName="px-4 pt-4">
           <StatusTabs map={COMMISSION_STATUS} value={filters.overdue ? '__overdue' : filters.status} onChange={(status) => update({ status, overdue: '' })} counts={countTotals} />
           <FilterBar onReset={() => setFilters({ status: '', overdue: '', q: '', from: '', to: '', page: 1 })}>
             <SearchInput value={filters.q} onChange={(q) => update({ q })} placeholder="Tên người bán, mã đơn, mã đối soát" />
@@ -74,7 +63,8 @@ export default function AdminCommissionsPage() {
               <input type="date" value={filters.to} onChange={(event) => update({ to: event.target.value })} className={input} />
             </Field>
           </FilterBar>
-        </div>
+      </Section>
+      <Section title="Danh sách hoa hồng" meta={response?.pagination ? `${response.pagination.total} kết quả` : null} flush>
         <DataTable
           columns={columns}
           rows={response?.data}
@@ -85,7 +75,7 @@ export default function AdminCommissionsPage() {
           onRetry={reload}
         />
         <Pagination pagination={response?.pagination} onPage={(page) => setFilters((current) => ({ ...current, page }))} />
-      </Card>
+      </Section>
       {selected && <CommissionDetail commission={selected} onClose={() => setSelected(null)} />}
     </>
   )

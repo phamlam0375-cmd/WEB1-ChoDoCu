@@ -1,17 +1,7 @@
 import { useState } from 'react'
 import { toast } from 'react-toastify'
 import { Eye, Inbox } from 'lucide-react'
-import {
-  Card,
-  DataTable,
-  Field,
-  FilterBar,
-  PageHeader,
-  Pagination,
-  SearchInput,
-  StatusBadge,
-  StatusTabs,
-} from '../../components/admin/AdminUi'
+import { DataTable, Field, FilterBar, PageHeader, Pagination, SearchInput, Section, StatusBadge, StatusTabs } from '../../components/admin/AdminUi'
 import { btn, input } from '../../components/admin/styles'
 import RefundDetail from '../../components/refund/RefundDetail'
 import { useApi, useMutation } from '../../hooks/useApi'
@@ -68,8 +58,7 @@ export default function AdminRefundsPage() {
         title="Tiếp nhận và giải quyết hoàn tiền"
         description="Người mua gửi yêu cầu theo đơn; quản trị tiếp nhận, xem xét rồi chấp nhận hoặc từ chối. Người bán chuyển trả trực tiếp cho người mua; khi hoàn tất, hoa hồng của đơn được điều chỉnh."
       />
-      <Card>
-        <div className="p-4 pb-0">
+      <Section title="Tìm kiếm và lọc" bodyClassName="px-4 pt-4">
           <StatusTabs map={REFUND_STATUS} value={filters.status} onChange={(status) => update({ status })} counts={response?.counts} />
           <FilterBar onReset={() => setFilters({ status: '', q: '', from: '', to: '', page: 1 })}>
             <SearchInput value={filters.q} onChange={(q) => update({ q })} placeholder="Mã đơn, tên người mua/bán" />
@@ -80,7 +69,8 @@ export default function AdminRefundsPage() {
               <input type="date" value={filters.to} onChange={(event) => update({ to: event.target.value })} className={input} />
             </Field>
           </FilterBar>
-        </div>
+      </Section>
+      <Section title="Danh sách yêu cầu hoàn tiền" meta={response?.pagination ? `${response.pagination.total} kết quả` : null} flush>
         <DataTable
           columns={columns}
           rows={response?.data}
@@ -91,7 +81,7 @@ export default function AdminRefundsPage() {
           onRetry={reload}
         />
         <Pagination pagination={response?.pagination} onPage={(page) => setFilters((current) => ({ ...current, page }))} />
-      </Card>
+      </Section>
       {selected && <RefundDetail id={selected} viewer="admin" onClose={() => setSelected(null)} onSaved={reload} />}
     </>
   )

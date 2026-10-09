@@ -1,6 +1,5 @@
 'use strict';
 
-const { success } = require("zod");
 const { Listings, Store } = require("../models");
 
 const createListing = async (req, res) => {
@@ -44,18 +43,14 @@ const createListing = async (req, res) => {
 const getAllListing = async (req, res) => {
     try {
         const { StoreId } = req.params;
-        if (!storeId) {
+        if (!StoreId || !/^\d+$/.test(StoreId)) {
             return res.status(404).json({
                 success: false,
                 message: "StoreId không hợp lệ"
             })
         }
 
-        const store = await Store.findAll({
-            where: {
-                StoreId
-            }
-        })
+        const store = await Store.findByPk(StoreId);
         if (!store) {
             return res.status(404).json({
                 success: false,
@@ -65,7 +60,7 @@ const getAllListing = async (req, res) => {
 
         const listings = await Listings.findAll({
             where: {
-                StoreId: storeId
+                StoreId
             }
         });
 
@@ -77,6 +72,8 @@ const getAllListing = async (req, res) => {
 
     }
     catch (error) {
+        console.log(error.message);
+
         return res.status(500).json({
             success: false,
             message: "Lỗi lấy dữ liệu sản phẩm không thành công",

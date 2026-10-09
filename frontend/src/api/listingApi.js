@@ -1,8 +1,8 @@
 import api from "./axios";
 
-const getSellerListing = async (sellerId) => {
-    const res =await api.get(`/seller/listing/${sellerId}`);
+const getStoreListing = async (StoreId) => {
+    const res = await api.get(`/seller/listing/store/${StoreId}`);
     return res.data;
 };
 
-export { getSellerListing };
+export { getStoreListing };

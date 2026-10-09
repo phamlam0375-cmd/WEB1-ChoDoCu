@@ -16,7 +16,7 @@ import { copyText } from '../../lib/vietqr'
 // tự nhập số tiền và nội dung, rồi khai số tiền đã chuyển. Chuyển thiếu thì báo số còn thiếu;
 // cộng dồn đủ mới báo nộp phí (chờ quản trị đối soát) hoặc báo đã chuyển trả hoàn tiền.
 const MOMO = '#a50064'
-const QR_IMAGE = '/payment/vietqr-bidv.png'
+const QR_IMAGE = '/vietqr-bidv.png'
 
 const newTransactionCode = () => `MOMO${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 100).toString().padStart(2, '0')}`
 

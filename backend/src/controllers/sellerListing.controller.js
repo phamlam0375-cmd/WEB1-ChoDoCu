@@ -1,5 +1,6 @@
 'use strict';
 
+const { success } = require("zod");
 const { Listings, Store } = require("../models");
 
 const createListing = async (req, res) => {
@@ -34,6 +35,7 @@ const createListing = async (req, res) => {
     }
     catch (error) {
         return res.status(500).json({
+            success: false,
             message: "Lỗi tạo không thành công",
         });
     }
@@ -41,29 +43,29 @@ const createListing = async (req, res) => {
 
 const getAllListing = async (req, res) => {
     try {
-        const { sellerId } = req.params;
-        if (!sellerId) {
+        const { storeId } = req.params;
+        if (!storeId) {
             return res.status(404).json({
                 success: false,
-                message: "SellerId không hợp lệ"
+                message: "StoreId không hợp lệ"
             })
         }
 
-        const seller = await Store.findOne({
+        const store = await Store.findAll({
             where: {
-                OwnerId: sellerId
+                StoreId: storeId
             }
         })
-        if (!seller) {
+        if (!store) {
             return res.status(404).json({
                 success: false,
-                message: "Không tìm thấy seller"
+                message: "Không tìm thấy store"
             })
         }
 
         const listings = await Listings.findAll({
             where: {
-                SellerId: sellerId
+                StoreId: storeId
             }
         });
 
@@ -76,9 +78,39 @@ const getAllListing = async (req, res) => {
     }
     catch (error) {
         return res.status(500).json({
+            success: false,
             message: "Lỗi lấy dữ liệu sản phẩm không thành công",
         });
     }
 }
 
-module.exports = { createListing, getAllListing };
+const getListingId = async (req, res) => {
+    try {
+        const { listingId } = req.params;
+        const listing = await Listings.findOne({
+            where: {
+                ListingId: listingId
+            }
+        });
+
+        if (!listing) {
+            return res.status(500).json({
+                message: "Lỗi không thấy sản phẩm",
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Lấy sản phẩm thành công ",
+            data: listing
+        })
+    }
+    catch (error) {
+        return res.status(404).json({
+            success: false,
+            message: "Lỗi lấy dữ liệu sản phẩm không thành công",
+        });
+    }
+}
+
+module.exports = { createListing, getAllListing, getListingId };

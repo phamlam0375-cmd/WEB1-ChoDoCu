@@ -4,16 +4,26 @@ import { useDevAccount } from '../hooks/useDevAccount'
 import { ROLE_LABELS } from '../lib/labels'
 import { btn, input } from './admin/styles'
 
-// Giữ giao diện phiên thật của master, không cho bộ chọn dev thay danh tính JWT.
+// Đã đăng nhập thật: hiện người đang đăng nhập và nút Đăng xuất (không còn ô tài khoản thử nghiệm).
+// Bộ chọn dev không thay danh tính JWT của phiên thật.
 function SessionAccount({ compact, me, error, logout }) {
   return (
     <div className={`flex flex-wrap items-center gap-2 ${compact ? '' : 'rounded-xl border border-emerald-200 bg-emerald-50 p-3'}`}>
       <UserCircle2 size={18} className="shrink-0 text-emerald-600" aria-hidden="true" />
       <span className="text-xs text-slate-600">
-        {me ? <><b className="text-slate-900">{me.FullName}</b> · {me.roles.map(role => ROLE_LABELS[role] || role).join(', ')}</>
-          : error ? <span className="text-red-600">{error}</span> : 'Đang tải tài khoản...'}
+        {me ? (
+          <>
+            <b className="text-slate-900">{me.FullName}</b> · {me.roles.map((role) => ROLE_LABELS[role] || role).join(', ')}
+          </>
+        ) : error ? (
+          <span className="text-red-600">{error}</span>
+        ) : (
+          'Đang tải tài khoản...'
+        )}
       </span>
-      <button type="button" className={`${btn.ghost} py-1.5`} onClick={logout}><LogOut size={15} /> Đăng xuất</button>
+      <button type="button" className={`${btn.ghost} py-1.5`} onClick={logout}>
+        <LogOut size={15} /> Đăng xuất
+      </button>
     </div>
   )
 }

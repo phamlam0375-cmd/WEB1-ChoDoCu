@@ -6,7 +6,10 @@ import { DevAccountContext } from './devAccountContext'
 
 const SESSION_KEYS = ['accessToken', 'token', 'user']
 
-// Phiên thật dùng JWT và hồ sơ /me; chưa có phiên thì giữ bộ chọn tài khoản dev.
+// Tài khoản đang dùng cho các trang phân hệ B.
+// - Đã đăng nhập thật (có token từ trang Đăng nhập): dùng tài khoản đó, ẩn ô tài khoản thử nghiệm.
+// - Chưa đăng nhập: chọn tạm bằng mã người dùng (tài khoản thử nghiệm).
+// Đổi tài khoản thì nội dung trang được tải lại.
 // D01/D02 demo được giới hạn tại API riêng, không cấp phiên cho phân hệ B/admin.
 export default function DevAccountProvider({ children }) {
   const [token, setToken] = useState(getAccessToken)
@@ -22,7 +25,7 @@ export default function DevAccountProvider({ children }) {
 
   const logout = useCallback(() => {
     try {
-      SESSION_KEYS.forEach(key => window.localStorage.removeItem(key))
+      SESSION_KEYS.forEach((key) => window.localStorage.removeItem(key))
     } catch {
       // Trình duyệt chặn storage: vẫn bỏ phiên khỏi context hiện tại.
     }

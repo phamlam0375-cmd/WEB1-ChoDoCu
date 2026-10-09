@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'react-toastify'
 import { Info, RotateCcw, Save } from 'lucide-react'
-import { Card, ConfirmDialog, ErrorState, Field, Loading, PageHeader } from '../../components/admin/AdminUi'
+import { ConfirmDialog, ErrorState, Field, Loading, PageHeader, Section } from '../../components/admin/AdminUi'
 import { btn, input } from '../../components/admin/styles'
 import { useApi, useMutation } from '../../hooks/useApi'
 import { errorMessage } from '../../lib/api'
@@ -95,12 +95,11 @@ function SettingsForm({ settings, version, onSaved }) {
       }}
       noValidate
     >
-      <div className="space-y-6">
+      <div>
         {groups.map((group) => {
           const items = settings.filter((item) => item.group === group)
           return (
-            <Card key={group} className="p-5">
-              <h2 className="mb-4 font-semibold text-slate-900">{items[0].groupLabel}</h2>
+            <Section key={group} title={items[0].groupLabel} bodyClassName="p-5">
               <div className="grid gap-5 md:grid-cols-2">
                 {items.map((item) => {
                   const changed = String(draft[item.key]).trim() !== String(item.value)
@@ -146,7 +145,7 @@ function SettingsForm({ settings, version, onSaved }) {
                   )
                 })}
               </div>
-            </Card>
+            </Section>
           )
         })}
       </div>

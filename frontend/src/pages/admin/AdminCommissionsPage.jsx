@@ -1,10 +1,12 @@
 import { useState } from 'react'
-import { Eye } from 'lucide-react'
+import { toast } from 'react-toastify'
+import { BellRing, Eye } from 'lucide-react'
 import { DataTable, Field, FilterBar, PageHeader, Pagination, SearchInput, Section, StatusBadge, StatusTabs } from '../../components/admin/AdminUi'
 import { btn, input } from '../../components/admin/styles'
 import CommissionDetail from '../../components/admin/CommissionDetail'
 import { commissionColumns } from '../../components/admin/commissionColumns'
-import { useApi } from '../../hooks/useApi'
+import { useApi, useMutation } from '../../hooks/useApi'
+import { errorMessage } from '../../lib/api'
 import { formatMoney } from '../../lib/format'
 import { COMMISSION_STATUS } from '../../lib/labels'
 
@@ -13,6 +15,17 @@ export default function AdminCommissionsPage() {
   const [filters, setFilters] = useState({ status: '', overdue: '', q: '', from: '', to: '', page: 1 })
   const [selected, setSelected] = useState(null)
   const { response, loading, error, reload } = useApi('/admin/commissions', filters)
+  const { busy, run } = useMutation()
+
+  // Gửi thông báo nhắc nợ cho người bán có khoản quá hạn (mỗi khoản tối đa một lần mỗi ngày).
+  const remindOverdue = async () => {
+    try {
+      const result = await run('post', '/admin/commissions/remind-overdue')
+      toast.success(result.message)
+    } catch (err) {
+      toast.error(errorMessage(err))
+    }
+  }
   const update = (patch) => setFilters((current) => ({ ...current, page: 1, ...patch }))
   const totals = response?.totals || {}
   const countTotals = Object.fromEntries(Object.entries(totals).map(([key, value]) => [key, value.count]))
@@ -35,7 +48,12 @@ export default function AdminCommissionsPage() {
     <>
       <PageHeader
         title="Hoa hồng theo đơn"
-        description="Khi đơn hoàn tất, hệ thống ghi một khoản hoa hồng duy nhất theo tỷ lệ đã lưu trên đơn; khoản này được điều chỉnh khi đơn hoàn tiền."
+        description="Khi đơn hoàn tất, hệ thống ghi một khoản hoa hồng duy nhất theo tỷ lệ đã lưu trên đơn; khoản này được điều chỉnh khi đơn hoàn tiền. Khoản quá hạn được tự nhắc người bán mỗi ngày."
+        actions={
+          <button type="button" className={btn.secondary} onClick={remindOverdue} disabled={busy}>
+            <BellRing size={16} /> Nhắc các khoản quá hạn
+          </button>
+        }
       />
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-5">

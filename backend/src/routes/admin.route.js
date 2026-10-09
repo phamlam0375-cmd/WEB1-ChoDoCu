@@ -52,6 +52,7 @@ router.get("/refund-requests", refunds.listRefundRequests);
 // B08 Hoa hồng theo đơn
 router.get("/commissions", commissions.listCommissions);
 router.post("/commissions/sync", commissions.syncCommissions);
+router.post("/commissions/remind-overdue", commissions.remindOverdue);
 
 // B09 Thu và đối soát phí
 router.get("/fee-payments", commissions.listFeePayments);

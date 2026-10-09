@@ -8,6 +8,7 @@ import { errorMessage } from '../../lib/api'
 import { formatDateTime, formatMoney } from '../../lib/format'
 import { ORDER_STATUS, REFUND_STATUS } from '../../lib/labels'
 import QrPaymentPanel from '../QrPaymentPanel'
+import { usePaymentDone } from '../../lib/paymentChannel'
 
 // Thao tác của từng vai trò: viewer = 'admin' | 'buyer' | 'seller'.
 const ACTIONS = {
@@ -33,6 +34,13 @@ const STEP_LABELS = {
 
 export default function RefundDetail({ id, viewer, onClose, onSaved }) {
   const { data: refund, loading, error, reload } = useApi(`/refund-requests/${id}`)
+  // Chuyển trả xong ở tab thanh toán thì tải lại trạng thái yêu cầu này.
+  usePaymentDone((detail) => {
+    if (detail?.type !== 'refund' || detail.reference !== refund?.RefundCode) return
+    toast.success('Đã chuyển trả thành công')
+    reload()
+    onSaved?.()
+  })
   const { busy, run } = useMutation()
   const [action, setAction] = useState(null)
   const [amount, setAmount] = useState('')
@@ -85,7 +93,7 @@ export default function RefundDetail({ id, viewer, onClose, onSaved }) {
             <span className="text-sm text-slate-500">/ giá trị đơn {formatMoney(order.ProductAmount)}</span>
           </div>
 
-          <dl className="divide-y divide-slate-100">
+          <dl className="divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200">
             <InfoRow label="Đơn hàng">#{order.OrderId} · {order.Listing?.Title} · {ORDER_STATUS[order.Status] || order.Status}</InfoRow>
             <InfoRow label="Người mua">{refund.Requester?.FullName} · {refund.Requester?.Phone || refund.Requester?.Email}</InfoRow>
             <InfoRow label="Người bán">{order.Seller?.FullName} · {order.Seller?.Phone || order.Seller?.Email}</InfoRow>
@@ -108,18 +116,13 @@ export default function RefundDetail({ id, viewer, onClose, onSaved }) {
             )}
           </dl>
 
-          {viewer !== 'buyer' && ['APPROVED', 'DISPUTED'].includes(refund.Status) && refund.RefundAccountNumber && (
+          {viewer === 'seller' && refund.Status === 'APPROVED' && (
             <QrPaymentPanel
-              account={{
-                bankCode: refund.RefundBankCode,
-                bankName: refund.RefundBankName,
-                accountNumber: refund.RefundAccountNumber,
-                accountHolder: refund.RefundAccountHolder,
-              }}
+              payment={{ type: 'refund', refundId: id }}
               amount={Math.round(Number(refund.Amount))}
               reference={refund.RefundCode}
-              buttonLabel="Chuyển trả bằng QR"
-              title={`Chuyển trả ${formatMoney(refund.Amount)} cho người mua`}
+              buttonLabel="Chuyển trả bằng MoMo"
+              title={`Chuyển trả hoàn tiền ${refund.RefundCode}`}
             />
           )}
 

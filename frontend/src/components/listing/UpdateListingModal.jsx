@@ -1,22 +1,14 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 export default function UpdateListingModal({ listing, onClose, onSubmit, loading = false }) {
-    const [formData, setFormData] = useState(
-        { Title: "", Description: "", Price: "", ConditionLevel: "GOOD", KnownDefects: "", Location: "" }
-    );
-
-    useEffect(() => {
-        if (listing)
-            setFormData(
-                {
-                    Title: listing.Title ?? "",
-                    Description: listing.Description ?? "",
-                    Price: listing.Price ?? "",
-                    ConditionLevel: listing.ConditionLevel ?? "GOOD",
-                    KnownDefects: listing.KnownDefects ?? "",
-                    Location: listing.Location ?? ""
-                });
-    }, [listing]);
+    const [formData, setFormData] = useState(() => ({
+        Title: listing?.Title ?? "",
+        Description: listing?.Description ?? "",
+        Price: listing?.Price ?? "",
+        ConditionLevel: listing?.ConditionLevel ?? "GOOD",
+        KnownDefects: listing?.KnownDefects ?? "",
+        Location: listing?.Location ?? ""
+    }));
 
     if (!listing) return null;
 

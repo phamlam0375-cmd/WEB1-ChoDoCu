@@ -1,27 +1,52 @@
 import { useCallback, useMemo, useState } from 'react'
 import { getDevUserId, setDevUserId } from '../lib/api'
+import { getAccessToken } from '../lib/auth'
 import { useApi } from '../hooks/useApi'
 import { DevAccountContext } from './devAccountContext'
 
-// Tài khoản đang dùng cho các trang phân hệ B. Tạm thời chọn bằng mã người dùng
-// cho tới khi có đăng nhập thật (A02); đổi tài khoản thì nội dung trang được tải lại.
+const SESSION_KEYS = ['accessToken', 'token', 'user']
+
+// Tài khoản đang dùng cho các trang phân hệ B.
+// - Đã đăng nhập thật (có token từ trang Đăng nhập): dùng tài khoản đó, ẩn ô tài khoản thử nghiệm.
+// - Chưa đăng nhập: chọn tạm bằng mã người dùng (tài khoản thử nghiệm).
+// Đổi tài khoản thì nội dung trang được tải lại.
 export default function DevAccountProvider({ children }) {
-  const [userId, setUserId] = useState(getDevUserId)
-  const { data: me, loading, error } = useApi(userId ? '/me' : null, { u: userId })
+  const [token, setToken] = useState(getAccessToken)
+  const [devUserId, setDevUser] = useState(getDevUserId)
+  const loggedIn = Boolean(token)
+  const identity = loggedIn ? 'session' : devUserId
+  const { data: me, loading, error } = useApi(identity ? '/me' : null, { u: identity })
 
   const switchUser = useCallback((id) => {
     setDevUserId(id)
-    setUserId(id ? String(id) : '')
+    setDevUser(id ? String(id) : '')
+  }, [])
+
+  const logout = useCallback(() => {
+    try {
+      SESSION_KEYS.forEach((key) => window.localStorage.removeItem(key))
+    } catch {
+      // Trình duyệt chặn localStorage: vẫn bỏ phiên trong trang hiện tại.
+    }
+    setToken(null)
   }, [])
 
   const value = useMemo(
-    () => ({ userId, me: userId && !loading && !error ? me : null, loading, error: userId ? error : null, switchUser }),
-    [userId, me, loading, error, switchUser],
+    () => ({
+      userId: identity,
+      loggedIn,
+      me: identity && !loading && !error ? me : null,
+      loading,
+      error: identity ? error : null,
+      switchUser,
+      logout,
+    }),
+    [identity, loggedIn, me, loading, error, switchUser, logout],
   )
 
   return (
     <DevAccountContext.Provider value={value}>
-      <div key={userId || 'guest'} className="contents">
+      <div key={identity || 'guest'} className="contents">
         {children}
       </div>
     </DevAccountContext.Provider>

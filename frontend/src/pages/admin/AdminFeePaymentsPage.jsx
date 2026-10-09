@@ -2,17 +2,7 @@ import { useState } from 'react'
 import { toast } from 'react-toastify'
 import { Link } from 'react-router-dom'
 import { Eye } from 'lucide-react'
-import {
-  Badge,
-  Card,
-  ConfirmDialog,
-  DataTable,
-  FilterBar,
-  PageHeader,
-  Pagination,
-  SearchInput,
-  StatusBadge,
-} from '../../components/admin/AdminUi'
+import { Badge, ConfirmDialog, DataTable, FilterBar, PageHeader, Pagination, SearchInput, Section, StatusBadge } from '../../components/admin/AdminUi'
 import { btn } from '../../components/admin/styles'
 import CommissionDetail from '../../components/admin/CommissionDetail'
 import { commissionColumns } from '../../components/admin/commissionColumns'
@@ -124,8 +114,8 @@ export default function AdminFeePaymentsPage() {
         title="Thu và đối soát phí website"
         description="Người bán chuyển hoa hồng theo mã đối soát rồi báo đã nộp kèm mã giao dịch; quản trị đối chiếu sao kê ngân hàng rồi xác nhận đã thu. Mỗi xác nhận được ghi nhật ký."
       />
-      <Card>
-        <div className="flex gap-1 overflow-x-auto border-b border-slate-200 px-4 pt-2" role="tablist">
+      <Section title="Mục đối soát" flush>
+        <div className="flex gap-1 overflow-x-auto px-4 pt-2" role="tablist">
           {Object.entries(VIEWS).map(([key, item]) => (
             <button
               key={key}
@@ -145,17 +135,19 @@ export default function AdminFeePaymentsPage() {
             </button>
           ))}
         </div>
-        {isDebtors ? (
-          <div className="pt-4">
-            <Debtors />
-          </div>
-        ) : (
-          <>
-            <div className="p-4 pb-0">
+      </Section>
+      {isDebtors ? (
+        <Section title="Người bán còn nợ phí" bodyClassName="pt-4">
+          <Debtors />
+        </Section>
+      ) : (
+        <>
+          <Section title="Tìm kiếm" bodyClassName="px-4 pt-4">
               <FilterBar>
                 <SearchInput value={filters.q} onChange={(q) => setFilters({ q, page: 1 })} placeholder="Mã đối soát (HH...), mã đơn, người bán" />
               </FilterBar>
-            </div>
+          </Section>
+          <Section title={VIEWS[view].label} meta={response?.pagination ? `${response.pagination.total} khoản` : null} flush>
             <DataTable
               columns={columns}
               rows={response?.data}
@@ -167,9 +159,9 @@ export default function AdminFeePaymentsPage() {
               empty={view === 'REPORTED' ? 'Không có khoản nào chờ xác nhận' : undefined}
             />
             <Pagination pagination={response?.pagination} onPage={(page) => setFilters((current) => ({ ...current, page }))} />
-          </>
-        )}
-      </Card>
+          </Section>
+        </>
+      )}
 
       {selected && (
         <CommissionDetail

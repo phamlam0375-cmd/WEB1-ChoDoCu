@@ -2,11 +2,12 @@
 
 // Duyệt đăng ký đối tác (hồ sơ do người dùng gửi ở trang đăng ký đối tác). Xét duyệt thủ công, không OCR/eKYC.
 const { Op, fn, col } = require("sequelize");
-const { sequelize, PartnerApplications, Users, Roles, UserRoles } = require("../models");
+const { sequelize, PartnerApplications, Users, Roles, UserRoles, Store, Notifications } = require("../models");
 const { badRequest, notFound, conflict } = require("../utils/httpError");
 const { parsePagination, pagedResponse, parseId, text, oneOf } = require("../utils/request");
 const { logAdminAction } = require("../services/auditLog.service");
 const { notify } = require("../services/notification.service");
+const { verificationOf, withVerification, identityImageFile } = require("../services/partnerVerification.service");
 
 const STATUSES = ["PENDING", "NEED_INFO", "APPROVED", "REJECTED"];
 const PARTNER_TYPES = ["SELLER", "DRIVER"];
@@ -59,7 +60,7 @@ const listApplications = async (req, res) => {
     }),
   ]);
 
-  return pagedResponse(res, result, pagination, {
+  return pagedResponse(res, { ...result, rows: await withVerification(result.rows) }, pagination, {
     counts: Object.fromEntries(counts.map((row) => [row.Status, Number(row.count)])),
   });
 };
@@ -69,7 +70,7 @@ const getApplication = async (req, res) => {
   const application = await PartnerApplications.findByPk(id, { include: [applicantInclude, reviewerInclude] });
   if (!application) throw notFound("Không tìm thấy hồ sơ đối tác");
 
-  const [history, currentRoles] = await Promise.all([
+  const [history, currentRoles, notifications] = await Promise.all([
     PartnerApplications.findAll({
       where: { UserId: application.UserId, ApplicationId: { [Op.ne]: id } },
       attributes: ["ApplicationId", "PartnerType", "Status", "ReviewNote", "SubmittedAt", "ReviewedAt"],
@@ -79,12 +80,36 @@ const getApplication = async (req, res) => {
       include: [{ model: Users, as: "Users", where: { UserId: application.UserId }, attributes: [], through: { attributes: [] } }],
       attributes: ["RoleName"],
     }),
+    // Thông báo đã gửi cho người đăng ký về hồ sơ này (duyệt, từ chối, yêu cầu bổ sung).
+    Notifications.findAll({
+      where: { ReferenceType: "PARTNER_APPLICATION", ReferenceId: id },
+      attributes: ["NotificationId", "UserId", "Title", "Message", "IsRead", "CreatedAt"],
+      order: [["CreatedAt", "DESC"], ["NotificationId", "DESC"]],
+    }),
   ]);
 
+  const [plain] = await withVerification([application]);
   return res.status(200).json({
     success: true,
-    data: { ...application.get({ plain: true }), history, currentRoles: currentRoles.map((role) => role.RoleName) },
+    data: {
+      ...plain,
+      // Ảnh tải lên từ trang đăng ký đối tác chỉ xem được qua đường dẫn quản trị (có kiểm tra quyền).
+      identityImagePath: identityImageFile(application.IdentityImageUrl) ? `/admin/partner-applications/${id}/identity-image` : null,
+      history,
+      notifications,
+      currentRoles: currentRoles.map((role) => role.RoleName),
+    },
   });
+};
+
+// GET /admin/partner-applications/:id/identity-image — trả tệp ảnh giấy tờ cho quản trị.
+const getIdentityImage = async (req, res) => {
+  const id = parseId(req.params.id, "Mã hồ sơ");
+  const application = await PartnerApplications.findByPk(id, { attributes: ["IdentityImageUrl"] });
+  const file = application && identityImageFile(application.IdentityImageUrl);
+  if (!file) throw notFound("Không tìm thấy ảnh giấy tờ");
+  res.set("Cache-Control", "private, no-store");
+  return res.sendFile(file);
 };
 
 // PATCH { status: APPROVED | REJECTED | NEED_INFO, note }
@@ -103,9 +128,14 @@ const reviewApplication = async (req, res) => {
     if (!REVIEWABLE.includes(item.Status) || (expectedStatus && expectedStatus !== item.Status) || status === item.Status) {
       throw conflict("Hồ sơ đã được xử lý, vui lòng tải lại trang");
     }
+    let applicant = null;
     if (status === "APPROVED") {
-      const applicant = await Users.findByPk(item.UserId, { attributes: ["EmailVerified", "PhoneVerified"], transaction });
-      if (!applicant || !applicant.EmailVerified || !applicant.PhoneVerified) {
+      applicant = await Users.findByPk(item.UserId, {
+        attributes: ["UserId", "FullName", "Email", "Phone", "EmailVerified", "PhoneVerified"],
+        transaction,
+      });
+      const verified = applicant && (await verificationOf([applicant], { transaction })).get(applicant.UserId);
+      if (!verified || !verified.email || !verified.phone) {
         throw badRequest("Hồ sơ chưa xác thực email hoặc số điện thoại, không thể duyệt");
       }
     }
@@ -125,6 +155,15 @@ const reviewApplication = async (req, res) => {
         defaults: { UserId: item.UserId, RoleId: role.RoleId },
         transaction,
       });
+      // Người bán cần có gian hàng để dùng trang cửa hàng (C02) và đăng tin (C03).
+      // Tạo gian hàng mặc định, vị trí minh họa; người bán tự sửa lại thông tin sau.
+      if (item.PartnerType === "SELLER") {
+        await Store.findOrCreate({
+          where: { OwnerId: item.UserId },
+          defaults: { OwnerId: item.UserId, StoreName: `Cửa hàng ${applicant.FullName}`.slice(0, 120) },
+          transaction,
+        });
+      }
     }
 
     await logAdminAction(
@@ -168,4 +207,4 @@ const reviewApplication = async (req, res) => {
   return res.status(200).json({ success: true, message: resultMessages[status], data: application });
 };
 
-module.exports = { listApplications, getApplication, reviewApplication };
+module.exports = { listApplications, getApplication, getIdentityImage, reviewApplication };

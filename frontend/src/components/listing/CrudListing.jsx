@@ -1,23 +1,41 @@
+import { getStoreListing, updateListing } from "../../api/listingApi";
 import { useEffect, useState } from "react";
 
 import Header from "../Header";
-import { getSellerListing } from "../../api/listingApi";
+import UpdateListingModal from "./UpdateListingModal";
 
 export default function CrudListing() {
     const [listing, setListing] = useState([]);
+    const [openUpdate, setOpenUpdate] = useState(false);
+    const [selectedListing, setSelectedListing] = useState(null);
 
-useEffect(() => {
-    const fetchSellerListing = async () => {
+    useEffect(() => {
+        const fetchSellerListing = async () => {
+            try {
+                const data = await getStoreListing(6);
+                console.log(data.data)
+                setListing(data.data);
+            } catch (error) {
+                console.log("error ====> ", error);
+            }
+        };
+
+        fetchSellerListing();
+    }, []);
+
+    const handleUpdate = async (data) => {
         try {
-            const data = await getSellerListing(6);
-            setListing(data.data);
-        } catch (error) {
-            console.log("error day", error);
-        }
-    };
+            await updateListing(data.ListingId, data);
+            setOpenUpdate(false);
+            setSelectedListing(null);
 
-    fetchSellerListing();
-}, []);
+            const res = await getStoreListing(6);
+            setListing(res.data)
+        }
+        catch (error) {
+            console.error("Loi cap nhat ", error)
+        }
+    }
 
     return (
         <>
@@ -42,38 +60,17 @@ useEffect(() => {
                                 hover:bg-emerald-700 hover:shadow-md hover:shadow-emerald-200
                                 active:scale-[0.98]
                                 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2
-                            "
-                        >
-                            <svg
-                                className="h-5 w-5"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                strokeWidth="2.5"
-                                stroke="currentColor"
-                            >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    d="M12 4.5v15m7.5-7.5h-15"
-                                />
+                            ">
+                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                             </svg>
-
                             Thêm sản phẩm
                         </button>
                     </div>
 
                     <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
                         <div
-                            className="
-                                grid grid-cols-[2.8fr_1.2fr_1fr_1.2fr_1fr]
-                                items-center gap-4
-                                border-b border-emerald-100/60
-                                bg-emerald-50/60
-                                px-6 py-3.5
-                                text-xs font-bold uppercase tracking-wider
-                                text-emerald-800
-                            "
-                        >
+                            className="grid grid-cols-[2.8fr_1.2fr_1fr_1.2fr_1fr]  items-center gap-4 border-b border-emerald-100/60 bg-emerald-50/60 px-6 py-3.5  text-xs font-bold uppercase tracking-wider text-emerald-800 " >
                             <span>Sản phẩm</span>
                             <span>Giá</span>
                             <span>Tình trạng</span>
@@ -83,16 +80,7 @@ useEffect(() => {
 
                         <div className="divide-y divide-slate-100">
                             {listing.map((item) => (
-                                <div
-                                    key={item.ListingId}
-                                    className="
-                                        grid grid-cols-[2.8fr_1.2fr_1fr_1.2fr_1fr]
-                                        items-center gap-4
-                                        px-6 py-4.5
-                                        transition-colors duration-150
-                                        hover:bg-emerald-50/20
-                                    "
-                                >
+                                <div key={item.ListingId} className=" grid grid-cols-[2.8fr_1.2fr_1fr_1.2fr_1fr] items-center gap-4 px-6 py-4.5 transition-colors duration-150 hover:bg-emerald-50/20">
                                     <div className="min-w-0 pr-2">
                                         <h3 className="truncate font-semibold text-slate-900">
                                             {item.Title}
@@ -133,28 +121,15 @@ useEffect(() => {
                                     </div>
 
                                     <div className="flex items-center justify-end gap-2">
-                                        <button
-                                            className="
-                                                rounded-lg border border-slate-200 bg-white px-3 py-1.5
-                                                text-xs font-semibold text-slate-700 shadow-2xs
-                                                transition
-                                                hover:border-emerald-300
-                                                hover:bg-emerald-50
-                                                hover:text-emerald-700
-                                            "
-                                        >
+                                        <button className=" rounded-lg border border-slate-200 bg-white px-3 py-1.5  text-xs font-semibold text-slate-700 shadow-2xs  transition  hover:border-emerald-300   hover:bg-emerald-50  hover:text-emerald-700"
+                                            onClick={() => {
+                                                setSelectedListing(item),
+                                                    setOpenUpdate(true)
+                                            }}>
                                             Sửa
                                         </button>
 
-                                        <button
-                                            className="
-                                                rounded-lg border border-transparent bg-rose-50 px-3 py-1.5
-                                                text-xs font-semibold text-rose-600
-                                                transition
-                                                hover:bg-rose-100
-                                                hover:text-rose-700
-                                            "
-                                        >
+                                        <button className=" rounded-lg border border-transparent bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-100 hover:text-rose-700 ">
                                             Xóa
                                         </button>
                                     </div>
@@ -172,40 +147,15 @@ useEffect(() => {
                             </p>
 
                             <div className="flex items-center gap-1.5">
-                                <button
-                                    disabled
-                                    className="
-                                        cursor-not-allowed rounded-lg
-                                        border border-slate-200 bg-white
-                                        px-3 py-1.5
-                                        text-xs font-medium text-slate-400
-                                        opacity-60 shadow-2xs
-                                    "
-                                >
+                                <button disabled className=" cursor-not-allowed rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-400 opacity-60 shadow-2xs " >
                                     Trước
                                 </button>
 
-                                <button
-                                    className="
-                                        rounded-lg bg-emerald-600
-                                        px-3 py-1.5
-                                        text-xs font-semibold text-white shadow-2xs
-                                    "
-                                >
+                                <button className=" rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-2xs">
                                     1
                                 </button>
 
-                                <button
-                                    className="
-                                        rounded-lg border border-slate-200 bg-white
-                                        px-3 py-1.5
-                                        text-xs font-medium text-slate-600
-                                        shadow-2xs transition
-                                        hover:border-emerald-200
-                                        hover:bg-emerald-50
-                                        hover:text-emerald-700
-                                    "
-                                >
+                                <button className=" rounded-lg border border-slate-200 bg-white  px-3 py-1.5  text-xs font-medium text-slate-600  shadow-2xs transition  hover:border-emerald-200  hover:bg-emerald-50 hover:text-emerald-700 " >
                                     Sau
                                 </button>
                             </div>
@@ -213,6 +163,14 @@ useEffect(() => {
                     </div>
                 </div>
             </main>
+            {
+                openUpdate &&
+                <UpdateListingModal
+                    listing={selectedListing}
+                    onClose={() => setSelectedListing(false)}
+                    onSubmit={handleUpdate}
+                />
+            }
         </>
     );
 }

@@ -1,6 +1,6 @@
 'use strict';
 
-const { Listings } = require("../models");
+const { Listings, Store } = require("../models");
 
 const createListing = async (req, res) => {
     try {
@@ -34,6 +34,7 @@ const createListing = async (req, res) => {
     }
     catch (error) {
         return res.status(500).json({
+            success: false,
             message: "Lỗi tạo không thành công",
         });
     }
@@ -41,22 +42,167 @@ const createListing = async (req, res) => {
 
 const getAllListing = async (req, res) => {
     try {
+        const { StoreId } = req.params;
+        if (!StoreId || !/^\d+$/.test(StoreId)) {
+            return res.status(404).json({
+                success: false,
+                message: "StoreId không hợp lệ"
+            })
+        }
+
+        const store = await Store.findByPk(StoreId);
+        if (!store) {
+            return res.status(404).json({
+                success: false,
+                message: "Không tìm thấy store"
+            })
+        }
+
         const listings = await Listings.findAll({
             where: {
-                SellerId: req.params.sellerId
+                StoreId
             }
         });
+
         return res.status(200).json({
             success: true,
-            message: "Lấy sản phẩm thành công thành công",
+            message: "Lấy sản phẩm thành công ",
             data: listings
         })
+
     }
     catch (error) {
+        console.log(error.message);
+
         return res.status(500).json({
+            success: false,
             message: "Lỗi lấy dữ liệu sản phẩm không thành công",
         });
     }
 }
 
-module.exports = { createListing, getAllListing };
+const getListingId = async (req, res) => {
+    try {
+        const { ListingId } = req.params;
+        const listing = await Listings.findOne({
+            where: { ListingId }
+        });
+
+        if (!listing) {
+            return res.status(500).json({
+                message: "Lỗi không thấy sản phẩm",
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Lấy sản phẩm thành công ",
+            data: listing
+        })
+    }
+    catch (error) {
+        return res.status(404).json({
+            success: false,
+            message: "Lỗi lấy dữ liệu sản phẩm không thành công",
+        });
+    }
+}
+
+const deleteListing = async (req, res) => {
+    try {
+        const { ListingId } = req.params;
+        const listing = await Listings.findOne({
+            where: {
+                ListingId
+            }
+        });
+        if (!listing) {
+            return res.status(500).json({
+                message: "Lỗi không thấy sản phẩm",
+            });
+        }
+
+        await listing.destroy();
+        return res.status(200).json({
+            success: true,
+            message: "Xóa sản phẩm thành công ",
+        })
+
+    }
+    catch (error) {
+        return res.status(404).json({
+            success: false,
+            message: "Lỗi xóa dữ liệu sản phẩm không thành công",
+            error: error
+        });
+    }
+}
+
+const updateListing = async (req, res) => {
+    try {
+        const { ListingId } = req.params;
+        const listing = await Listings.findOne({
+            where: { ListingId }
+        });
+        if (!listing) {
+            return res.status(500).json({
+                message: "Lỗi không thấy sản phẩm",
+            });
+        }
+
+
+        const { CategoryId, Title, Description, Price, ConditionLevel, KnownDefects, Location } = req.body;
+        const updateListing = await listing.update({ CategoryId, Title, Description, Price, ConditionLevel, KnownDefects, Location });
+        return res.status(200).json({
+            success: true,
+            message: "Sửa sản phẩm thành công ",
+            data: updateListing
+        })
+
+    }
+    catch (error) {
+        return res.status(404).json({
+            success: false,
+            message: "Lỗi sửa dữ liệu sản phẩm không thành công",
+            error: error
+        });
+    }
+}
+const hiddenListing = async (req, res) => {
+    try {
+        const { ListingId } = req.params;
+        const listing = await Listings.findOne({
+            where: { ListingId }
+        });
+        if (!listing) {
+            return res.status(500).json({
+                message: "Lỗi không thấy sản phẩm",
+            });
+        }
+
+        if (listing.Status !== "ACTIVE") {
+            return res.status(409).json({
+                success: false,
+                message: "Chỉ có thể ẩn sản phẩm actives ",
+            })
+        }
+
+        const hidden = await listing.update({
+            Status: "HIDDEN",
+        })
+        return res.status(200).json({
+            success: true,
+            message: "Ẩn sản phẩm thành công",
+        })
+
+
+    }
+    catch (error) {
+        return res.status(404).json({
+            success: false,
+            message: "Lỗi ẩn sản phẩm không thành công",
+            error: error.message
+        });
+    }
+}
+module.exports = { createListing, getAllListing, getListingId, updateListing, hiddenListing };

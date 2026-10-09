@@ -11,7 +11,7 @@ export default function ReportInfo({ report, onOpenListing }) {
         <StatusBadge map={REPORT_STATUS} value={report.Status} />
         <span className="text-sm font-semibold text-slate-900">{report.Reason}</span>
       </div>
-      <dl className="divide-y divide-slate-100">
+      <dl className="divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200">
         <InfoRow label="Người gửi">{report.Reporter?.FullName} (#{report.ReporterId}) · {formatDateTime(report.CreatedAt)}</InfoRow>
         <InfoRow label="Mô tả">{report.Description}</InfoRow>
         <InfoRow label="Ảnh bằng chứng">

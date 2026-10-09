@@ -24,6 +24,7 @@ router.patch("/users/:id", users.updateUser);
 // B02 Duyệt đăng ký đối tác
 router.get("/partner-applications", partners.listApplications);
 router.get("/partner-applications/:id", partners.getApplication);
+router.get("/partner-applications/:id/identity-image", partners.getIdentityImage);
 router.patch("/partner-applications/:id", partners.reviewApplication);
 
 // B03 Quản lý danh mục và lựa chọn tình trạng

@@ -1,16 +1,7 @@
 import { useState } from 'react'
 import { toast } from 'react-toastify'
 import { Download, Lock } from 'lucide-react'
-import {
-  Badge,
-  Card,
-  ConfirmDialog,
-  DataTable,
-  Field,
-  FilterBar,
-  PageHeader,
-  Pagination,
-} from '../../components/admin/AdminUi'
+import { Badge, ConfirmDialog, DataTable, Field, FilterBar, PageHeader, Pagination, Section } from '../../components/admin/AdminUi'
 import { btn, input } from '../../components/admin/styles'
 import { useApi } from '../../hooks/useApi'
 import { downloadFile, errorMessage } from '../../lib/api'
@@ -122,8 +113,7 @@ export default function AdminAuditLogsPage() {
           </button>
         }
       />
-      <Card>
-        <div className="p-4 pb-0">
+      <Section title="Tìm kiếm và lọc" bodyClassName="px-4 pt-4">
           <FilterBar onReset={() => update(EMPTY_FILTERS)}>
             <Field label="Quản trị viên" className="w-48">
               <select value={filters.adminId} onChange={(event) => update({ adminId: event.target.value })} className={input}>
@@ -156,10 +146,11 @@ export default function AdminAuditLogsPage() {
           <p className="mb-3 flex items-center gap-1.5 text-xs text-slate-500">
             <Lock size={12} /> {formatNumber(total)} dòng khớp bộ lọc · file CSV tối đa {formatNumber(exportLimit)} dòng mới nhất, mã hóa UTF-8 để Excel đọc đúng tiếng Việt.
           </p>
-        </div>
+      </Section>
+      <Section title="Nhật ký thao tác" meta={response?.pagination ? `${response.pagination.total} kết quả` : null} flush>
         <DataTable columns={columns} rows={response?.data} rowKey={(row) => row.LogId} loading={loading} error={error} onRetry={reload} empty="Chưa có thao tác nào khớp bộ lọc" />
         <Pagination pagination={response?.pagination} onPage={setPage} />
-      </Card>
+      </Section>
       <ConfirmDialog
         open={confirmExport}
         title="Xuất một phần nhật ký?"

@@ -2,22 +2,7 @@ import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { Check, Eye, EyeOff, ImageOff, RotateCcw, Trash2, X } from 'lucide-react'
-import {
-  Badge,
-  Card,
-  ConfirmDialog,
-  DataTable,
-  Field,
-  FilterBar,
-  InfoRow,
-  Loading,
-  Modal,
-  PageHeader,
-  Pagination,
-  SearchInput,
-  StatusBadge,
-  StatusTabs,
-} from '../../components/admin/AdminUi'
+import { Badge, ConfirmDialog, DataTable, Field, FilterBar, InfoRow, Loading, Modal, PageHeader, Pagination, SearchInput, Section, StatusBadge, StatusTabs } from '../../components/admin/AdminUi'
 import { btn, input } from '../../components/admin/styles'
 import ReportInfo from '../../components/report/ReportInfo'
 import { useApi, useMutation } from '../../hooks/useApi'
@@ -88,7 +73,7 @@ function ListingDetail({ id, onClose, onSaved }) {
             </div>
           )}
 
-          <dl className="divide-y divide-slate-100">
+          <dl className="divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200">
             <InfoRow label="Người bán">{listing.Seller?.FullName} (#{listing.SellerId}) · {listing.Seller?.Email}</InfoRow>
             <InfoRow label="Mô tả"><span className="whitespace-pre-line">{listing.Description}</span></InfoRow>
             <InfoRow label="Lỗi đã biết">{listing.KnownDefects}</InfoRow>
@@ -315,6 +300,7 @@ function ProcessingReports({ initialReportId }) {
 
   return (
     <>
+      <Section title="Báo cáo đang xử lý" meta={response?.pagination ? `${response.pagination.total} kết quả` : null} flush>
       <DataTable
         columns={columns}
         rows={response?.data}
@@ -326,6 +312,7 @@ function ProcessingReports({ initialReportId }) {
         empty="Không có báo cáo nào đang xử lý"
       />
       <Pagination pagination={response?.pagination} onPage={setPage} />
+      </Section>
       {selected && <ReportHandleDetail id={selected} onClose={() => setSelected(null)} onSaved={reload} />}
     </>
   )
@@ -374,7 +361,7 @@ function ListingQueue() {
 
   return (
     <>
-      <div className="p-4 pb-0">
+      <Section title="Tìm kiếm và lọc" bodyClassName="px-4 pt-4">
         <StatusTabs map={LISTING_STATUS} value={filters.status} onChange={(status) => update({ status })} counts={response?.counts} />
         <FilterBar onReset={() => setFilters({ status: 'PENDING', q: '', categoryId: '', page: 1 })}>
           <SearchInput value={filters.q} onChange={(q) => update({ q })} placeholder="Tiêu đề, người bán hoặc mã tin" />
@@ -387,7 +374,8 @@ function ListingQueue() {
             </select>
           </Field>
         </FilterBar>
-      </div>
+      </Section>
+      <Section title="Danh sách tin" meta={response?.pagination ? `${response.pagination.total} kết quả` : null} flush>
       <DataTable
         columns={columns}
         rows={response?.data}
@@ -399,6 +387,7 @@ function ListingQueue() {
         empty={filters.status === 'PENDING' ? 'Không có tin nào chờ duyệt' : undefined}
       />
       <Pagination pagination={response?.pagination} onPage={(page) => setFilters((current) => ({ ...current, page }))} />
+      </Section>
       {selected && <ListingDetail id={selected} onClose={() => setSelected(null)} onSaved={reload} />}
     </>
   )
@@ -412,8 +401,8 @@ export default function AdminListingsPage() {
   return (
     <>
       <PageHeader title="Kiểm duyệt tin và xử lý báo cáo" description="Duyệt tin mới hoặc từ chối kèm lý do; xem báo cáo đang xử lý cạnh tin bị báo cáo, ẩn hoặc gỡ nội dung vi phạm. Người liên quan được thông báo kết quả." />
-      <Card>
-        <div className="flex gap-1 border-b border-slate-200 px-4 pt-2" role="tablist">
+      <Section title="Mục kiểm duyệt" flush>
+        <div className="flex gap-1 px-4 pt-2" role="tablist">
           {[
             ['listings', 'Tin chờ duyệt'],
             ['reports', 'Báo cáo đang xử lý'],
@@ -430,8 +419,8 @@ export default function AdminListingsPage() {
             </button>
           ))}
         </div>
-        {tab === 'reports' ? <ProcessingReports key={reportId || 'all'} initialReportId={reportId} /> : <ListingQueue />}
-      </Card>
+      </Section>
+      {tab === 'reports' ? <ProcessingReports key={reportId || 'all'} initialReportId={reportId} /> : <ListingQueue />}
     </>
   )
 }

@@ -4,6 +4,7 @@ import './App.css'
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { Suspense, lazy } from 'react'
 
+import CrudListing from './components/listing/CrudListing'
 import DevAccountProvider from './context/DevAccountProvider'
 import HomePage from './pages/HomePage'
 import { Loading } from './components/admin/AdminUi'
@@ -48,6 +49,7 @@ function App() {
         <Route path="/partner-application" element={<RegisterApplication />} />
         <Route path="store/:ownerId" element={<PublicStore />} />
         <Route path="/seller/store" element={<SellerStore />} />
+        <Route path="seller/listings" element={<CrudListing />} />
 
         <Route
           element={

@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { AlertTriangle, CheckCircle2, Copy, Loader2, Smartphone } from 'lucide-react'
+import { CheckCircle2, Copy, Loader2, RotateCw, Smartphone } from 'lucide-react'
 import { ErrorState, Loading } from '../../components/admin/AdminUi'
-import { btn, input } from '../../components/admin/styles'
+import { btn } from '../../components/admin/styles'
 import { useApi, useMutation } from '../../hooks/useApi'
 import { errorMessage } from '../../lib/api'
 import { formatDateTime, formatMoney } from '../../lib/format'
@@ -12,11 +12,12 @@ import { copyText } from '../../lib/vietqr'
 // Trang thanh toán (mở ở tab mới từ nút "Thanh toán"):
 //   /payment?type=fee&ids=12,13&amount=125000&ref=HH000020
 //   /payment?type=refund&id=7&amount=300000&ref=HT000007
-// Người nộp quét ảnh mã VietQR của tài khoản nhận (quét được bằng MoMo hoặc app ngân hàng),
-// tự nhập số tiền và nội dung, rồi khai số tiền đã chuyển. Chuyển thiếu thì báo số còn thiếu;
-// cộng dồn đủ mới báo nộp phí (chờ quản trị đối soát) hoặc báo đã chuyển trả hoàn tiền.
+// Người nộp quét ảnh mã VietQR của tài khoản nhận (MoMo hoặc app ngân hàng).
+// Giả lập nhận tiền: sau 10 giây trang tự kiểm tra giao dịch, coi như đã nhận đủ tiền và báo
+// nộp phí (chờ quản trị đối soát) hoặc báo đã chuyển trả hoàn tiền.
 const MOMO = '#a50064'
 const QR_IMAGE = '/vietqr-bidv.png'
+const WAIT_SECONDS = 10
 
 const newTransactionCode = () => `MOMO${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 100).toString().padStart(2, '0')}`
 
@@ -34,24 +35,6 @@ function readPayment(params) {
     return Number.isInteger(refundId) && refundId > 0 ? { type, refundId, amount, reference } : null
   }
   return null
-}
-
-// Số tiền đã chuyển cộng dồn qua các lần (giữ khi tải lại trang trong cùng tab).
-const paidKey = (payment) => `choDoCu.paid.${payment.type}.${payment.reference}`
-function readPaid(payment) {
-  try {
-    return Number(sessionStorage.getItem(paidKey(payment))) || 0
-  } catch {
-    return 0
-  }
-}
-function writePaid(payment, value) {
-  try {
-    if (value) sessionStorage.setItem(paidKey(payment), String(value))
-    else sessionStorage.removeItem(paidKey(payment))
-  } catch {
-    // Trình duyệt chặn sessionStorage: số đã chuyển chỉ giữ trong lúc mở trang.
-  }
 }
 
 function CopyRow({ label, value, display }) {
@@ -73,53 +56,54 @@ export default function MomoPaymentPage() {
   const payment = readPayment(params)
   const title = params.get('title') || 'Thanh toán'
   const { data: account, loading, error } = useApi(payment ? '/fee-account' : null)
-  const { busy, run } = useMutation()
+  const { run } = useMutation()
   const [transactionCode] = useState(newTransactionCode)
-  const [paid, setPaid] = useState(() => (payment ? readPaid(payment) : 0))
-  const [entered, setEntered] = useState(() => (payment ? String(Math.max(payment.amount - readPaid(payment), 0)) : ''))
-  const [inputError, setInputError] = useState('')
-  const [result, setResult] = useState(null) // { message, paidAt, total }
+  const [secondsLeft, setSecondsLeft] = useState(WAIT_SECONDS)
+  const [checking, setChecking] = useState(false)
+  const [result, setResult] = useState(null) // { message, paidAt }
   const [failure, setFailure] = useState('')
+  const submitted = useRef(false)
+
+  const ready = Boolean(payment && account)
+
+  // Đếm ngược 10 giây kể từ khi hiện mã QR.
+  useEffect(() => {
+    if (!ready || result || failure || secondsLeft <= 0) return undefined
+    const timer = setTimeout(() => setSecondsLeft((value) => value - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [ready, result, failure, secondsLeft])
+
+  // Hết giờ: tự kiểm tra giao dịch (giả lập đã nhận đủ tiền) và ghi nhận thanh toán.
+  useEffect(() => {
+    if (!ready || secondsLeft > 0 || submitted.current) return
+    submitted.current = true
+    setChecking(true)
+    const body =
+      payment.type === 'fee'
+        ? { commissionIds: payment.commissionIds, amount: payment.amount, transactionCode }
+        : { action: 'SELLER_TRANSFERRED', transactionCode, expectedStatus: 'APPROVED' }
+    const request =
+      payment.type === 'fee' ? run('post', '/seller/fee-payments', body) : run('patch', `/refund-requests/${payment.refundId}`, body)
+    request
+      .then((response) => {
+        setResult({ message: response.message, paidAt: new Date() })
+        announcePaymentDone({ type: payment.type, reference: payment.reference, transactionCode })
+      })
+      .catch((err) => setFailure(errorMessage(err, 'Không ghi nhận được thanh toán')))
+      .finally(() => setChecking(false))
+  }, [ready, secondsLeft, payment, run, transactionCode])
+
+  const retry = () => {
+    submitted.current = false
+    setFailure('')
+    setSecondsLeft(WAIT_SECONDS)
+  }
 
   if (!payment) {
     return <ErrorState message="Liên kết thanh toán không hợp lệ. Vui lòng quay lại trang trước và bấm Thanh toán lần nữa." />
   }
   if (loading) return <Loading />
   if (error) return <ErrorState message={error} />
-
-  const remaining = Math.max(payment.amount - paid, 0)
-
-  const confirmPaid = async () => {
-    setFailure('')
-    const value = Number(String(entered).replace(/[.,\s]/g, ''))
-    if (!Number.isInteger(value) || value <= 0) {
-      setInputError('Vui lòng nhập số tiền đã chuyển (chỉ gồm chữ số)')
-      return
-    }
-    setInputError('')
-    const total = paid + value
-
-    // Chuyển thiếu: ghi nhận phần đã chuyển, báo số còn thiếu, chưa gửi lên hệ thống.
-    if (total < payment.amount) {
-      setPaid(total)
-      writePaid(payment, total)
-      setEntered(String(payment.amount - total))
-      return
-    }
-
-    try {
-      const response =
-        payment.type === 'fee'
-          ? await run('post', '/seller/fee-payments', { commissionIds: payment.commissionIds, amount: payment.amount, transactionCode })
-          : await run('patch', `/refund-requests/${payment.refundId}`, { action: 'SELLER_TRANSFERRED', transactionCode, expectedStatus: 'APPROVED' })
-      writePaid(payment, 0)
-      setPaid(total)
-      setResult({ message: response.message, paidAt: new Date(), total })
-      announcePaymentDone({ type: payment.type, reference: payment.reference, transactionCode })
-    } catch (err) {
-      setFailure(errorMessage(err, 'Không ghi nhận được thanh toán'))
-    }
-  }
 
   return (
     <div className="mx-auto w-full max-w-md">
@@ -128,11 +112,6 @@ export default function MomoPaymentPage() {
           <p className="text-sm font-medium text-white/80">Thanh toán qua MoMo hoặc app ngân hàng</p>
           <p className="mt-1 text-lg font-semibold">{title}</p>
           <p className="mt-3 text-3xl font-bold tabular-nums">{formatMoney(payment.amount)}</p>
-          {paid > 0 && !result && (
-            <p className="mt-1 text-sm text-white/90">
-              Đã chuyển {formatMoney(paid)} · còn thiếu <b>{formatMoney(remaining)}</b>
-            </p>
-          )}
         </div>
 
         {result ? (
@@ -140,15 +119,10 @@ export default function MomoPaymentPage() {
             <CheckCircle2 size={48} className="text-emerald-600" />
             <p className="text-lg font-semibold text-slate-900">Thanh toán thành công</p>
             <p className="text-sm text-slate-600">{result.message}</p>
-            {result.total > payment.amount && (
-              <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                Bạn đã chuyển thừa {formatMoney(result.total - payment.amount)}. Liên hệ quản trị để được hoàn phần thừa.
-              </p>
-            )}
             <div className="mt-3 w-full text-left">
               <CopyRow label="Mã giao dịch" value={transactionCode} />
               <CopyRow label="Nội dung" value={payment.reference} />
-              <CopyRow label="Đã chuyển" value={String(result.total)} display={formatMoney(result.total)} />
+              <CopyRow label="Đã nhận" value={String(payment.amount)} display={formatMoney(payment.amount)} />
             </div>
             <p className="text-xs text-slate-500">Lúc {formatDateTime(result.paidAt)}. Trang trước đã được cập nhật trạng thái.</p>
           </div>
@@ -157,44 +131,44 @@ export default function MomoPaymentPage() {
             <div className="flex flex-col items-center gap-2 border-b border-slate-100 px-5 py-5">
               <img src={QR_IMAGE} alt={`Mã VietQR ${account.bankName} ${account.accountNumber}`} className="w-64 max-w-full rounded-xl" />
               <p className="flex items-center gap-1.5 text-xs text-slate-500">
-                <Smartphone size={14} /> Mở MoMo hoặc app ngân hàng → Quét mã, rồi tự nhập số tiền và nội dung bên dưới.
+                <Smartphone size={14} /> Mở MoMo hoặc app ngân hàng → Quét mã, nhập số tiền và nội dung bên dưới.
               </p>
             </div>
             <div className="px-5 py-2">
-              <CopyRow label={paid > 0 ? 'Cần chuyển thêm' : 'Số tiền'} value={String(remaining)} display={formatMoney(remaining)} />
+              <CopyRow label="Số tiền" value={String(payment.amount)} display={formatMoney(payment.amount)} />
               <CopyRow label="Nội dung" value={payment.reference} />
               <CopyRow label="Số tài khoản" value={account.accountNumber} display={`${account.bankName} · ${account.accountNumber}`} />
             </div>
 
-            <div className="space-y-2 px-5 pb-5 pt-2">
-              {paid > 0 && (
-                <p className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                  <AlertTriangle size={16} className="mt-0.5 shrink-0" />
-                  Bạn mới chuyển {formatMoney(paid)}, còn thiếu {formatMoney(remaining)}. Vui lòng chuyển thêm {formatMoney(remaining)} với cùng nội dung {payment.reference}.
+            <div className="px-5 pb-5 pt-2">
+              {failure ? (
+                <div className="space-y-2">
+                  <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{failure}</p>
+                  <button type="button" className={`${btn.secondary} w-full`} onClick={retry}>
+                    <RotateCw size={16} /> Kiểm tra lại
+                  </button>
+                </div>
+              ) : checking || secondsLeft <= 0 ? (
+                <p className="flex items-center justify-center gap-2 rounded-lg bg-slate-50 px-3 py-3 text-sm font-medium text-slate-700">
+                  <Loader2 size={16} className="animate-spin" style={{ color: MOMO }} /> Đang kiểm tra giao dịch...
                 </p>
+              ) : (
+                <div className="space-y-2 rounded-lg bg-slate-50 px-3 py-3">
+                  <p className="flex items-center justify-between text-sm text-slate-700">
+                    <span className="flex items-center gap-2">
+                      <Loader2 size={16} className="animate-spin" style={{ color: MOMO }} /> Đang chờ nhận tiền
+                    </span>
+                    <b className="tabular-nums">Kiểm tra sau {secondsLeft} giây</b>
+                  </p>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
+                    <div
+                      className="h-full rounded-full transition-all duration-1000 ease-linear"
+                      style={{ width: `${((WAIT_SECONDS - secondsLeft) / WAIT_SECONDS) * 100}%`, backgroundColor: MOMO }}
+                    />
+                  </div>
+                </div>
               )}
-              <label className="block text-sm font-medium text-slate-700" htmlFor="paid-amount">
-                Số tiền bạn vừa chuyển (đồng)
-              </label>
-              <input
-                id="paid-amount"
-                inputMode="numeric"
-                value={entered}
-                onChange={(event) => setEntered(event.target.value)}
-                className={`${input} ${inputError ? 'border-red-400' : ''}`}
-              />
-              {inputError && <p className="text-xs font-medium text-red-600">{inputError}</p>}
-              {failure && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{failure}</p>}
-              <button
-                type="button"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
-                style={{ backgroundColor: MOMO }}
-                onClick={confirmPaid}
-                disabled={busy}
-              >
-                {busy && <Loader2 size={16} className="animate-spin" />} Đã chuyển tiền
-              </button>
-              <p className="text-center text-xs text-slate-500">Giả lập: nhập đúng số tiền đã chuyển rồi bấm để ghi nhận.</p>
+              <p className="mt-2 text-center text-xs text-slate-500">Giả lập: sau {WAIT_SECONDS} giây hệ thống coi như đã nhận đủ tiền.</p>
             </div>
           </>
         )}

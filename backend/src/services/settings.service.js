@@ -120,7 +120,7 @@ const SETTING_DEFINITIONS = [
     transform: (value) => value.toUpperCase().replace(/\s+/g, " "),
     pattern: /^[A-Z][A-Z ]{1,99}$/,
     patternMessage: "Tên chủ tài khoản chỉ gồm chữ HOA không dấu và khoảng trắng (2–100 ký tự)",
-    defaultValue: "CHO DO CU",
+    defaultValue: "NGUYEN DUY TUNG",
   },
 ];
 

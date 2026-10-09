@@ -43,7 +43,7 @@ const createListing = async (req, res) => {
 
 const getAllListing = async (req, res) => {
     try {
-        const { storeId } = req.params;
+        const { StoreId } = req.params;
         if (!storeId) {
             return res.status(404).json({
                 success: false,
@@ -53,7 +53,7 @@ const getAllListing = async (req, res) => {
 
         const store = await Store.findAll({
             where: {
-                StoreId: storeId
+                StoreId
             }
         })
         if (!store) {
@@ -86,11 +86,9 @@ const getAllListing = async (req, res) => {
 
 const getListingId = async (req, res) => {
     try {
-        const { listingId } = req.params;
+        const { ListingId } = req.params;
         const listing = await Listings.findOne({
-            where: {
-                ListingId: listingId
-            }
+            where: { ListingId }
         });
 
         if (!listing) {
@@ -113,4 +111,101 @@ const getListingId = async (req, res) => {
     }
 }
 
-module.exports = { createListing, getAllListing, getListingId };
+const deleteListing = async (req, res) => {
+    try {
+        const { ListingId } = req.params;
+        const listing = await Listings.findOne({
+            where: {
+                ListingId
+            }
+        });
+        if (!listing) {
+            return res.status(500).json({
+                message: "Lỗi không thấy sản phẩm",
+            });
+        }
+
+        await listing.destroy();
+        return res.status(200).json({
+            success: true,
+            message: "Xóa sản phẩm thành công ",
+        })
+
+    }
+    catch (error) {
+        return res.status(404).json({
+            success: false,
+            message: "Lỗi xóa dữ liệu sản phẩm không thành công",
+            error: error
+        });
+    }
+}
+
+const updateListing = async (req, res) => {
+    try {
+        const { ListingId } = req.params;
+        const listing = await Listings.findOne({
+            where: { ListingId }
+        });
+        if (!listing) {
+            return res.status(500).json({
+                message: "Lỗi không thấy sản phẩm",
+            });
+        }
+
+
+        const { CategoryId, Title, Description, Price, ConditionLevel, KnownDefects, Location } = req.body;
+        const updateListing = await listing.update({ CategoryId, Title, Description, Price, ConditionLevel, KnownDefects, Location });
+        return res.status(200).json({
+            success: true,
+            message: "Sửa sản phẩm thành công ",
+            data: updateListing
+        })
+
+    }
+    catch (error) {
+        return res.status(404).json({
+            success: false,
+            message: "Lỗi sửa dữ liệu sản phẩm không thành công",
+            error: error
+        });
+    }
+}
+const hiddenListing = async (req, res) => {
+    try {
+        const { ListingId } = req.params;
+        const listing = await Listings.findOne({
+            where: { ListingId }
+        });
+        if (!listing) {
+            return res.status(500).json({
+                message: "Lỗi không thấy sản phẩm",
+            });
+        }
+
+        if (listing.Status !== "ACTIVE") {
+            return res.status(409).json({
+                success: false,
+                message: "Chỉ có thể ẩn sản phẩm actives ",
+            })
+        }
+
+        const hidden = await listing.update({
+            Status: "HIDDEN",
+        })
+        return res.status(200).json({
+            success: true,
+            message: "Ẩn sản phẩm thành công",
+        })
+
+
+    }
+    catch (error) {
+        return res.status(404).json({
+            success: false,
+            message: "Lỗi ẩn sản phẩm không thành công",
+            error: error.message
+        });
+    }
+}
+module.exports = { createListing, getAllListing, getListingId, updateListing, hiddenListing };

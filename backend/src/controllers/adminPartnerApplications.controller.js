@@ -7,6 +7,7 @@ const { badRequest, notFound, conflict } = require("../utils/httpError");
 const { parsePagination, pagedResponse, parseId, text, oneOf } = require("../utils/request");
 const { logAdminAction } = require("../services/auditLog.service");
 const { notify } = require("../services/notification.service");
+const { sendPartnerDecisionEmail } = require("../services/partnerMail.service");
 const { verificationOf, withVerification, identityImageFile } = require("../services/partnerVerification.service");
 
 const STATUSES = ["PENDING", "NEED_INFO", "APPROVED", "REJECTED"];
@@ -204,7 +205,24 @@ const reviewApplication = async (req, res) => {
     REJECTED: "Hồ sơ đã chuyển sang \"Từ chối\"",
     NEED_INFO: "Hồ sơ đã chuyển sang \"Cần bổ sung\"",
   };
-  return res.status(200).json({ success: true, message: resultMessages[status], data: application });
+
+  // Sau khi lưu xong mới gửi email cho người đăng ký; gửi lỗi không làm hỏng kết quả xét duyệt.
+  const applicant = await Users.findByPk(application.UserId, { attributes: ["FullName", "Email"] });
+  const label = PARTNER_LABEL[application.PartnerType];
+  const emailMessages = {
+    APPROVED: `Bạn đã trở thành ${label} của Chợ Đồ Cũ.`,
+    REJECTED: `hồ sơ chưa được duyệt.`,
+    NEED_INFO: `vui lòng bổ sung hồ sơ theo ghi chú bên dưới và gửi lại.`,
+  };
+  const email = await sendPartnerDecisionEmail({
+    to: applicant?.Email,
+    fullName: applicant?.FullName || "bạn",
+    partnerLabel: label,
+    status,
+    message: emailMessages[status],
+    note,
+  });
+  return res.status(200).json({ success: true, message: resultMessages[status], data: application, email });
 };
 
 module.exports = { listApplications, getApplication, getIdentityImage, reviewApplication };

@@ -1,10 +1,13 @@
+import { getStoreListing, updateListing } from "../../api/listingApi";
 import { useEffect, useState } from "react";
 
 import Header from "../Header";
-import { getStoreListing } from "../../api/listingApi";
+import UpdateListingModal from "./UpdateListingModal";
 
 export default function CrudListing() {
     const [listing, setListing] = useState([]);
+    const [openUpdate, setOpenUpdate] = useState(false);
+    const [selectedListing, setSelectedListing] = useState(null);
 
     useEffect(() => {
         const fetchSellerListing = async () => {
@@ -19,6 +22,20 @@ export default function CrudListing() {
 
         fetchSellerListing();
     }, []);
+
+    const handleUpdate = async (data) => {
+        try {
+            await updateListing(data.ListingId, data);
+            setOpenUpdate(false);
+            setSelectedListing(null);
+
+            const res = await getStoreListing(6);
+            setListing(res.data)
+        }
+        catch (error) {
+            console.error("Loi cap nhat ", error)
+        }
+    }
 
     return (
         <>
@@ -104,7 +121,11 @@ export default function CrudListing() {
                                     </div>
 
                                     <div className="flex items-center justify-end gap-2">
-                                        <button className=" rounded-lg border border-slate-200 bg-white px-3 py-1.5  text-xs font-semibold text-slate-700 shadow-2xs  transition  hover:border-emerald-300   hover:bg-emerald-50  hover:text-emerald-700   " >
+                                        <button className=" rounded-lg border border-slate-200 bg-white px-3 py-1.5  text-xs font-semibold text-slate-700 shadow-2xs  transition  hover:border-emerald-300   hover:bg-emerald-50  hover:text-emerald-700"
+                                            onClick={() => {
+                                                setSelectedListing(item),
+                                                    setOpenUpdate(true)
+                                            }}>
                                             Sửa
                                         </button>
 
@@ -142,6 +163,14 @@ export default function CrudListing() {
                     </div>
                 </div>
             </main>
+            {
+                openUpdate &&
+                <UpdateListingModal
+                    listing={selectedListing}
+                    onClose={() => setSelectedListing(false)}
+                    onSubmit={handleUpdate}
+                />
+            }
         </>
     );
 }

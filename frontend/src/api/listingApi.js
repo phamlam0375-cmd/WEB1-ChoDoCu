@@ -5,4 +5,8 @@ const getStoreListing = async (StoreId) => {
     return res.data;
 };
 
-export { getStoreListing };
+const updateListing = async (ListingId, data) => {
+    const res = await api.patch(`/seller/listing/${ListingId}`, data);
+    return res.data;
+}
+export { getStoreListing, updateListing };

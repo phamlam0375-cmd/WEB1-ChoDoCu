@@ -1,6 +1,6 @@
 'use strict';
 
-const { Listings } = require("../models");
+const { Listings, Store } = require("../models");
 
 const createListing = async (req, res) => {
     try {
@@ -41,16 +41,38 @@ const createListing = async (req, res) => {
 
 const getAllListing = async (req, res) => {
     try {
+        const { sellerId } = req.params;
+        if (!sellerId) {
+            return res.status(404).json({
+                success: false,
+                message: "SellerId không hợp lệ"
+            })
+        }
+
+        const seller = await Store.findOne({
+            where: {
+                OwnerId: sellerId
+            }
+        })
+        if (!seller) {
+            return res.status(404).json({
+                success: false,
+                message: "Không tìm thấy seller"
+            })
+        }
+
         const listings = await Listings.findAll({
             where: {
-                SellerId: req.params.sellerId
+                SellerId: sellerId
             }
         });
+
         return res.status(200).json({
             success: true,
-            message: "Lấy sản phẩm thành công thành công",
+            message: "Lấy sản phẩm thành công ",
             data: listings
         })
+
     }
     catch (error) {
         return res.status(500).json({

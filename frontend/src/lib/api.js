@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { getAccessToken } from './auth.js'
+import { isD01DemoEnabled } from './d01Demo.js'
 
 // Tài khoản thử nghiệm: tạm dùng cho tới khi A02 (đăng nhập) hoàn thành.
 // Backend đọc header x-user-id (chỉ bật ngoài production).
@@ -32,6 +33,10 @@ api.interceptors.request.use((config) => {
   if (config.skipSession) return config
   const token = getAccessToken()
   if (token) config.headers.Authorization = `Bearer ${token}`
+  else if (config.d01Demo && isD01DemoEnabled()) {
+    // Chỉ service D01/D02 đánh dấu request. Backend tự chọn ID demo, không tin ID client.
+    config.headers['x-d01-demo'] = 'true'
+  }
   else {
     const userId = getDevUserId()
     if (userId) config.headers['x-user-id'] = userId

@@ -58,16 +58,26 @@ const getAllListing = async (req, res) => {
             })
         }
 
-        const listings = await Listings.findAll({
-            where: {
-                StoreId
-            }
+        //paginate
+        const page = Number(req.query.page) || 1;
+        const limit = Number(req.query.limit) || 10;
+
+        const { count, rows } = await Listings.findAndCountAll({
+            where: { StoreId },
+            limit,
+            offset: (page - 1) * limit
         });
 
         return res.status(200).json({
             success: true,
             message: "Lấy sản phẩm thành công ",
-            data: listings
+            data: rows,
+            pagination: {
+                page,
+                limit,
+                totalItems: count,
+                totalPages: Math.ceil(count / limit)
+            }
         })
 
     }

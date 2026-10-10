@@ -9,19 +9,31 @@ export default function CrudListing() {
     const [openUpdate, setOpenUpdate] = useState(false);
     const [selectedListing, setSelectedListing] = useState(null);
 
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+
+    const conditionLabels = {
+        LIKE_NEW: "Như mới",
+        GOOD: "Tốt",
+        FAIR: "Khá",
+        POOR: "Kém",
+        NEW: "Mới",
+        USED: "Đã qua sử dụng",
+    };
+
     useEffect(() => {
         const fetchSellerListing = async () => {
             try {
-                const data = await getStoreListing(6);
-                console.log(data.data)
-                setListing(data.data);
+                const res = await getStoreListing(6, page, 10);
+                setListing(res.data);
+                setTotalPages(res.pagination.totalPages);
             } catch (error) {
                 console.log("error ====> ", error);
             }
         };
 
         fetchSellerListing();
-    }, []);
+    }, [page]);
 
     const handleUpdate = async (data) => {
         try {
@@ -50,17 +62,7 @@ export default function CrudListing() {
                             </h1>
                         </div>
 
-                        <button
-                            className="
-                                inline-flex items-center justify-center gap-2
-                                rounded-xl bg-emerald-600 px-5 py-2.5
-                                text-sm font-semibold text-white
-                                shadow-sm shadow-emerald-200
-                                transition duration-150 ease-in-out
-                                hover:bg-emerald-700 hover:shadow-md hover:shadow-emerald-200
-                                active:scale-[0.98]
-                                focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2
-                            ">
+                        <button className=" inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm shadow-emerald-200 transition duration-150 ease-in-out hover:bg-emerald-700 hover:shadow-md hover:shadow-emerald-200  active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">
                             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                             </svg>
@@ -100,17 +102,14 @@ export default function CrudListing() {
 
                                     <div>
                                         <p className="font-bold text-emerald-700">
-                                            {item.Price}
-                                        </p>
-
-                                        <p className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
-                                            Giá bán
+                                            {Number(item.Price)}
                                         </p>
                                     </div>
 
                                     <div>
                                         <span className="inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium ring-1 ring-inset">
-                                            {item.ConditionLevel}
+
+                                            {conditionLabels[item.ConditionLevel]}
                                         </span>
                                     </div>
 
@@ -143,19 +142,38 @@ export default function CrudListing() {
                                 <span className="font-semibold text-slate-900">
                                     {listing.length}
                                 </span>{" "}
-                                sản phẩm
+                                sản phẩm — Trang {page}/{totalPages}
                             </p>
 
                             <div className="flex items-center gap-1.5">
-                                <button disabled className=" cursor-not-allowed rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-400 opacity-60 shadow-2xs " >
+                                <button
+                                    disabled={page <= 1}
+                                    onClick={() => setPage((prev) => prev - 1)}
+                                    className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
+                                >
                                     Trước
                                 </button>
 
-                                <button className=" rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-2xs">
-                                    1
-                                </button>
+                                {Array.from({ length: totalPages }, (_, index) => index + 1).map(
+                                    (pageNumber) => (
+                                        <button
+                                            key={pageNumber}
+                                            onClick={() => setPage(pageNumber)}
+                                            className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${page === pageNumber
+                                                ? "bg-emerald-600 text-white"
+                                                : "border border-slate-200 bg-white text-slate-600 hover:bg-emerald-50"
+                                                }`}
+                                        >
+                                            {pageNumber}
+                                        </button>
+                                    )
+                                )}
 
-                                <button className=" rounded-lg border border-slate-200 bg-white  px-3 py-1.5  text-xs font-medium text-slate-600  shadow-2xs transition  hover:border-emerald-200  hover:bg-emerald-50 hover:text-emerald-700 " >
+                                <button
+                                    disabled={page >= totalPages}
+                                    onClick={() => setPage((prev) => prev + 1)}
+                                    className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
+                                >
                                     Sau
                                 </button>
                             </div>

@@ -1,7 +1,11 @@
 import api from "./axios";
 
-const getStoreListing = async (StoreId) => {
-    const res = await api.get(`/seller/listing/store/${StoreId}`);
+const getStoreListing = async (StoreId, page, limit) => {
+    const res = await api.get(`/seller/listing/store/${StoreId}`, {
+        params: {
+            page, limit
+        }
+    });
     return res.data;
 };
 

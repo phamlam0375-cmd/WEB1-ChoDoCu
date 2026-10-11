@@ -1,27 +1,57 @@
-import { getStoreListing, updateListing } from "../../api/listingApi";
+import { getStoreListing, hideListing, updateListing } from "../../api/listingApi";
 import { useEffect, useState } from "react";
 
 import Header from "../Header";
 import UpdateListingModal from "./UpdateListingModal";
+import { toast } from "react-toastify";
 
 export default function CrudListing() {
     const [listing, setListing] = useState([]);
     const [openUpdate, setOpenUpdate] = useState(false);
     const [selectedListing, setSelectedListing] = useState(null);
 
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+
+    const conditionLabels = {
+        LIKE_NEW: "Như mới",
+        GOOD: "Tốt",
+        FAIR: "Khá",
+        POOR: "Kém",
+        NEW: "Mới",
+        USED: "Đã qua sử dụng",
+    };
+
+    const statusColors = {
+        PENDING: "bg-yellow-100 text-yellow-700",
+        ACTIVE: "bg-green-100 text-green-700",
+        HIDDEN: "bg-gray-100 text-gray-700",
+        SOLD: "bg-blue-100 text-blue-700",
+        REJECTED: "bg-red-100 text-red-700",
+        DELETED: "bg-gray-200 text-gray-500",
+    };
+    const statusLabels = {
+        PENDING: "Chờ duyệt",
+        ACTIVE: "Đang bán",
+        HIDDEN: "Đã ẩn",
+        SOLD: "Đã bán",
+        REJECTED: "Bị từ chối",
+        DELETED: "Đã xóa",
+    };
+
     useEffect(() => {
         const fetchSellerListing = async () => {
             try {
-                const data = await getStoreListing(6);
-                console.log(data.data)
-                setListing(data.data);
+                const res = await getStoreListing(6, page, 10);
+                setListing(res.data);
+                setTotalPages(res.pagination.totalPages);
             } catch (error) {
                 console.log("error ====> ", error);
             }
         };
 
         fetchSellerListing();
-    }, []);
+    }, [page]);
 
     const handleUpdate = async (data) => {
         try {
@@ -34,6 +64,26 @@ export default function CrudListing() {
         }
         catch (error) {
             console.error("Loi cap nhat ", error)
+        }
+    }
+
+    const handleHide = async (item) => {
+        console.log("Listing đầu tiên:", listing[0]);
+        if (!["ACTIVE", "HIDDEN"].includes(item.Status)) {
+            toast.warning(
+                "Chỉ có thể ẩn hoặc hiện sản phẩm đang bán hoặc đã ẩn"
+            );
+            return;
+        }
+
+        try {
+            await hideListing(item.ListingId);
+            const res = await getStoreListing(6, page, 10);
+            setListing(res.data);
+            setTotalPages(res.pagination.totalPages);
+        }
+        catch (error) {
+            console.error("Loi ẩn sản phẩm ", error)
         }
     }
 
@@ -50,17 +100,7 @@ export default function CrudListing() {
                             </h1>
                         </div>
 
-                        <button
-                            className="
-                                inline-flex items-center justify-center gap-2
-                                rounded-xl bg-emerald-600 px-5 py-2.5
-                                text-sm font-semibold text-white
-                                shadow-sm shadow-emerald-200
-                                transition duration-150 ease-in-out
-                                hover:bg-emerald-700 hover:shadow-md hover:shadow-emerald-200
-                                active:scale-[0.98]
-                                focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2
-                            ">
+                        <button className=" inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm shadow-emerald-200 transition duration-150 ease-in-out hover:bg-emerald-700 hover:shadow-md hover:shadow-emerald-200  active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">
                             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                             </svg>
@@ -100,37 +140,65 @@ export default function CrudListing() {
 
                                     <div>
                                         <p className="font-bold text-emerald-700">
-                                            {item.Price}
-                                        </p>
-
-                                        <p className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
-                                            Giá bán
+                                            {Number(item.Price)}
                                         </p>
                                     </div>
 
                                     <div>
-                                        <span className="inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium ring-1 ring-inset">
-                                            {item.ConditionLevel}
+                                        <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium">
+                                            {conditionLabels[item.ConditionLevel]}
                                         </span>
                                     </div>
 
                                     <div>
-                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
-                                            {item.Status}
+                                        <span
+                                            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${statusColors[item.Status] || "bg-gray-100 text-gray-700"
+                                                }`}
+                                        >
+                                            {statusLabels[item.Status] || item.Status}
                                         </span>
                                     </div>
 
-                                    <div className="flex items-center justify-end gap-2">
-                                        <button className=" rounded-lg border border-slate-200 bg-white px-3 py-1.5  text-xs font-semibold text-slate-700 shadow-2xs  transition  hover:border-emerald-300   hover:bg-emerald-50  hover:text-emerald-700"
+                                    <div className="flex items-center justify-end gap-3">
+                                        <button
+                                            className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 shadow-2xs transition hover:border-emerald-300 hover:bg-emerald-100"
                                             onClick={() => {
-                                                setSelectedListing(item),
-                                                    setOpenUpdate(true)
-                                            }}>
+                                                setSelectedListing(item);
+                                                setOpenUpdate(true);
+                                            }}
+                                        >
                                             Sửa
                                         </button>
 
-                                        <button className=" rounded-lg border border-transparent bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-100 hover:text-rose-700 ">
-                                            Xóa
+                                       <button
+                                            type="button"
+                                            role="switch"
+                                            aria-checked={item.Status === "ACTIVE"}
+                                            aria-label={
+                                                item.Status === "HIDDEN"
+                                                    ? `Hiện sản phẩm ${item.Title}`
+                                                    : `Ẩn sản phẩm ${item.Title}`
+                                            }
+                                            title={
+                                                item.Status === "HIDDEN"
+                                                    ? "Hiện sản phẩm"
+                                                    : "Ẩn sản phẩm"
+                                            }
+                                            disabled={!["ACTIVE", "HIDDEN"].includes(item.Status)}
+                                            onClick={() => handleHide(item)}
+                                            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40 ${
+                                                item.Status === "ACTIVE"
+                                                    ? "bg-emerald-500"
+                                                    : "bg-gray-300"
+                                            }`}
+                                        >
+                                            <span
+                                                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200 ${
+                                                    item.Status === "ACTIVE"
+                                                        ? "translate-x-5"
+                                                        : "translate-x-0.5"
+                                                }`}
+                                            />
                                         </button>
                                     </div>
                                 </div>
@@ -143,26 +211,45 @@ export default function CrudListing() {
                                 <span className="font-semibold text-slate-900">
                                     {listing.length}
                                 </span>{" "}
-                                sản phẩm
+                                sản phẩm — Trang {page}/{totalPages}
                             </p>
 
                             <div className="flex items-center gap-1.5">
-                                <button disabled className=" cursor-not-allowed rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-400 opacity-60 shadow-2xs " >
+                                <button
+                                    disabled={page <= 1}
+                                    onClick={() => setPage((prev) => prev - 1)}
+                                    className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
+                                >
                                     Trước
                                 </button>
 
-                                <button className=" rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-2xs">
-                                    1
-                                </button>
+                                {Array.from({ length: totalPages }, (_, index) => index + 1).map(
+                                    (pageNumber) => (
+                                        <button
+                                            key={pageNumber}
+                                            onClick={() => setPage(pageNumber)}
+                                            className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${page === pageNumber
+                                                ? "bg-emerald-600 text-white"
+                                                : "border border-slate-200 bg-white text-slate-600 hover:bg-emerald-50"
+                                                }`}
+                                        >
+                                            {pageNumber}
+                                        </button>
+                                    )
+                                )}
 
-                                <button className=" rounded-lg border border-slate-200 bg-white  px-3 py-1.5  text-xs font-medium text-slate-600  shadow-2xs transition  hover:border-emerald-200  hover:bg-emerald-50 hover:text-emerald-700 " >
+                                <button
+                                    disabled={page >= totalPages}
+                                    onClick={() => setPage((prev) => prev + 1)}
+                                    className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
+                                >
                                     Sau
                                 </button>
                             </div>
                         </div>
                     </div>
                 </div>
-            </main>
+            </main >
             {
                 openUpdate &&
                 <UpdateListingModal

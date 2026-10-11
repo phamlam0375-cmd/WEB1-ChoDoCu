@@ -9,8 +9,8 @@ import DevAccountProvider from './context/DevAccountProvider'
 import HomePage from './pages/HomePage'
 import { Loading } from './components/admin/AdminUi'
 import Login from './pages/Login'
-import OrderCreatePage from './pages/OrderCreatePage'
 import OrderCancelPage from './pages/D02_HuyDonHang/OrderCancelPage'
+import OrderCreatePage from './pages/OrderCreatePage'
 import PublicStore from './components/Store/PublicStore/PublicStore'
 import RegisterApplication from './components/PartnerApplication/RegisterApplication'
 import SellerStore from './components/Store/SellerStore/SellerStore'
@@ -91,7 +91,7 @@ function App() {
 
       <ToastContainer
         position="top-right"
-        autoClose={10000}
+        autoClose={3000}
         closeOnClick={false}
         pauseOnHover
         pauseOnFocusLoss={false}

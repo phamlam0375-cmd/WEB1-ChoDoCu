@@ -58,16 +58,26 @@ const getAllListing = async (req, res) => {
             })
         }
 
-        const listings = await Listings.findAll({
-            where: {
-                StoreId
-            }
+        //paginate
+        const page = Number(req.query.page) || 1;
+        const limit = Number(req.query.limit) || 10;
+
+        const { count, rows } = await Listings.findAndCountAll({
+            where: { StoreId },
+            limit,
+            offset: (page - 1) * limit
         });
 
         return res.status(200).json({
             success: true,
             message: "Lấy sản phẩm thành công ",
-            data: listings
+            data: rows,
+            pagination: {
+                page,
+                limit,
+                totalItems: count,
+                totalPages: Math.ceil(count / limit)
+            }
         })
 
     }
@@ -180,19 +190,23 @@ const hiddenListing = async (req, res) => {
             });
         }
 
-        if (listing.Status !== "ACTIVE") {
+        if (!["ACTIVE", "HIDDEN"].includes(listing.Status)) {
             return res.status(409).json({
                 success: false,
-                message: "Chỉ có thể ẩn sản phẩm actives ",
+                message: "Chỉ có thể ẩn sản phẩm đang bán hoặc đã ẩn ",
             })
         }
 
+        const newStatus = listing.Status === "ACTIVE" ? "HIDDEN" : "ACTIVE";
+
         const hidden = await listing.update({
-            Status: "HIDDEN",
+            Status: newStatus,
         })
         return res.status(200).json({
             success: true,
-            message: "Ẩn sản phẩm thành công",
+            message: newStatus === "HIDDEN" ?
+                "Ẩn sản phẩm thành công" :
+                "Hiện sản phẩm thành công"
         })
 
 

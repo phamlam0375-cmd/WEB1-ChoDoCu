@@ -1,8 +1,9 @@
-import { getStoreListing, updateListing } from "../../api/listingApi";
+import { getStoreListing, hideListing, updateListing } from "../../api/listingApi";
 import { useEffect, useState } from "react";
 
 import Header from "../Header";
 import UpdateListingModal from "./UpdateListingModal";
+import { toast } from "react-toastify";
 
 export default function CrudListing() {
     const [listing, setListing] = useState([]);
@@ -19,6 +20,23 @@ export default function CrudListing() {
         POOR: "Kém",
         NEW: "Mới",
         USED: "Đã qua sử dụng",
+    };
+
+    const statusColors = {
+        PENDING: "bg-yellow-100 text-yellow-700",
+        ACTIVE: "bg-green-100 text-green-700",
+        HIDDEN: "bg-gray-100 text-gray-700",
+        SOLD: "bg-blue-100 text-blue-700",
+        REJECTED: "bg-red-100 text-red-700",
+        DELETED: "bg-gray-200 text-gray-500",
+    };
+    const statusLabels = {
+        PENDING: "Chờ duyệt",
+        ACTIVE: "Đang bán",
+        HIDDEN: "Đã ẩn",
+        SOLD: "Đã bán",
+        REJECTED: "Bị từ chối",
+        DELETED: "Đã xóa",
     };
 
     useEffect(() => {
@@ -46,6 +64,26 @@ export default function CrudListing() {
         }
         catch (error) {
             console.error("Loi cap nhat ", error)
+        }
+    }
+
+    const handleHide = async (item) => {
+        console.log("Listing đầu tiên:", listing[0]);
+        if (!["ACTIVE", "HIDDEN"].includes(item.Status)) {
+            toast.warning(
+                "Chỉ có thể ẩn hoặc hiện sản phẩm đang bán hoặc đã ẩn"
+            );
+            return;
+        }
+
+        try {
+            await hideListing(item.ListingId);
+            const res = await getStoreListing(6, page, 10);
+            setListing(res.data);
+            setTotalPages(res.pagination.totalPages);
+        }
+        catch (error) {
+            console.error("Loi ẩn sản phẩm ", error)
         }
     }
 
@@ -107,29 +145,60 @@ export default function CrudListing() {
                                     </div>
 
                                     <div>
-                                        <span className="inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium ring-1 ring-inset">
-
+                                        <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium">
                                             {conditionLabels[item.ConditionLevel]}
                                         </span>
                                     </div>
 
                                     <div>
-                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
-                                            {item.Status}
+                                        <span
+                                            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${statusColors[item.Status] || "bg-gray-100 text-gray-700"
+                                                }`}
+                                        >
+                                            {statusLabels[item.Status] || item.Status}
                                         </span>
                                     </div>
 
-                                    <div className="flex items-center justify-end gap-2">
-                                        <button className=" rounded-lg border border-slate-200 bg-white px-3 py-1.5  text-xs font-semibold text-slate-700 shadow-2xs  transition  hover:border-emerald-300   hover:bg-emerald-50  hover:text-emerald-700"
+                                    <div className="flex items-center justify-end gap-3">
+                                        <button
+                                            className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 shadow-2xs transition hover:border-emerald-300 hover:bg-emerald-100"
                                             onClick={() => {
-                                                setSelectedListing(item),
-                                                    setOpenUpdate(true)
-                                            }}>
+                                                setSelectedListing(item);
+                                                setOpenUpdate(true);
+                                            }}
+                                        >
                                             Sửa
                                         </button>
 
-                                        <button className=" rounded-lg border border-transparent bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-100 hover:text-rose-700 ">
-                                            Xóa
+                                       <button
+                                            type="button"
+                                            role="switch"
+                                            aria-checked={item.Status === "ACTIVE"}
+                                            aria-label={
+                                                item.Status === "HIDDEN"
+                                                    ? `Hiện sản phẩm ${item.Title}`
+                                                    : `Ẩn sản phẩm ${item.Title}`
+                                            }
+                                            title={
+                                                item.Status === "HIDDEN"
+                                                    ? "Hiện sản phẩm"
+                                                    : "Ẩn sản phẩm"
+                                            }
+                                            disabled={!["ACTIVE", "HIDDEN"].includes(item.Status)}
+                                            onClick={() => handleHide(item)}
+                                            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40 ${
+                                                item.Status === "ACTIVE"
+                                                    ? "bg-emerald-500"
+                                                    : "bg-gray-300"
+                                            }`}
+                                        >
+                                            <span
+                                                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200 ${
+                                                    item.Status === "ACTIVE"
+                                                        ? "translate-x-5"
+                                                        : "translate-x-0.5"
+                                                }`}
+                                            />
                                         </button>
                                     </div>
                                 </div>
@@ -180,7 +249,7 @@ export default function CrudListing() {
                         </div>
                     </div>
                 </div>
-            </main>
+            </main >
             {
                 openUpdate &&
                 <UpdateListingModal

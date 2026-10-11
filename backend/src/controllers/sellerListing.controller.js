@@ -190,19 +190,23 @@ const hiddenListing = async (req, res) => {
             });
         }
 
-        if (listing.Status !== "ACTIVE") {
+        if (!["ACTIVE", "HIDDEN"].includes(listing.Status)) {
             return res.status(409).json({
                 success: false,
-                message: "Chỉ có thể ẩn sản phẩm actives ",
+                message: "Chỉ có thể ẩn sản phẩm đang bán hoặc đã ẩn ",
             })
         }
 
+        const newStatus = listing.Status === "ACTIVE" ? "HIDDEN" : "ACTIVE";
+
         const hidden = await listing.update({
-            Status: "HIDDEN",
+            Status: newStatus,
         })
         return res.status(200).json({
             success: true,
-            message: "Ẩn sản phẩm thành công",
+            message: newStatus === "HIDDEN" ?
+                "Ẩn sản phẩm thành công" :
+                "Hiện sản phẩm thành công"
         })
 
 

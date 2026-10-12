@@ -18,6 +18,7 @@ const Payments = sequelize.define(
     Amount: { type: DataTypes.DECIMAL(18, 2), allowNull: false },
     BankName: { type: DataTypes.STRING(80), allowNull: true },
     BankAccountSnapshot: { type: DataTypes.STRING(30), allowNull: true },
+    BankAccountHolderSnapshot: { type: DataTypes.STRING(100), allowNull: true },
     TransferContent: { type: DataTypes.STRING(100), allowNull: false },
     ProofUrl: { type: DataTypes.STRING(255), allowNull: true },
     Status: { type: DataTypes.STRING(20), allowNull: false, defaultValue: "WAITING" },

@@ -10,6 +10,7 @@ import HomePage from './pages/HomePage'
 import { Loading } from './components/admin/AdminUi'
 import Login from './pages/Login'
 import OrderCancelPage from './pages/D02_HuyDonHang/OrderCancelPage'
+import OrderPaymentPage from './pages/D03_ThanhToan/OrderPaymentPage'
 import OrderCreatePage from './pages/OrderCreatePage'
 import PublicStore from './components/Store/PublicStore/PublicStore'
 import RegisterApplication from './components/PartnerApplication/RegisterApplication'
@@ -48,6 +49,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/orders/create/:listingId" element={<OrderCreatePage />} />
         <Route path="/orders/:orderId/cancel" element={<OrderCancelPage />} />
+        <Route path="/orders/:orderId/payment" element={<OrderPaymentPage />} />
 
         <Route path="/partner-application" element={<RegisterApplication />} />
         <Route path="store/:ownerId" element={<PublicStore />} />

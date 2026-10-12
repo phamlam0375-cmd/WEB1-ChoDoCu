@@ -23,6 +23,9 @@ importers:
       jest:
         specifier: ^30.5.2
         version: 30.5.2(@types/node@26.6.1)(supports-color@5.5.0)
+      jpeg-js:
+        specifier: 0.4.4
+        version: 0.4.4
       morgan:
         specifier: ^1.10.0
         version: 1.12.1(supports-color@5.5.0)
@@ -1390,6 +1393,9 @@ packages:
     peerDependenciesMeta:
       node-notifier:
         optional: true
+
+  jpeg-js@0.4.4:
+    resolution: {integrity: sha512-WZzeDOEtTOBK4Mdsar0IqEU5sMr3vSV2RqkAIzUEV2BHnUfKGyswWFPFwK5EeDo93K3FohSHbLAjj0s1Wzd+dg==}
 
   js-beautify@1.15.4:
     resolution: {integrity: sha512-9/KXeZUKKJwqCXUdBxFJ3vPh467OCckSBmYDwSK/EtV090K+iMJ7zx2S3HLVDIWFQdqMIsZWbnaGiba18aWhaA==}
@@ -3672,6 +3678,8 @@ snapshots:
       - esbuild-register
       - supports-color
       - ts-node
+
+  jpeg-js@0.4.4: {}
 
   js-beautify@1.15.4:
     dependencies:

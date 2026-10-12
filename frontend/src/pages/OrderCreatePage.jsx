@@ -458,6 +458,8 @@ function OrderCreatePage() {
               Về trang chủ
             </button>
             <button type="button" onClick={() => navigate(`/orders/${success.orderId}/cancel`)} className="ml-3 mt-7 inline-flex h-11 items-center rounded-xl border border-rose-300 px-6 text-sm font-bold text-rose-700 hover:bg-rose-50">Hủy đơn</button>
+            <button type="button" onClick={() => navigate(`/orders/${success.orderId}/payment`)} className="ml-3 mt-7 inline-flex h-11 items-center rounded-xl border border-emerald-300 px-6 text-sm font-bold text-emerald-700 hover:bg-emerald-50">Thanh toán</button>
+            <p className="mt-3 text-xs text-slate-500">Chỉ chuyển tiền sau khi người bán chấp nhận đơn. Trang thanh toán sẽ kiểm tra trạng thái mới nhất.</p>
           </section>
         </main>
         <Footer />

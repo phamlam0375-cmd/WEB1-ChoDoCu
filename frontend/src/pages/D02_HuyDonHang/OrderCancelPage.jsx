@@ -112,6 +112,7 @@ export default function OrderCancelPage() {
               <Link to={data.refundUrl} className="inline-block rounded-xl bg-emerald-600 px-5 py-3 font-bold text-white">Tạo yêu cầu hoàn tiền</Link>
             </div>}
             {['BLOCKED', 'VERIFY_PAYMENT'].includes(data.action) && <div className="mt-5 space-y-2 text-sm"><p>{data.message}</p>{data.detail && <p className="text-slate-600">{data.detail}</p>}</div>}
+            {['RESERVED', 'WAITING_PAYMENT'].includes(data.status) && <Link to={`/orders/${data.orderId}/payment`} className="mt-5 inline-block text-sm font-bold text-emerald-700 underline">Thanh toán / Xem thông báo chuyển tiền</Link>}
           </>}
           {!loading && (!data || data.action !== 'CANCEL') && <button type="button" onClick={back} className="mt-6 rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold">Quay lại trang chủ</button>}
           <button type="button" disabled={busy} onClick={refresh} className="ml-3 mt-6 text-sm font-bold text-emerald-700 disabled:opacity-50">Tải lại trạng thái</button>

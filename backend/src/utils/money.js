@@ -22,4 +22,4 @@ function asApiNumber(value) {
   return Number.isSafeInteger(numeric * 100) ? numeric : String(value);
 }
 
-module.exports = { addMoney, asApiNumber };
+module.exports = { addMoney, asApiNumber, toCents, fromCents };

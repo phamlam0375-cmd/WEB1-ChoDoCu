@@ -28,7 +28,7 @@ function authenticateUser({ allowDevHeader, allowD01Demo = false }) {
       // Marker demo không được mang sang API khác để lợi dụng cơ chế dev của B.
       // JWT thật vẫn giữ nguyên; account selector dev không có marker vẫn hoạt động.
       if (req.get("x-d01-demo") === "true" && !allowD01Demo && !req.get("authorization")) {
-        throw new HttpError(401, "Demo đơn hàng chỉ hỗ trợ các thao tác D01/D02 được cho phép.", null, "UNAUTHORIZED");
+        throw new HttpError(401, "Demo đơn hàng chỉ hỗ trợ các thao tác D01/D02/D03 được cho phép.", null, "UNAUTHORIZED");
       }
       const demo = allowD01Demo && !req.get("authorization")
         && process.env.D01_DEMO_MODE === "true" && req.get("x-d01-demo") === "true";
@@ -74,7 +74,7 @@ const requireAuth = authenticateUser({ allowDevHeader: true });
 // /api/orders giữ yêu cầu JWT của Lam; /api/v1 hỗ trợ JWT và header dev có điều kiện.
 const requireTokenAuth = authenticateUser({ allowDevHeader: false });
 
-// Chỉ gắn từng endpoint D01/D02, không gắn router dùng chung hoặc API hoàn tiền/admin.
+// Chỉ gắn từng endpoint D01/D02/D03, không gắn router dùng chung hoặc API hoàn tiền/admin.
 const requireD01Demo = authenticateUser({ allowDevHeader: false, allowD01Demo: true });
 const withD01Demo = (normalAuth) => (req, res, next) => {
   if (!req.get("authorization") && process.env.D01_DEMO_MODE === "true" && req.get("x-d01-demo") === "true") {

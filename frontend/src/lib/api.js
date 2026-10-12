@@ -34,7 +34,7 @@ api.interceptors.request.use((config) => {
   const token = getAccessToken()
   if (token) config.headers.Authorization = `Bearer ${token}`
   else if (config.d01Demo && isD01DemoEnabled()) {
-    // Chỉ service D01/D02 đánh dấu request. Backend tự chọn ID demo, không tin ID client.
+    // Chỉ service D01/D02/D03 đánh dấu request. Backend tự chọn ID demo, không tin ID client.
     config.headers['x-d01-demo'] = 'true'
   }
   else {

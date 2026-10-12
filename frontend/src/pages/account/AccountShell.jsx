@@ -9,6 +9,7 @@ const LINKS = [
   { to: '/reports', label: 'Báo cáo của tôi' },
   { to: '/refunds', label: 'Hoàn tiền' },
   { to: '/seller/fees', label: 'Phí & hoa hồng (người bán)' },
+  { to: '/seller/payments', label: 'Xác nhận nhận tiền' },
 ]
 
 // Khung cho các trang phân hệ B phía người dùng: báo cáo vi phạm, hoàn tiền, phí người bán.

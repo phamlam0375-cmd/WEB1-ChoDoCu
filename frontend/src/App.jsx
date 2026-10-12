@@ -39,6 +39,8 @@ const RefundCreatePage = lazy(() => import('./pages/account/RefundCreatePage'))
 const MyRefundsPage = lazy(() => import('./pages/account/MyRefundsPage'))
 const SellerFeesPage = lazy(() => import('./pages/account/SellerFeesPage'))
 const MomoPaymentPage = lazy(() => import('./pages/account/MomoPaymentPage'))
+const SellerPaymentsPage = lazy(() => import('./pages/D04_XacNhanNhanTien/SellerPaymentsPage'))
+const SellerPaymentPage = lazy(() => import('./pages/D04_XacNhanNhanTien/SellerPaymentPage'))
 
 
 function App() {
@@ -79,6 +81,8 @@ function App() {
             <Route path="settings" element={<AdminSettingsPage />} />
           </Route>
           <Route element={<AccountShell />}>
+            <Route path="/seller/payments" element={<SellerPaymentsPage />} />
+            <Route path="/seller/orders/:orderId/payment" element={<SellerPaymentPage />} />
             <Route path="/reports" element={<MyReportsPage />} />
             <Route path="/reports/new" element={<ReportCreatePage />} />
             <Route path="/orders/:orderId/refund" element={<RefundCreatePage />} />

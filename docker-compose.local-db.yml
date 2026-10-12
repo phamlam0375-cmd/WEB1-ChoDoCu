@@ -1,0 +1,6 @@
+# Chỉ dùng cho Vite/API chạy từ source local; không áp dụng vào workflow CD.
+# Giữ nguyên volume web1-chodocu_mysql_data, tránh cổng 3306 của CD.
+services:
+  mysql:
+    ports: !override
+      - "127.0.0.1:33307:3306"

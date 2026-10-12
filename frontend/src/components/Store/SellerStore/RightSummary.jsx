@@ -2,6 +2,7 @@ import { Package, Pencil } from "lucide-react";
 
 import ModalEditStore from "./ModalEditStore/ModalEditStore";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 export default function RightSummary({ store, onStoreUpdated }) {
     const [openModalEditStore, setOpenModalEditStore] = useState(false);
@@ -16,6 +17,9 @@ export default function RightSummary({ store, onStoreUpdated }) {
                     </h2>
 
                     <div className="space-y-3">
+                        <Link to="/seller/payments" className="flex w-full items-center justify-center rounded-xl border border-emerald-200 px-4 py-3 font-medium text-emerald-700 hover:bg-emerald-50">
+                            Xác nhận nhận tiền
+                        </Link>
 
                         <button
                             type="button"

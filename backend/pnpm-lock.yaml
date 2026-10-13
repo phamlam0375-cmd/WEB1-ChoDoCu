@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      bcrypt:
+        specifier: ^6.0.0
+        version: 6.0.0
       cors:
         specifier: ^2.8.5
         version: 2.8.6
@@ -15,7 +18,7 @@ importers:
         specifier: ^16.4.7
         version: 16.4.7
       express:
-        specifier: ^5.1.0
+        specifier: ^5.2.1
         version: 5.2.1(supports-color@5.5.0)
       helmet:
         specifier: ^8.1.0
@@ -27,14 +30,14 @@ importers:
         specifier: ^2.4.0
         version: 2.4.0
       mysql2:
-        specifier: ^3.14.0
-        version: 3.24.4(@types/node@26.6.1)
+        specifier: ^3.24.5
+        version: 3.24.5(@types/node@26.6.1)
       nodemailer:
-        specifier: ^10.0.13
-        version: 10.0.13
+        specifier: ^10.0.16
+        version: 10.0.16
       sequelize:
         specifier: ^6.37.7
-        version: 6.37.8(mysql2@3.24.4(@types/node@26.6.1))(supports-color@5.5.0)
+        version: 6.37.8(mysql2@3.24.5(@types/node@26.6.1))(supports-color@5.5.0)
       sequelize-cli:
         specifier: ^6.6.2
         version: 6.6.5
@@ -121,6 +124,10 @@ packages:
   basic-auth@2.0.1:
     resolution: {integrity: sha512-NF+epuEdnUYVlGuhaxbbq+dvJttwLnGY+YixlXlME5KpQ5W3CnXA5cVTneY3SPbPDRkcjMbifrwmFYcClgOZeg==}
     engines: {node: '>= 0.8'}
+
+  bcrypt@6.0.0:
+    resolution: {integrity: sha512-cU8v/EGSrnH+HnxV2z0J7/blxH8gq7Xh2JFT6Aroax7UohdmiJJlxApMxtKfuI7z68NvvVcmR78k2LbT6efhRg==}
+    engines: {node: '>= 18'}
 
   binary-extensions@2.0.0:
     resolution: {integrity: sha512-Phlt0plgpIIBOGTT/ehfFnbNlfsDEiqmzE2KRXoX1bLIlir4X/MR+zSyBEkL05ffWgnRSf/DXv+WrUAVr93/ow==}
@@ -521,8 +528,8 @@ packages:
     resolution: {integrity: sha512-7dqa0ZcFfzbefdTuIkzOSMvZWC0J7FLqBOjJUZvDCXShIURWKxAyTT1wHhnE5q19c7jOJf43IYYKjBmZVZmvhg==}
     engines: {node: '>= 10.16.0'}
 
-  mysql2@3.24.4:
-    resolution: {integrity: sha512-A2olluVlj0mvgyIRRISMEzXc51m+21mRtcMVjJyIpt2GG98+XrC9m9HzsqcMsX2LcnfccJvY5NB22g8fENBnOA==}
+  mysql2@3.24.5:
+    resolution: {integrity: sha512-X6Ujsr2QSkkLpkQGjxzpKRAPn9nu4axpR63ntBzquFVEvPOArgbUQ1sJjFKI7hnaYtiVZxa17Z7q18KSubW0IQ==}
     engines: {node: '>= 8.0'}
     peerDependencies:
       '@types/node': '>= 8'
@@ -535,8 +542,16 @@ packages:
     resolution: {integrity: sha512-NMPBRMJgiQHjbd8phG3Vebdx4kZ1H121rbl5IkMqeOsahptB9BKo/d7oJ3zTXqTgagn2bWlNSXkh0QUGM31RYg==}
     engines: {node: '>=18'}
 
-  nodemailer@10.0.13:
-    resolution: {integrity: sha512-SzG86OlvcW/NNhUFC6uROMwRTL4n7MswfQqC/T8mhkmnY1YVa23zUEMYi4ijSeXSl9GLz9ZeTJDUatEDuY5FeQ==}
+  node-addon-api@8.9.2:
+    resolution: {integrity: sha512-VijLXbi3UACN69I0JVXJsX4tjACjNoQDgv2gTF6sx2wWEi8tkSg2eX8p5gSIFi8z2+DL3oHmY6OyKce38SDolg==}
+    engines: {node: ^18 || ^20 || >= 21}
+
+  node-gyp-build@4.8.4:
+    resolution: {integrity: sha512-LA4ZjwlnUblHVgq0oBF3Jl/6h/Nvs5fzBLwdEF4nuxnFdsfajde4WfxtJr3CaiH+F6ewcIB/q4jQ4UzPyid+CQ==}
+    hasBin: true
+
+  nodemailer@10.0.16:
+    resolution: {integrity: sha512-VL9xKErxN+el77o8eBOuYKUPMyEx7F9hfnDCuiUKJRp9v3wnWMOudYgP/SWbwSHy8rUL4cylobuXtki1LpQS7A==}
     engines: {node: '>=20.0.0'}
 
   nodemon@3.1.14:
@@ -930,6 +945,11 @@ snapshots:
   basic-auth@2.0.1:
     dependencies:
       safe-buffer: 5.1.2
+
+  bcrypt@6.0.0:
+    dependencies:
+      node-addon-api: 8.9.2
+      node-gyp-build: 4.8.4
 
   binary-extensions@2.0.0: {}
 
@@ -1336,7 +1356,7 @@ snapshots:
       busboy: 1.6.0
       type-is: 1.6.18
 
-  mysql2@3.24.4(@types/node@26.6.1):
+  mysql2@3.24.5(@types/node@26.6.1):
     dependencies:
       '@types/node': 26.6.1
       aws-ssl-profiles: 1.1.2
@@ -1355,7 +1375,11 @@ snapshots:
     dependencies:
       content-type: 2.1.0
 
-  nodemailer@10.0.13: {}
+  node-addon-api@8.9.2: {}
+
+  node-gyp-build@4.8.4: {}
+
+  nodemailer@10.0.16: {}
 
   nodemon@3.1.14:
     dependencies:
@@ -1493,7 +1517,7 @@ snapshots:
 
   sequelize-pool@7.1.0: {}
 
-  sequelize@6.37.8(mysql2@3.24.4(@types/node@26.6.1))(supports-color@5.5.0):
+  sequelize@6.37.8(mysql2@3.24.5(@types/node@26.6.1))(supports-color@5.5.0):
     dependencies:
       '@types/debug': 4.1.13
       '@types/validator': 13.15.10
@@ -1512,7 +1536,7 @@ snapshots:
       validator: 13.15.35
       wkx: 0.5.0
     optionalDependencies:
-      mysql2: 3.24.4(@types/node@26.6.1)
+      mysql2: 3.24.5(@types/node@26.6.1)
     transitivePeerDependencies:
       - supports-color
 

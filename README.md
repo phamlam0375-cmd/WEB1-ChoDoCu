@@ -95,6 +95,44 @@ cp backend/.env.example backend/.env
 - Đặt `AUTO_SEED=false` trong `backend/.env` nếu không muốn tự nạp dữ liệu mẫu.
 - Không commit file `.env`.
 
+### Đăng nhập bằng Google
+
+Đăng nhập Google cần OAuth Client ID dạng Web application:
+
+1. Trong Google Cloud Console, tạo OAuth Client ID cho ứng dụng web.
+2. Thêm Authorized JavaScript origins `http://localhost:8081` và `http://localhost:5173`.
+3. Tạo file `.env` ở thư mục gốc repo với nội dung:
+
+   ```dotenv
+   GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+   ```
+
+4. Build lại API và website để áp dụng cấu hình:
+
+   ```bash
+   docker compose up -d --build api nginx
+   ```
+
+Khi chạy frontend bằng `pnpm dev` thay vì Docker, đặt cùng Client ID trong `frontend/.env.local` dưới tên `VITE_GOOGLE_CLIENT_ID`; backend vẫn cần `GOOGLE_CLIENT_ID` trong `backend/.env`. Client ID là cấu hình công khai, không phải client secret. Ứng dụng chỉ nhận email/name/avatar và mã định danh đã được Google xác minh, không nhận mật khẩu Google.
+
+Trước khi chuyển OAuth app sang chế độ production, cần triển khai website lên HTTPS domain do bạn sở hữu, xác minh domain trong Google Search Console, rồi khai báo URL trang chủ và đường dẫn `/privacy` trong Google Auth Platform → Branding. Trang chính sách này không thể thay thế việc triển khai domain công khai hoặc quy trình xác minh mà Google yêu cầu.
+
+### Triển khai production trên VPS
+
+Repo có cấu hình Docker Compose production cho VPS Linux. Cấu hình này chỉ công khai Caddy trên cổng 80/443; MySQL và API chỉ nằm trong mạng nội bộ Docker. Caddy tự cấp và gia hạn HTTPS sau khi domain trỏ tới VPS.
+
+1. Tạo bản ghi DNS `A` cho domain trỏ tới IPv4 của VPS. Mở cổng TCP 80/443 trên firewall; giữ SSH được giới hạn theo nhu cầu.
+2. Trên VPS, clone repo rồi sao chép `.env.production.example` thành `.env`. Điền domain, OAuth Client ID, mật khẩu cơ sở dữ liệu mạnh và riêng biệt, JWT secret ngẫu nhiên, cùng SMTP credentials. Với Gmail SMTP, dùng Google App Password, không dùng mật khẩu đăng nhập Gmail. Không commit hoặc gửi file `.env`.
+3. Khởi động các dịch vụ:
+
+   ```bash
+   docker compose --env-file .env -f docker-compose.prod.yml config
+   docker compose --env-file .env -f docker-compose.prod.yml up -d --build
+   ```
+
+   Lần đầu API chạy migration và không nạp dữ liệu mẫu. Dữ liệu MySQL và ảnh tải lên được giữ trong Docker volumes; cần thiết lập sao lưu các volume này trước khi dùng dữ liệu thật.
+4. Kiểm tra `https://your-domain.com/` và `https://your-domain.com/privacy`. Trong Google Auth Platform, xác minh domain, thêm domain gốc vào Authorized domains, đặt URL trang chủ và trang quyền riêng tư ở Branding, thêm HTTPS origin vào OAuth client, rồi hoàn tất bước Publish/verification của Google.
+
 ## Phát triển giao diện (tự cập nhật khi sửa code)
 
 Bản ở cổng 8081 là bản build sẵn. Khi sửa frontend, chạy thêm Vite (cần Node.js 20+ và pnpm):
@@ -106,6 +144,10 @@ pnpm dev
 ```
 
 Mở http://localhost:5173. Vite tự chuyển `/api` sang backend ở cổng 3000. Sau khi sửa xong, build lại bản 8081 bằng `docker compose up -d --build nginx`.
+
+### Tùy chỉnh màu giao diện bằng Sass
+
+Khách truy cập có thể chọn màu chủ đạo từ nút **Màu giao diện** trên thanh đầu trang (cả desktop và mobile). Lựa chọn được lưu trên trình duyệt hiện tại. Mặc định là xanh lá; ngoài ra có xanh dương, tím, hồng đỏ và cam. Các palette được khai báo trong `frontend/src/styles/_palette.scss`; Sass xuất CSS custom properties để đồng bộ màu với giao diện Tailwind. Khi chạy `pnpm dev`, Vite cập nhật thay đổi trực tiếp; để áp dụng cho bản build, chạy `pnpm build`.
 
 Backend trong Docker tự khởi động lại khi sửa file trong `backend/` (nodemon).
 

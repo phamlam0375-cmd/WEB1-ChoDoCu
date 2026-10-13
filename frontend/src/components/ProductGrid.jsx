@@ -8,7 +8,7 @@ function ProductGrid({ products, savedIds, savedOnly, onToggleSave, onView, onBu
         <div>
           <p className="text-sm font-bold uppercase tracking-[0.14em] text-emerald-600">Gợi ý dành cho bạn</p>
           <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">
-            {savedOnly ? 'Tin bạn đã lưu' : 'Sản phẩm mới đăng'}
+            {savedOnly ? 'Tin bạn đã lưu' : 'Danh sách sản phẩm'}
           </h2>
           <p className="mt-1 text-sm text-slate-500">
             Tìm thấy <strong className="text-slate-800">{products.length}</strong> sản phẩm phù hợp
@@ -45,7 +45,7 @@ function ProductGrid({ products, savedIds, savedOnly, onToggleSave, onView, onBu
             </span>
             <h3 className="mt-4 text-lg font-extrabold text-slate-800">Không tìm thấy sản phẩm phù hợp</h3>
             <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
-              Hãy thử thay đổi từ khóa, khu vực hoặc khoảng giá để xem thêm sản phẩm.
+              Thử từ khóa khác, bỏ dấu tiếng Việt, kiểm tra chính tả hoặc thay đổi bộ lọc để tìm thêm sản phẩm.
             </p>
             <button type="button" onClick={onReset} className="mt-5 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-emerald-700">
               Xóa bộ lọc

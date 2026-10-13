@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import {
   Heart,
+  LogOut,
   Menu,
   PlusCircle,
   Store,
@@ -9,6 +10,24 @@ import {
   X,
 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
+import ColorThemePicker from './ColorThemePicker'
+
+const readStoredUser = () => {
+  try {
+    const user = JSON.parse(localStorage.getItem('user') || 'null')
+    return user && typeof user === 'object' ? user : null
+  } catch {
+    return null
+  }
+}
+
+const getUserInitials = (fullName = '') => fullName
+  .trim()
+  .split(/\s+/)
+  .slice(-2)
+  .map((part) => part[0])
+  .join('')
+  .toLocaleUpperCase('vi-VN') || 'U'
 
 const navItems = [
   { label: 'Trang chủ', href: '#top' },
@@ -24,6 +43,7 @@ function Header({
   onUnavailable = () => {},
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [user, setUser] = useState(readStoredUser)
 
   const navigate = useNavigate()
 
@@ -38,6 +58,30 @@ function Header({
     closeMenu()
     navigate('/register')
   }
+
+  const handleLogout = () => {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    setUser(null)
+    closeMenu()
+    navigate('/')
+  }
+
+  const renderUserAvatar = (className = 'size-10') => (
+    <span className={`relative grid ${className} shrink-0 place-items-center overflow-hidden rounded-full bg-emerald-100 text-sm font-bold text-emerald-800`}>
+      {getUserInitials(user?.FullName)}
+      {user?.AvatarUrl && (
+        <img
+          src={user.AvatarUrl}
+          alt=""
+          className="absolute inset-0 size-full object-cover"
+          onError={(event) => {
+            event.currentTarget.style.display = 'none'
+          }}
+        />
+      )}
+    </span>
+  )
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 shadow-sm backdrop-blur">
@@ -88,6 +132,7 @@ function Header({
 
         {/* DESKTOP ACTIONS */}
         <div className="hidden items-center gap-2 lg:flex">
+          <ColorThemePicker />
 
           {/* Tin đã lưu */}
           <button
@@ -122,25 +167,43 @@ function Header({
             Đăng tin
           </button>
 
-          {/* Đăng nhập */}
-          <button
-            type="button"
-            onClick={handleLogin}
-            className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3.5 text-sm font-semibold text-slate-700 transition hover:border-emerald-200 hover:bg-emerald-50"
-          >
-            <UserRound size={17} />
-            Đăng nhập
-          </button>
-
-          {/* Đăng ký */}
-          <button
-            type="button"
-            onClick={handleRegister}
-            className="inline-flex h-10 items-center gap-2 rounded-xl border border-emerald-600 px-3.5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50"
-          >
-            <UserPlus size={17} />
-            Đăng ký
-          </button>
+          {user ? (
+            <div className="flex items-center gap-2">
+              {renderUserAvatar()}
+              <div className="max-w-40">
+                <p className="truncate text-sm font-semibold text-slate-800">{user.FullName}</p>
+                <p className="truncate text-xs text-slate-500">{user.Email}</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="grid size-10 place-items-center rounded-xl border border-slate-200 text-slate-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                aria-label="Đăng xuất"
+                title="Đăng xuất"
+              >
+                <LogOut size={17} />
+              </button>
+            </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={handleLogin}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3.5 text-sm font-semibold text-slate-700 transition hover:border-emerald-200 hover:bg-emerald-50"
+              >
+                <UserRound size={17} />
+                Đăng nhập
+              </button>
+              <button
+                type="button"
+                onClick={handleRegister}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-emerald-600 px-3.5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50"
+              >
+                <UserPlus size={17} />
+                Đăng ký
+              </button>
+            </>
+          )}
         </div>
 
         {/* MOBILE MENU BUTTON */}
@@ -193,6 +256,9 @@ function Header({
 
           {/* MOBILE ACTIONS */}
           <div className="mx-auto mt-3 grid max-w-7xl grid-cols-2 gap-2 border-t border-slate-100 pt-3 sm:grid-cols-3">
+            <div className="col-span-2 sm:col-span-1">
+              <ColorThemePicker />
+            </div>
 
             {/* Đăng tin */}
             <button
@@ -206,23 +272,42 @@ function Header({
               Đăng tin
             </button>
 
-            {/* Đăng nhập */}
-            <button
-              type="button"
-              onClick={handleLogin}
-              className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-700"
-            >
-              Đăng nhập
-            </button>
-
-            {/* Đăng ký */}
-            <button
-              type="button"
-              onClick={handleRegister}
-              className="col-span-2 rounded-xl border border-emerald-600 px-3 py-2.5 text-sm font-semibold text-emerald-700 sm:col-span-1"
-            >
-              Đăng ký
-            </button>
+            {user ? (
+              <>
+                <div className="col-span-2 flex items-center gap-3 rounded-xl bg-slate-50 p-3 sm:col-span-1">
+                  {renderUserAvatar('size-11')}
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-slate-800">{user.FullName}</p>
+                    <p className="truncate text-xs text-slate-500">{user.Email}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="col-span-2 inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-700 sm:col-span-1"
+                >
+                  <LogOut size={16} />
+                  Đăng xuất
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={handleLogin}
+                  className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-700"
+                >
+                  Đăng nhập
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRegister}
+                  className="col-span-2 rounded-xl border border-emerald-600 px-3 py-2.5 text-sm font-semibold text-emerald-700 sm:col-span-1"
+                >
+                  Đăng ký
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}

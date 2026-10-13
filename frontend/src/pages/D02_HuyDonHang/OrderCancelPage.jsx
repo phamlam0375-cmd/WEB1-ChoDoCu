@@ -50,7 +50,7 @@ export default function OrderCancelPage() {
   }, [orderId, login, reload])
 
   const refresh = () => { setLoading(true); setError(''); setReload(current => current + 1) }
-  const back = () => navigate('/') // D05 chưa có; không quay về success D01 đã cũ.
+  const back = () => navigate(`/orders/${orderId}/tracking`)
 
   const submit = async reason => {
     if (lock.current) return
@@ -114,7 +114,8 @@ export default function OrderCancelPage() {
             {['BLOCKED', 'VERIFY_PAYMENT'].includes(data.action) && <div className="mt-5 space-y-2 text-sm"><p>{data.message}</p>{data.detail && <p className="text-slate-600">{data.detail}</p>}</div>}
             {['RESERVED', 'WAITING_PAYMENT'].includes(data.status) && <Link to={`/orders/${data.orderId}/payment`} className="mt-5 inline-block text-sm font-bold text-emerald-700 underline">Thanh toán / Xem thông báo chuyển tiền</Link>}
           </>}
-          {!loading && (!data || data.action !== 'CANCEL') && <button type="button" onClick={back} className="mt-6 rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold">Quay lại trang chủ</button>}
+          {!loading && (!data || data.action !== 'CANCEL') && <button type="button" onClick={back} className="mt-6 rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold">Quay lại theo dõi đơn</button>}
+          <Link to={`/orders/${orderId}/tracking`} className="mt-5 block text-sm font-bold text-emerald-700 underline">Theo dõi đơn hàng</Link>
           <button type="button" disabled={busy} onClick={refresh} className="ml-3 mt-6 text-sm font-bold text-emerald-700 disabled:opacity-50">Tải lại trạng thái</button>
         </section>
       </main>

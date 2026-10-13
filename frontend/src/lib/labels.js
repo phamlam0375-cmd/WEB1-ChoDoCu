@@ -92,3 +92,14 @@ export const ORDER_STATUS = {
   REFUND_PENDING: 'Đang hoàn tiền',
   REFUNDED: 'Đã hoàn tiền',
 }
+
+export const PAYMENT_STATUS = {
+  WAITING: 'Chưa báo chuyển tiền', REPORTED: 'Đã báo chuyển tiền, chờ người bán xác nhận',
+  REJECTED: 'Người bán chưa nhận được tiền', CONFIRMED: 'Người bán đã xác nhận nhận đủ tiền',
+}
+export const DELIVERY_STATUS = {
+  AVAILABLE: 'Chờ tài xế nhận chuyến', ACCEPTED: 'Tài xế đã nhận chuyến',
+  PICKED_UP: 'Tài xế đã lấy hàng', DELIVERING: 'Đang giao hàng',
+  DELIVERED: 'Đã giao thành công', FAILED: 'Giao chưa thành công',
+  RETURNING: 'Đang chuyển hoàn', RETURNED: 'Đã trả hàng cho người bán',
+}

@@ -139,6 +139,7 @@ export default function OrderPaymentPage() {
         <p className="mt-7 flex items-start gap-2 border-t border-slate-200 pt-5 text-sm text-slate-600"><ShieldCheck size={18} className="shrink-0 text-emerald-600" /> Chỉ báo sau khi đã chuyển tiền. Người bán sẽ kiểm tra ngân hàng và xác nhận ở D04.</p>
         <button type="submit" disabled={busy || !data.policy.canReport} className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300">{busy && <LoaderCircle size={18} className="animate-spin" />}{busy ? 'Đang gửi…' : 'Tôi đã chuyển tiền'}</button>
         <Link to={data.cancelUrl} className="mt-3 block rounded-xl border border-slate-300 p-3 text-center text-sm font-bold">Quay lại đơn hàng / Hủy đơn</Link>
+        <Link to={`/orders/${data.orderId}/tracking`} className="mt-3 block rounded-xl border border-emerald-300 p-3 text-center text-sm font-bold text-emerald-700">Theo dõi đơn hàng</Link>
       </form>}
       <div className="mt-5 flex items-center justify-between gap-4 text-sm font-bold">
         <Link to="/" className="text-slate-600">Về trang chủ</Link>

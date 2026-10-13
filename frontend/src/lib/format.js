@@ -1,5 +1,14 @@
 const moneyFormatter = new Intl.NumberFormat('vi-VN')
 
+// Hiển thị chính xác DECIMAL khi cần; không đổi cách làm tròn hiện có của B.
+export function formatDecimalMoney(value) {
+  if (value === null || value === undefined || value === '') return '—'
+  const match = /^(-?\d+)(?:\.(\d{1,2}))?$/.exec(String(value))
+  if (!match) return '—'
+  const fraction = (match[2] || '00').padEnd(2, '0')
+  return `${BigInt(match[1]).toLocaleString('vi-VN')}${fraction === '00' ? '' : `,${fraction}`} ₫`
+}
+
 export function formatMoney(value) {
   if (value === null || value === undefined || value === '') return '—'
   return `${moneyFormatter.format(Math.round(Number(value)))}đ`

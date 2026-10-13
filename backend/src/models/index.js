@@ -16,6 +16,7 @@ const Payments = require("./Payments.model");
 const RefundRequests = require("./RefundRequests.model");
 const Commissions = require("./Commissions.model");
 const Reports = require("./Reports.model");
+const ListingAiReviews = require("./ListingAiReviews.model");
 const Notifications = require("./Notifications.model");
 const StatusHistories = require("./StatusHistories.model");
 const AdminAuditLogs = require("./AdminAuditLogs.model");
@@ -35,6 +36,7 @@ Listings.belongsTo(Users, { foreignKey: "SellerId", as: "Seller" });
 Listings.belongsTo(Categories, { foreignKey: "CategoryId", as: "Category" });
 Categories.hasMany(Listings, { foreignKey: "CategoryId", as: "Listings" });
 Listings.hasMany(ListingMedia, { foreignKey: "ListingId", as: "Media" });
+Listings.hasOne(ListingAiReviews, { foreignKey: "ListingId", as: "AiReview" });
 
 ListingPromotions.belongsTo(Listings, { foreignKey: "ListingId", as: "Listing" });
 ListingPromotions.belongsTo(Users, { foreignKey: "SellerId", as: "Seller" });
@@ -80,6 +82,7 @@ module.exports = {
   RefundRequests,
   Commissions,
   Reports,
+  ListingAiReviews,
   Notifications,
   StatusHistories,
   AdminAuditLogs,

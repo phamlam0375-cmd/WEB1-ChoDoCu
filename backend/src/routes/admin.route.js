@@ -43,8 +43,10 @@ router.patch("/reports/:id", reports.handleReport);
 
 // B05 Kiểm duyệt tin
 router.get("/listings", listings.listListings);
+router.post("/listings/ai-review-pending", listings.reviewPendingWithAi);
 router.get("/listings/:id", listings.getListing);
 router.patch("/listings/:id/review", listings.reviewListing);
+router.post("/listings/:id/ai-review", listings.runAiReview);
 
 // B06 Tiếp nhận yêu cầu hoàn tiền (các bước xử lý ở PATCH /refund-requests/:id)
 router.get("/refund-requests", refunds.listRefundRequests);

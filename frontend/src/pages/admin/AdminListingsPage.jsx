@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
-import { Check, Eye, EyeOff, ImageOff, RotateCcw, Trash2, X } from 'lucide-react'
+import { Bot, Check, Eye, EyeOff, ImageOff, Loader2, RotateCcw, Trash2, X } from 'lucide-react'
 import { Badge, ConfirmDialog, DataTable, Field, FilterBar, InfoRow, Loading, Modal, PageHeader, Pagination, SearchInput, Section, StatusBadge, StatusTabs } from '../../components/admin/AdminUi'
 import { btn, input } from '../../components/admin/styles'
 import ReportInfo from '../../components/report/ReportInfo'
+import { AiBadge, AiReviewPanel } from '../../components/admin/AiReview'
 import { useApi, useMutation } from '../../hooks/useApi'
 import { errorMessage } from '../../lib/api'
 import { formatDateTime, formatMoney } from '../../lib/format'
@@ -72,6 +73,16 @@ function ListingDetail({ id, onClose, onSaved }) {
               {listing.Media.map((media) => <MediaThumb key={media.MediaId} media={media} />)}
             </div>
           )}
+
+          <AiReviewPanel
+            listingId={id}
+            review={listing.aiReview}
+            configured={listing.aiConfigured}
+            onDone={() => {
+              reload()
+              onSaved()
+            }}
+          />
 
           <dl className="divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200">
             <InfoRow label="Người bán">{listing.Seller?.FullName} (#{listing.SellerId}) · {listing.Seller?.Email}</InfoRow>
@@ -326,6 +337,30 @@ function ListingQueue() {
   const { data: conditions } = useApi('/categories/conditions')
   const update = (patch) => setFilters((current) => ({ ...current, page: 1, ...patch }))
   const conditionLabel = (code) => conditions?.find((item) => item.value === code)?.label || CONDITION_LABELS[code] || code
+  const { busy: aiBusy, run } = useMutation()
+  const aiConfigured = Boolean(response?.ai?.configured)
+  const autoRan = useRef(false)
+
+  // AI phân tích các tin chờ duyệt chưa có kết quả (tối đa 5 tin mỗi lần).
+  const analyzePending = async ({ silent = false } = {}) => {
+    try {
+      const result = await run('post', '/admin/listings/ai-review-pending')
+      const { reviewed, failed } = result.data
+      if (!silent || reviewed > 0) toast.info(reviewed ? `AI đã phân tích ${reviewed} tin chờ duyệt` : 'Các tin chờ duyệt đều đã được AI phân tích')
+      if (failed > 0) toast.warn(`Có ${failed} tin AI chưa phân tích được, thử lại sau`)
+      if (reviewed > 0) reload()
+    } catch (err) {
+      if (!silent) toast.error(errorMessage(err))
+    }
+  }
+
+  // Mở tab "Chờ duyệt" lần đầu: tự cho AI phân tích các tin chưa có kết quả.
+  useEffect(() => {
+    if (autoRan.current || !aiConfigured || filters.status !== 'PENDING') return
+    if (!response?.data?.some((row) => !row.aiReview)) return
+    autoRan.current = true
+    analyzePending({ silent: true })
+  })
 
   const columns = [
     { key: 'ListingId', title: 'Mã', render: (row) => <span className="font-mono text-xs text-slate-500">#{row.ListingId}</span> },
@@ -342,6 +377,7 @@ function ListingQueue() {
     { key: 'Price', title: 'Giá', render: (row) => formatMoney(row.Price), className: 'whitespace-nowrap text-right tabular-nums' },
     { key: 'ConditionLevel', title: 'Tình trạng', render: (row) => conditionLabel(row.ConditionLevel) },
     { key: 'Status', title: 'Trạng thái', render: (row) => <StatusBadge map={LISTING_STATUS} value={row.Status} /> },
+    { key: 'aiReview', title: 'AI gợi ý', render: (row) => <AiBadge review={row.aiReview} />, className: 'whitespace-nowrap' },
     {
       key: 'OpenReportCount',
       title: 'Báo cáo mở',
@@ -375,7 +411,18 @@ function ListingQueue() {
           </Field>
         </FilterBar>
       </Section>
-      <Section title="Danh sách tin" meta={response?.pagination ? `${response.pagination.total} kết quả` : null} flush>
+      <Section
+        title="Danh sách tin"
+        meta={response?.pagination ? `${response.pagination.total} kết quả` : null}
+        actions={
+          aiConfigured && filters.status === 'PENDING' ? (
+            <button type="button" className={`${btn.ghost} py-1`} onClick={() => analyzePending()} disabled={aiBusy}>
+              {aiBusy ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />} {aiBusy ? 'AI đang phân tích...' : 'AI phân tích tin chờ duyệt'}
+            </button>
+          ) : null
+        }
+        flush
+      >
       <DataTable
         columns={columns}
         rows={response?.data}

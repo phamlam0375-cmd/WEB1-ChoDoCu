@@ -38,6 +38,7 @@ services:
     environment:
       DB_HOST: mysql
       DB_PORT: 3306
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       # Cùng một cờ cấp cho backend runtime và frontend build; mặc định an toàn.
       D01_DEMO_MODE: ${D01_DEMO_MODE:-false}
       D01_DEMO_USER_ID: ${D01_DEMO_USER_ID:-}
@@ -47,7 +48,7 @@ services:
       - ./backend:/app
       - /app/node_modules
     # Tự chạy migration và nạp dữ liệu mẫu (nếu database trống) rồi mới khởi động API.
-    command: pnpm run docker:dev
+    command: npx pnpm run docker:dev
     depends_on:
       mysql:
         condition: service_healthy
@@ -58,6 +59,7 @@ services:
       context: .
       dockerfile: nginx/Dockerfile
       args:
+        VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
         VITE_D01_DEMO_MODE: ${D01_DEMO_MODE:-false}
     restart: unless-stopped
     ports:

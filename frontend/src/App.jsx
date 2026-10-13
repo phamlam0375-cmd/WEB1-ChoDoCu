@@ -1,5 +1,5 @@
 import 'react-toastify/dist/ReactToastify.css'
-import './App.css'
+import './App.scss'
 
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { Suspense, lazy } from 'react'
@@ -9,6 +9,11 @@ import DevAccountProvider from './context/DevAccountProvider'
 import HomePage from './pages/HomePage'
 import { Loading } from './components/admin/AdminUi'
 import Login from './pages/Login'
+import ForgotPassword from './pages/ForgotPassword'
+import PrivacyPolicy from './pages/PrivacyPolicy'
+import Register from './pages/Register'
+import ResetPassword from './pages/ResetPassword'
+import VerifyEmail from './pages/VerifyEmail'
 import OrderCancelPage from './pages/D02_HuyDonHang/OrderCancelPage'
 import OrderPaymentPage from './pages/D03_ThanhToan/OrderPaymentPage'
 import OrderCreatePage from './pages/OrderCreatePage'
@@ -17,9 +22,8 @@ import RegisterApplication from './components/PartnerApplication/RegisterApplica
 import SellerStore from './components/Store/SellerStore/SellerStore'
 import { ToastContainer } from 'react-toastify'
 
+
 // Phân hệ B: quản trị và doanh thu (tải khi cần để không làm nặng trang chủ)
-
-
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'))
 const AdminDashboardPage = lazy(() => import('./pages/admin/AdminDashboardPage'))
 const AdminUsersPage = lazy(() => import('./pages/admin/AdminUsersPage'))
@@ -52,6 +56,11 @@ function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/verify-email" element={<VerifyEmail />} /> {/* <-- Route cho trang nhập OTP */}
         <Route path="/orders/create/:listingId" element={<OrderCreatePage />} />
         <Route path="/orders/:orderId/cancel" element={<OrderCancelPage />} />
         <Route path="/orders/:orderId/payment" element={<OrderPaymentPage />} />

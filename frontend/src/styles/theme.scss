@@ -1,0 +1,36 @@
+@use './palette' as palette;
+@use 'sass:color';
+@use 'sass:map';
+
+@each $theme-name, $shades in palette.$themes {
+  $selector: '[data-color-theme="#{$theme-name}"]';
+  @if $theme-name == 'emerald' {
+    $selector: ':root';
+  }
+  $primary: map.get($shades, '600');
+  $primary-hover: map.get($shades, '700');
+  $primary-bright: map.get($shades, '500');
+  $primary-soft: map.get($shades, '50');
+  $selection: map.get($shades, '200');
+  $selection-text: map.get($shades, '800');
+
+  #{$selector} {
+  @each $name, $value in palette.$colors {
+    --color-#{$name}: #{$value};
+  }
+
+  @each $shade, $value in palette.$emerald {
+    --brand-primary-#{$shade}: #{map.get($shades, $shade)};
+    --color-emerald-#{$shade}: #{map.get($shades, $shade)};
+  }
+
+    --color-primary: #{$primary};
+    --color-primary-hover: #{$primary-hover};
+    --color-primary-bright: #{$primary-bright};
+    --color-primary-soft: #{$primary-soft};
+    --color-selection: #{$selection};
+    --color-selection-text: #{$selection-text};
+    --color-primary-rgb: #{color.channel($primary, 'red')}, #{color.channel($primary, 'green')}, #{color.channel($primary, 'blue')};
+    --color-primary-bright-rgb: #{color.channel($primary-bright, 'red')}, #{color.channel($primary-bright, 'green')}, #{color.channel($primary-bright, 'blue')};
+  }
+}

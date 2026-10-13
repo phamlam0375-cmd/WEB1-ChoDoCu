@@ -7,6 +7,7 @@ const orderRoutes = require('./routes/order.route');
 const cancellationRoutes = require('./routes/D02_HuyDonHang/cancellation.route');
 const paymentRoutes = require('./routes/D03_ThanhToan/payment.route');
 const confirmationRoutes = require('./routes/D04_XacNhanNhanTien/confirmation.route');
+const trackingRoutes = require('./routes/D05_TheoDoiDonHang/tracking.route');
 const { requireAuth } = require('./middlewares/auth.middleware');
 const AppError = require('./errors/AppError');
 
@@ -44,6 +45,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/v1/orders', orderRoutes.createOrderRouter(requireAuth));
 app.use('/api/v1/orders', cancellationRoutes);
 app.use('/api/v1/orders', paymentRoutes);
+app.use('/api/v1/orders', trackingRoutes);
 app.use('/api/v1/seller/orders', confirmationRoutes);
 
 

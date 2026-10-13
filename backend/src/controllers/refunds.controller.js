@@ -42,6 +42,15 @@ const OPEN_STATUSES = ["PENDING", "REVIEWING", "APPROVED", "SELLER_TRANSFERRED",
 const PAID_ORDER_STATUSES = ["PAID", "IN_DELIVERY", "DELIVERED", "COMPLETED"];
 const CLOSED_ORDER_STATUSES = ["CANCELLED", "REFUNDED", "REFUND_PENDING"];
 
+// Dùng chung điều kiện B06 và khả năng thao tác của trang theo dõi; không ghi DB.
+function refundEligibility({ order, payment, refund, refunds = [], windowDays, now = new Date() }) {
+  if ((refund && OPEN_STATUSES.includes(refund.Status)) || refunds.some(row => OPEN_STATUSES.includes(row.Status))) return { enabled: false, status: 409, reason: "Đơn hàng này đã có yêu cầu hoàn tiền đang xử lý" };
+  if (CLOSED_ORDER_STATUSES.includes(order.Status)) return { enabled: false, status: 400, reason: "Đơn hàng không ở trạng thái có thể yêu cầu hoàn tiền" };
+  if (!PAID_ORDER_STATUSES.includes(order.Status) && payment?.Status !== "CONFIRMED") return { enabled: false, status: 400, reason: "Chỉ yêu cầu hoàn tiền cho đơn hàng đã thanh toán" };
+  if (order.CompletedAt && windowDays !== undefined && new Date(now).getTime() > new Date(order.CompletedAt).getTime() + windowDays * DAY_MS) return { enabled: false, status: 400, reason: "Đơn hàng đã quá thời hạn yêu cầu hoàn tiền" };
+  return { enabled: true };
+}
+
 const REFUND_REASONS = [
   "Sản phẩm không đúng mô tả",
   "Sản phẩm bị lỗi, hư hỏng",
@@ -135,20 +144,13 @@ const createRefundRequest = async (req, res) => {
     if (order.BuyerId !== req.user.UserId) throw forbidden("Chỉ người mua của đơn mới được yêu cầu hoàn tiền");
 
     const open = await RefundRequests.findOne({ where: { OrderId: orderId, Status: OPEN_STATUSES }, transaction });
-    if (open) throw conflict("Đơn hàng này đã có yêu cầu hoàn tiền đang xử lý");
-    if (CLOSED_ORDER_STATUSES.includes(order.Status)) {
-      throw badRequest("Đơn hàng không ở trạng thái có thể yêu cầu hoàn tiền");
-    }
-
     const payment = await Payments.findOne({ where: { OrderId: orderId }, attributes: ["Status"], transaction });
-    const paid = PAID_ORDER_STATUSES.includes(order.Status) || (payment && payment.Status === "CONFIRMED");
-    if (!paid) throw badRequest("Chỉ yêu cầu hoàn tiền cho đơn hàng đã thanh toán");
-
+    const eligibility = refundEligibility({ order, payment, refund: open });
+    if (!eligibility.enabled) throw (eligibility.status === 409 ? conflict : badRequest)(eligibility.reason);
     if (order.CompletedAt) {
-      // Hạn hoàn tiền theo cấu hình có hiệu lực lúc đặt đơn.
       const windowDays = await getSettingAt("REFUND_WINDOW_DAYS", order.CreatedAt, { transaction });
-      const deadline = new Date(order.CompletedAt).getTime() + windowDays * DAY_MS;
-      if (Date.now() > deadline) throw badRequest("Đơn hàng đã quá thời hạn yêu cầu hoàn tiền");
+      const windowEligibility = refundEligibility({ order, payment, refund: open, windowDays });
+      if (!windowEligibility.enabled) throw badRequest(windowEligibility.reason);
     }
 
     const productAmount = Number(order.ProductAmount);
@@ -423,6 +425,7 @@ const updateRefundRequest = async (req, res) => {
 };
 
 module.exports = {
+  refundEligibility,
   REFUND_REASONS,
   listReasons,
   createRefundRequest,

@@ -41,6 +41,9 @@ const SellerFeesPage = lazy(() => import('./pages/account/SellerFeesPage'))
 const MomoPaymentPage = lazy(() => import('./pages/account/MomoPaymentPage'))
 const SellerPaymentsPage = lazy(() => import('./pages/D04_XacNhanNhanTien/SellerPaymentsPage'))
 const SellerPaymentPage = lazy(() => import('./pages/D04_XacNhanNhanTien/SellerPaymentPage'))
+const TrackingLayout = lazy(() => import('./components/D05_TheoDoiDonHang/TrackingLayout'))
+const BuyerOrdersPage = lazy(() => import('./pages/D05_TheoDoiDonHang/BuyerOrdersPage'))
+const OrderTrackingPage = lazy(() => import('./pages/D05_TheoDoiDonHang/OrderTrackingPage'))
 
 
 function App() {
@@ -79,6 +82,10 @@ function App() {
             <Route path="fee-payments" element={<AdminFeePaymentsPage />} />
             <Route path="audit-logs" element={<AdminAuditLogsPage />} />
             <Route path="settings" element={<AdminSettingsPage />} />
+          </Route>
+          <Route element={<TrackingLayout />}>
+            <Route path="/orders" element={<BuyerOrdersPage />} />
+            <Route path="/orders/:orderId/tracking" element={<OrderTrackingPage />} />
           </Route>
           <Route element={<AccountShell />}>
             <Route path="/seller/payments" element={<SellerPaymentsPage />} />

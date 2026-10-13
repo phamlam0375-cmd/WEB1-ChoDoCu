@@ -6,6 +6,7 @@ import { Loading } from '../../components/admin/AdminUi'
 import { useDevAccount } from '../../hooks/useDevAccount'
 
 const LINKS = [
+  { to: '/orders', label: 'Đơn mua của tôi' },
   { to: '/reports', label: 'Báo cáo của tôi' },
   { to: '/refunds', label: 'Hoàn tiền' },
   { to: '/seller/fees', label: 'Phí & hoa hồng (người bán)' },

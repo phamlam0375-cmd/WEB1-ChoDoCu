@@ -90,6 +90,7 @@ function Header({
         <div className="hidden items-center gap-2 lg:flex">
 
           {/* Tin đã lưu */}
+          <Link to="/orders" className="rounded-lg px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50">Đơn mua của tôi</Link>
           <button
             type="button"
             onClick={onShowSaved}
@@ -175,6 +176,7 @@ function Header({
             ))}
 
             {/* Tin đã lưu */}
+            <Link to="/orders" onClick={closeMenu} className="rounded-xl px-3 py-2.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50">Đơn mua của tôi</Link>
             <button
               type="button"
               onClick={() => {

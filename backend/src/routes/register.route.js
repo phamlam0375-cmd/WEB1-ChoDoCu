@@ -1,10 +1,11 @@
 require('dotenv').config();
 const express = require('express');
 const bcrypt = require('bcrypt');
-const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const sequelize = require('../database');
 const { Users, Roles, UserRoles, VerificationCodes } = require('../models');
+const { sendOtpEmail } = require('../services/otpMailer');
+const { getJwtSecret } = require('../utils/jwtSecret');
 
 const router = express.Router();
 
@@ -16,10 +17,7 @@ const normalizeEmail = (value) => String(value ?? '').trim().toLowerCase();
 const normalizeOtp = (value) => String(value ?? '').replace(/\D/g, '').slice(0, 6);
 
 const createToken = (userId) => {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    throw new Error('Thiếu JWT_SECRET trong cấu hình backend.');
-  }
+  const secret = getJwtSecret();
 
   const now = Math.floor(Date.now() / 1000);
   const encode = (value) => Buffer.from(JSON.stringify(value)).toString('base64url');
@@ -69,23 +67,13 @@ const createLoginResponse = (user, message) => ({
   }
 });
 
-const transporter = nodemailer.createTransport({
-  host: process.env.MAIL_HOST || 'smtp.gmail.com',
-  port: Number(process.env.MAIL_PORT) || 587,
-  secure: false,
-  auth: {
-    user: process.env.MAIL_USER,
-    pass: process.env.MAIL_PASS,
-  },
-  tls: { rejectUnauthorized: false }
-});
-
 const sendOTPCode = async (toEmail, otpCode) => {
-  return await transporter.sendMail({
-    from: `"Chợ Đồ Cũ" <${process.env.MAIL_USER}>`,
+  return sendOtpEmail({
     to: toEmail,
+    code: otpCode,
+    purpose: 'registration',
     subject: 'Mã xác thực OTP - Đăng ký tài khoản',
-    html: `<p>Mã OTP xác thực tài khoản của bạn là: <b style="font-size: 18px; color: #007bff;">${otpCode}</b></p><p>Mã có hiệu lực trong 10 phút.</p>`,
+    html: `<p>Mã OTP xác thực tài khoản của bạn là: <b style="font-size: 18px; color: #007bff;">${otpCode}</b></p><p>Mã có hiệu lực trong 10 phút.</p>`
   });
 };
 
@@ -332,11 +320,14 @@ router.post('/register', async (req, res) => {
       }, { transaction });
     });
 
-    await sendOTPCode(cleanEmail, otpCode);
+    const delivery = await sendOTPCode(cleanEmail, otpCode);
 
     return res.status(200).json({
       success: true,
-      message: 'Đăng ký thành công! Vui lòng kiểm tra mã OTP trong email.',
+      delivery: delivery.delivery,
+      message: delivery.delivery === 'development-log'
+        ? 'Tạo tài khoản thành công. Xem mã OTP trong log backend.'
+        : 'Đăng ký thành công! Vui lòng kiểm tra mã OTP trong email.',
     });
   } catch (error) {
     if (error.status === 409) {
@@ -391,10 +382,13 @@ router.post('/resend-otp', async (req, res) => {
       }, { transaction });
     });
 
-    await sendOTPCode(cleanEmail, otpCode);
+    const delivery = await sendOTPCode(cleanEmail, otpCode);
     return res.status(200).json({
       success: true,
-      message: 'Đã gửi lại mã OTP mới vào email.'
+      delivery: delivery.delivery,
+      message: delivery.delivery === 'development-log'
+        ? 'Đã tạo mã OTP mới. Xem mã trong log backend.'
+        : 'Đã gửi lại mã OTP mới vào email.'
     });
   } catch (error) {
     console.error('Lỗi gửi lại OTP:', error);
@@ -479,6 +473,73 @@ router.post('/verify-email', async (req, res) => {
     success: true,
     message: 'Xác thực tài khoản thành công!',
   });
+});
+
+
+// Dev-only mock identities are restricted to example.test to avoid impersonating shared DB accounts.
+router.post('/google/dev', async (req, res) => {
+  try {
+    if (process.env.NODE_ENV !== 'development') {
+      return res.status(403).json({ message: 'Đăng nhập mock chỉ dùng được trong môi trường development.' });
+    }
+
+    const emailRaw = (req.body && req.body.email) || '';
+    const email = String(emailRaw).trim().toLowerCase();
+    if (!/^[^\s@]+@example\.test$/.test(email)) {
+      return res.status(400).json({ message: 'Mock Google chỉ chấp nhận email thử nghiệm dạng ten@example.test.' });
+    }
+
+    const devGoogleId = `dev:${email}`;
+
+    const user = await sequelize.transaction(async (transaction) => {
+      let account = await Users.unscoped().findOne({
+        where: { Email: email },
+        transaction,
+        lock: transaction.LOCK.UPDATE
+      });
+
+      if (account && account.GoogleId !== devGoogleId) {
+        throw Object.assign(new Error('Email thử nghiệm này đã được dùng bởi tài khoản khác.'), { status: 409 });
+      }
+      if (account && account.Status !== 'ACTIVE') {
+        throw Object.assign(new Error('Tài khoản thử nghiệm hiện không thể đăng nhập.'), { status: 403 });
+      }
+
+      const role = await getUserRole(transaction);
+      if (!account) {
+        account = await Users.create({
+          Username: await createUsername(email, transaction),
+          FullName: email.split('@')[0],
+          Email: email,
+          EmailVerified: true,
+          GoogleId: devGoogleId,
+          PasswordHash: null,
+          Status: 'ACTIVE'
+        }, { transaction });
+      }
+
+      const userRole = await UserRoles.findOne({
+        where: { UserId: account.UserId, RoleId: role.RoleId },
+        transaction
+      });
+      if (!userRole) {
+        await UserRoles.create({
+          UserId: account.UserId,
+          RoleId: role.RoleId
+        }, { transaction });
+      }
+
+      return account;
+    });
+
+    return res.json(createLoginResponse(user, 'Đăng nhập Google thử nghiệm thành công.'));
+  } catch (err) {
+    if (err.status === 403 || err.status === 409) {
+      return res.status(err.status).json({ message: err.message });
+    }
+    console.error('Error in /auth/google/dev', err);
+    return res.status(500).json({ message: 'Không thể đăng nhập bằng Google thử nghiệm lúc này.' });
+  }
 });
 
 module.exports = router;

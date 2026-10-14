@@ -14,6 +14,8 @@ const VerifyEmail = () => {
   // Nhận email từ trang Đăng ký truyền sang
   const rawEmail = location.state?.email || sessionStorage.getItem('pendingVerificationEmail') || '';
   const email = rawEmail.toLowerCase().trim();
+  const delivery = location.state?.delivery || sessionStorage.getItem('pendingVerificationDelivery');
+  const developmentOtp = delivery === 'development-log';
 
   const [loading, setLoading] = useState(false);
   const [otpError, setOtpError] = useState('');
@@ -106,6 +108,7 @@ const VerifyEmail = () => {
 
       if (response.ok) {
         sessionStorage.removeItem('pendingVerificationEmail');
+        sessionStorage.removeItem('pendingVerificationDelivery');
         toast.success(data.message || 'Xác thực tài khoản thành công!');
         navigate('/login', {
           state: {
@@ -146,6 +149,9 @@ const VerifyEmail = () => {
       const data = await response.json();
 
       if (response.ok) {
+        if (data.delivery) {
+          sessionStorage.setItem('pendingVerificationDelivery', data.delivery);
+        }
         toast.success(data.message || 'Đã gửi lại mã xác thực vào email!');
         setCountdown(60);
         setOtp(['', '', '', '', '', '']);
@@ -174,7 +180,9 @@ const VerifyEmail = () => {
 
         <h3 className="verify-title">Kiểm tra hộp thư của bạn</h3>
         <p className="otp-subtitle">
-          Đã gửi mã xác thực 6 số đến<br />
+          {developmentOtp
+            ? <>Mã OTP chỉ được ghi trong log backend (development).<br />Xem log API để lấy mã.</>
+            : <>Đã gửi mã xác thực 6 số đến<br /></>}
           <strong>{email || 'Chưa xác định Email'}</strong>
         </p>
 

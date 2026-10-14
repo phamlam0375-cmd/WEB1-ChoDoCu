@@ -80,9 +80,18 @@ docker compose up -d --build
 
 Ảnh người dùng tải lên (thư mục `backend/uploads/`) không nằm trong file dữ liệu; cần thì chép thư mục này sang máy kia.
 
-## Cấu hình (không bắt buộc)
+## Cấu hình môi trường
 
-Docker chạy được ngay không cần file cấu hình. Muốn đổi giá trị mặc định thì tạo `backend/.env` từ file mẫu:
+Docker Compose development có sẵn giá trị mặc định cho database và JWT; không cần tạo file `.env` để chạy đăng ký, đăng nhập email/mật khẩu, xác thực OTP hoặc quên mật khẩu. OTP mặc định chỉ được in trong log API (development), không gửi email. Chạy:
+
+```powershell
+docker compose up -d --build
+docker compose logs -f api
+```
+
+Tìm dòng `[OTP][development]` trong log rồi nhập mã trên trang xác thực. Không dùng chế độ ghi OTP vào log trong production. Muốn gửi email khi development, đặt `OTP_DELIVERY_MODE=email` và cấu hình SMTP; production luôn yêu cầu SMTP.
+
+Muốn thay đổi cấu hình thì tạo `backend/.env` từ file mẫu:
 
 ```bash
 # Windows
@@ -93,12 +102,14 @@ cp backend/.env.example backend/.env
 
 - Khi chạy trong Docker, API luôn kết nối MySQL qua `mysql:3306`, không cần sửa `DB_HOST`/`DB_PORT`.
 - Đặt `AUTO_SEED=false` trong `backend/.env` nếu không muốn tự nạp dữ liệu mẫu.
-- Để đăng ký, xác thực email và đặt lại mật khẩu gửi được mã, điền `MAIL_USER` và `MAIL_PASS` trong `backend/.env` (Gmail cần App Password), rồi khởi động lại API.
+- Muốn gửi mã OTP thật qua email, điền `MAIL_USER` và `MAIL_PASS` trong `backend/.env` (Gmail cần App Password), rồi khởi động lại API.
 - Không commit file `.env`.
 
-### Đăng nhập bằng Google
+### Đăng nhập bằng Google (tùy chọn)
 
-Đăng nhập Google cần OAuth Client ID dạng Web application:
+Đăng nhập Google thật cần OAuth Client ID dạng Web application. Khi chưa cấu hình, Docker Compose development hiển thị nút **Đăng nhập Google thử nghiệm**; chức năng này chỉ tạo tài khoản giả với email kết thúc bằng `@example.test`, không xác minh hay đăng nhập thay cho Gmail thật. Tài khoản dùng chung database không thể bị chiếm qua nút thử nghiệm. Không dùng chức năng mock trong production.
+
+Để thấy nút thử nghiệm sau khi lấy code mới, chạy lại `docker compose up -d --build nginx api` rồi mở http://localhost:8081. Nếu chạy Vite bằng `pnpm dev`, nút thử nghiệm tự hiện khi chưa đặt `VITE_GOOGLE_CLIENT_ID`. Nếu máy đã cấu hình Client ID, giao diện ưu tiên nút Google thật.
 
 1. Trong Google Cloud Console, tạo OAuth Client ID cho ứng dụng web.
 2. Thêm Authorized JavaScript origins `http://localhost:8081` và `http://localhost:5173`.

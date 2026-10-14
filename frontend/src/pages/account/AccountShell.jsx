@@ -44,7 +44,7 @@ export default function AccountShell() {
         ) : (
           <div className="mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
             <p className="font-semibold text-slate-900">Vui lòng chọn tài khoản</p>
-            <p className="mt-1 text-sm text-slate-500">Nhập mã tài khoản thử nghiệm để tiếp tục (tạm thay đăng nhập cho tới khi hoàn thiện A02).</p>
+            <p className="mt-1 text-sm text-slate-500">Đăng nhập để tiếp tục, hoặc nhập mã tài khoản thử nghiệm khi demo.</p>
             <div className="mt-4 flex justify-center">
               <DevAccountSwitcher />
             </div>

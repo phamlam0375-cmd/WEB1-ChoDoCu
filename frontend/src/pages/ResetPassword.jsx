@@ -13,6 +13,7 @@ function ResetPassword() {
   const [email] = useState(
     location.state?.email || sessionStorage.getItem('passwordResetEmail') || ''
   )
+  const developmentOtp = sessionStorage.getItem('passwordResetDelivery') === 'development-log'
   const [otp, setOtp] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [showNewPassword, setShowNewPassword] = useState(false)
@@ -71,6 +72,7 @@ function ResetPassword() {
         newPassword
       })
       sessionStorage.removeItem('passwordResetEmail')
+      sessionStorage.removeItem('passwordResetDelivery')
       sessionStorage.removeItem('passwordResetResendAvailableAt')
       toast.success(response.data.message)
       navigate('/login', { replace: true, state: { email } })
@@ -96,7 +98,9 @@ function ResetPassword() {
 
         <h2 id="reset-password-title">Đặt lại mật khẩu</h2>
         <p className="otp-subtitle">
-          Nhập mã xác thực đã gửi đến <strong>{email}</strong> và tạo mật khẩu mới.
+          {developmentOtp
+            ? <>Trong development, xem mã OTP trong log backend rồi nhập mã và tạo mật khẩu mới cho <strong>{email}</strong>.</>
+            : <>Nhập mã xác thực đã gửi đến <strong>{email}</strong> và tạo mật khẩu mới.</>}
         </p>
 
         <form onSubmit={handleSubmit}>

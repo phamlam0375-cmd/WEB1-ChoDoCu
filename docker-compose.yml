@@ -36,6 +36,8 @@ services:
     # thiếu file thì dùng giá trị mặc định trong config.
     # Trong Docker, API luôn kết nối MySQL qua tên dịch vụ "mysql", cổng 3306.
     environment:
+      NODE_ENV: development
+      OTP_DELIVERY_MODE: development-log
       DB_HOST: mysql
       DB_PORT: 3306
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
@@ -60,6 +62,7 @@ services:
       dockerfile: nginx/Dockerfile
       args:
         VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+        VITE_ENABLE_GOOGLE_MOCK: "true"
         VITE_D01_DEMO_MODE: ${D01_DEMO_MODE:-false}
     restart: unless-stopped
     ports:

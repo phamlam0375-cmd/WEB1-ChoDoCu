@@ -24,6 +24,7 @@ function ForgotPassword() {
     try {
       const response = await axios.post(`${API_BASE_URL}/forgot-password`, { email: normalizedEmail })
       sessionStorage.setItem('passwordResetEmail', normalizedEmail)
+      sessionStorage.setItem('passwordResetDelivery', response.data.delivery || 'email')
       sessionStorage.setItem('passwordResetResendAvailableAt', String(Date.now() + 61000))
       toast.success(response.data.message)
       navigate('/reset-password', { state: { email: normalizedEmail } })

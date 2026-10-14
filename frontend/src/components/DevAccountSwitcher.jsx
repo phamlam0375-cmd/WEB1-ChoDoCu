@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { KeyRound, LogOut, UserCircle2 } from 'lucide-react'
+import { Link, useLocation } from 'react-router-dom'
+import { KeyRound, LogIn, LogOut, UserCircle2 } from 'lucide-react'
+import { rememberPostLoginUrl } from '../lib/auth'
 import { useDevAccount } from '../hooks/useDevAccount'
 import { ROLE_LABELS } from '../lib/labels'
 import { btn, input } from './admin/styles'
@@ -28,7 +30,22 @@ function SessionAccount({ compact, me, error, logout }) {
   )
 }
 
-// Ô chọn tài khoản thử nghiệm (tạm thay đăng nhập). compact = dạng gọn trên thanh tiêu đề.
+// Nút sang trang Đăng nhập (A02); đăng nhập xong quay lại đúng trang đang xem.
+function LoginLink() {
+  const location = useLocation()
+  const returnTo = `${location.pathname}${location.search}`
+  return (
+    <Link
+      to={`/login?returnTo=${encodeURIComponent(returnTo)}`}
+      onClick={() => rememberPostLoginUrl(returnTo)}
+      className={`${btn.primary} py-1.5`}
+    >
+      <LogIn size={15} /> Đăng nhập
+    </Link>
+  )
+}
+
+// Ô chọn tài khoản thử nghiệm khi chưa đăng nhập, kèm nút Đăng nhập thật. compact = dạng gọn trên thanh tiêu đề.
 export default function DevAccountSwitcher({ compact = false }) {
   const { userId, loggedIn, me, error, switchUser, logout } = useDevAccount()
   const [draft, setDraft] = useState(loggedIn ? '' : userId)
@@ -72,6 +89,7 @@ export default function DevAccountSwitcher({ compact = false }) {
           Thoát
         </button>
       )}
+      <LoginLink />
     </form>
   )
 }

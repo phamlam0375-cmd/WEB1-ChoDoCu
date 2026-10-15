@@ -4,7 +4,7 @@
 const { Op, fn, col } = require("sequelize");
 const { Anthropic } = require("@anthropic-ai/sdk");
 const { sequelize, Listings, ListingMedia, Users, Categories, Reports, ListingAiReviews, ConditionOptions } = require("../models");
-const { HttpError, notFound } = require("../utils/httpError");
+const { HttpError, badRequest, notFound } = require("../utils/httpError");
 const aiReview = require("../services/listingAiReview.service");
 const { parsePagination, pagedResponse, parseId, optionalId, text, oneOf } = require("../utils/request");
 const { LISTING_ACTIONS, moderateListing } = require("../services/moderation.service");
@@ -221,4 +221,39 @@ const reviewListing = async (req, res) => {
   });
 };
 
-module.exports = { listListings, getListing, reviewListing, runAiReview, reviewPendingWithAi };
+// POST /admin/listings/bulk-review { ids: [], action: APPROVE | REJECT, note } — duyệt/từ chối nhiều tin chờ duyệt.
+// Mỗi tin xử lý riêng: tin đã được người khác xử lý thì bỏ qua và báo lại, các tin khác vẫn được lưu.
+const BULK_ACTIONS = ["APPROVE", "REJECT"];
+const BULK_LIMIT = 50;
+const bulkReviewListings = async (req, res) => {
+  const action = oneOf(req.body.action, BULK_ACTIONS, "Hành động");
+  const note = text(req.body.note, "lý do", { max: 500 });
+  if (action === "REJECT" && !note) throw badRequest("Vui lòng nhập lý do từ chối");
+  const ids = Array.isArray(req.body.ids) ? [...new Set(req.body.ids.map((value) => parseId(value, "Mã tin đăng")))] : [];
+  if (!ids.length) throw badRequest("Vui lòng chọn ít nhất một tin đăng");
+  if (ids.length > BULK_LIMIT) throw badRequest(`Mỗi lần xử lý tối đa ${BULK_LIMIT} tin`);
+
+  const done = [];
+  const failed = [];
+  for (const id of ids) {
+    try {
+      await sequelize.transaction(async (transaction) => {
+        const listing = await Listings.findByPk(id, { transaction, lock: transaction.LOCK.UPDATE });
+        if (!listing) throw notFound("Không tìm thấy tin đăng");
+        await moderateListing(req, listing, action, note, { transaction, expectedStatus: "PENDING" });
+      });
+      done.push(id);
+    } catch (error) {
+      failed.push({ id, message: error instanceof HttpError ? error.message : "Không xử lý được tin này" });
+    }
+  }
+
+  const verb = action === "APPROVE" ? "Đã duyệt" : "Đã từ chối";
+  return res.status(200).json({
+    success: true,
+    message: failed.length ? `${verb} ${done.length} tin, ${failed.length} tin không xử lý được` : `${verb} ${done.length} tin`,
+    data: { done, failed },
+  });
+};
+
+module.exports = { listListings, getListing, reviewListing, runAiReview, reviewPendingWithAi, bulkReviewListings };

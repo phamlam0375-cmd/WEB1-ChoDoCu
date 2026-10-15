@@ -344,7 +344,35 @@ export function InfoRow({ label, children }) {
   )
 }
 
-export function StatCard({ label, value, hint, tone = 'slate', icon: Icon }) {
+// So sánh với kỳ liền trước: ▲/▼ phần trăm. goodWhenUp = false khi tăng là xấu (ví dụ hoàn tiền).
+function ChangeLine({ current, previous, goodWhenUp, compareLabel }) {
+  const now = Number(current || 0)
+  const before = Number(previous || 0)
+  let text
+  let tone = 'text-slate-500'
+  if (before === 0 && now === 0) text = 'Không đổi'
+  else if (before === 0) {
+    text = 'Mới phát sinh'
+    tone = goodWhenUp ? 'text-emerald-700' : 'text-red-600'
+  } else {
+    const percent = ((now - before) / before) * 100
+    const rounded = Math.round(Math.abs(percent) * 10) / 10
+    if (rounded === 0) text = 'Không đổi'
+    else {
+      const up = percent > 0
+      text = `${up ? '▲' : '▼'} ${rounded.toLocaleString('vi-VN')}%`
+      tone = up === goodWhenUp ? 'text-emerald-700' : 'text-red-600'
+    }
+  }
+  return (
+    <p className="mt-1 text-xs">
+      <span className={`font-semibold ${tone}`}>{text}</span>
+      <span className="text-slate-500"> so với {compareLabel || 'kỳ trước'}</span>
+    </p>
+  )
+}
+
+export function StatCard({ label, value, hint, tone = 'slate', icon: Icon, compare }) {
   const iconTone = {
     green: 'bg-emerald-100 text-emerald-700',
     amber: 'bg-amber-100 text-amber-700',
@@ -359,6 +387,7 @@ export function StatCard({ label, value, hint, tone = 'slate', icon: Icon }) {
           <p className="text-sm text-slate-500">{label}</p>
           <p className="mt-1 truncate text-2xl font-bold tabular-nums text-slate-900">{value}</p>
           {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
+          {compare && <ChangeLine goodWhenUp {...compare} />}
         </div>
         {Icon && (
           <span className={`grid size-9 shrink-0 place-items-center rounded-xl ${iconTone}`}>

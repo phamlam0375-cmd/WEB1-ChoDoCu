@@ -78,6 +78,8 @@ function HomePage() {
           postedAt: new Date(item.CreatedAt).toLocaleDateString('vi-VN'),
           createdOrder: new Date(item.CreatedAt).getTime() || index,
           seller: item.Seller?.FullName || `Người bán #${item.SellerId}`,
+          sellerId: item.SellerId,
+          sellerAvatar: item.Seller?.AvatarUrl || '',
           verified: Boolean(item.Seller?.EmailVerified),
           isVip: false,
           isFeatured: index < 3,

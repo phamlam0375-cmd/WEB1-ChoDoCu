@@ -1,13 +1,13 @@
 'use strict';
 
-const MINIMUM_ROWS = 10;
+const MINIMUM_ROWS = 50;
 const requestedRows = Number.parseInt(process.env.SEED_RECORDS_PER_TABLE || '', 10);
 const requestedBatchSize = Number.parseInt(process.env.SEED_BATCH_SIZE || '', 10);
 const ROWS_PER_TABLE = Math.min(
-  20,
+  50,
   Math.max(
     MINIMUM_ROWS,
-    Number.isFinite(requestedRows) ? requestedRows : 15
+    Number.isFinite(requestedRows) ? requestedRows : 50
   )
 );
 const BATCH_SIZE = Math.min(

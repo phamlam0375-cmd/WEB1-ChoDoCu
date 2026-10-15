@@ -60,6 +60,7 @@ router.post("/commissions/remind-overdue", commissions.remindOverdue);
 // B09 Thu và đối soát phí
 router.get("/fee-payments", commissions.listFeePayments);
 router.get("/fee-payments/debtors", commissions.listDebtors);
+router.post("/fee-payments/bulk-review", commissions.bulkReviewFeePayments);
 router.patch("/fee-payments/:id", commissions.reviewFeePayment);
 
 // B10 Thống kê

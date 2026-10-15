@@ -3,6 +3,7 @@ import "leaflet/dist/leaflet.css";
 import { useEffect, useState } from "react";
 
 import { getStoreByOwnerId } from "../../../api/store";
+import { getStoreListing } from "../../../api/listingApi";
 import {
     AlertCircle
 } from "lucide-react";
@@ -13,9 +14,18 @@ import StoreLoadingSkeleton from "../StoreLoadingSkeleton";
 import StoreMap from "../StoreMap";
 import { StoreProduct } from "../StoreProduct";
 
+const getLoggedInUserId = () => {
+    try {
+        const user = JSON.parse(window.localStorage.getItem("user") || "null");
+        const userId = Number(user?.UserId);
+        return Number.isSafeInteger(userId) && userId > 0 ? userId : null;
+    } catch {
+        return null;
+    }
+};
+
 export default function SellerStore() {
-    // const { ownerId } = useParams();
-    const ownerId = 6;
+    const ownerId = getLoggedInUserId();
 
     const [store, setStore] = useState(null);
     const [products, setProducts] = useState([]);
@@ -35,9 +45,6 @@ export default function SellerStore() {
             try {
                 setLoadingStore(true);
                 setError("");
-                //fake loading 300mls
-                await new Promise((resolve) => setTimeout(resolve, 400))
-
                 const storeResponse = await getStoreByOwnerId(ownerId);
                 const storeData = storeResponse.data;
 
@@ -54,27 +61,8 @@ export default function SellerStore() {
                     try {
                         setProductLoading(true);
 
-                        const productResponse = await fetch(
-                            `/api/listings/store/${storeInfo.StoreId}`
-                        );
-
-                        if (!productResponse.ok) {
-                            throw new Error(
-                                `HTTP ${productResponse.status}`
-                            );
-                        }
-
-                        const productData =
-                            await productResponse.json();
-
-                        console.log(
-                            "Products API:",
-                            productData
-                        );
-
-                        setProducts(
-                            productData.data || productData || []
-                        );
+                        const productResponse = await getStoreListing(storeInfo.StoreId, 1, 100);
+                        setProducts(productResponse.data || []);
                     } catch (productError) {
                         console.error(
                             "Lấy sản phẩm thất bại:",

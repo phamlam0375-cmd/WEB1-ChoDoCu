@@ -1,21 +1,26 @@
 import {
     MapPin,
     Package,
-    Pencil,
     Phone,
     Store as StoreIcon,
 } from "lucide-react";
+import "leaflet/dist/leaflet.css";
 import { useEffect, useState } from "react";
 
 import Header from "../../Header";
 import { useParams } from "react-router-dom";
 import { getStoreByOwnerId } from "../../../api/store";
+import { getStoreListing } from "../../../api/listingApi";
+import StoreMap from "../StoreMap";
+import { StoreProduct } from "../StoreProduct";
 
 export default function PublicStore() {
     const { ownerId } = useParams();
 
     const [store, setStore] = useState(null);
+    const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [productLoading, setProductLoading] = useState(true);
 
     useEffect(() => {
         const fetchStore = async () => {
@@ -23,12 +28,37 @@ export default function PublicStore() {
                 const response = await getStoreByOwnerId(ownerId);
                 const data = response.data;
 
-                setStore(data.data || data);
+                const storeData = data.data || data;
+                setStore(storeData);
+
+                if (storeData?.StoreId) {
+                    try {
+                        const listingResponse = await getStoreListing(
+                            storeData.StoreId,
+                            1,
+                            100
+                        );
+                        setProducts(listingResponse.data || []);
+                    } catch (listingError) {
+                        console.error(
+                            "Lấy sản phẩm cửa hàng thất bại:",
+                            listingError
+                        );
+                        setProducts([]);
+                    } finally {
+                        setProductLoading(false);
+                    }
+                } else {
+                    setProducts([]);
+                    setProductLoading(false);
+                }
             } catch (error) {
                 console.error(
                     "Lấy thông tin cửa hàng thất bại:",
                     error
                 );
+                setProducts([]);
+                setProductLoading(false);
             } finally {
                 setLoading(false);
             }
@@ -65,6 +95,12 @@ export default function PublicStore() {
         );
     }
 
+    const latitude = Number(store.Latitude);
+    const longitude = Number(store.Longitude);
+    const hasLocation =
+        Number.isFinite(latitude) &&
+        Number.isFinite(longitude);
+
     return (
         <div className="flex min-h-screen flex-col">
             {/* HEADER */}
@@ -84,7 +120,7 @@ export default function PublicStore() {
                         </h1>
 
                         <p className="mt-2 text-sm text-slate-500">
-                            Quản lý thông tin và vị trí cửa hàng của bạn.
+                            Thông tin, vị trí và sản phẩm đang được cửa hàng đăng bán.
                         </p>
                     </div>
 
@@ -122,14 +158,6 @@ export default function PublicStore() {
                                         </div>
                                     </div>
 
-                                    {/* EDIT */}
-                                    <button
-                                        type="button"
-                                        className="flex shrink-0 items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
-                                    >
-                                        <Pencil size={16} />
-                                        Chỉnh sửa
-                                    </button>
                                 </div>
 
                                 {/* INFO */}
@@ -176,68 +204,12 @@ export default function PublicStore() {
                                 </div>
                             </div>
 
-                            {/* MAP */}
-                            <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-                                <div className="mb-5 flex items-center justify-between">
-                                    <div>
-                                        <h2 className="text-lg font-semibold text-slate-900">
-                                            Vị trí cửa hàng
-                                        </h2>
-
-                                        <p className="mt-1 text-sm text-slate-500">
-                                            Vị trí hiện tại của cửa hàng
-                                        </p>
-                                    </div>
-
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100">
-                                        <MapPin
-                                            size={19}
-                                            className="text-emerald-600"
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* MAP */}
-                                <div className="relative flex h-64 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-emerald-50">
-                                    <div className="absolute inset-0 bg-[linear-gradient(45deg,#d1fae5_25%,transparent_25%,transparent_75%,#d1fae5_75%),linear-gradient(45deg,#d1fae5_25%,transparent_25%,transparent_75%,#d1fae5_75%)] bg-[length:40px_40px] bg-[position:0_0,20px_20px] opacity-50" />
-
-                                    <div className="relative flex flex-col items-center">
-                                        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 shadow-lg">
-                                            <MapPin
-                                                size={28}
-                                                className="text-white"
-                                            />
-                                        </div>
-
-                                        <div className="mt-3 rounded-lg bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-md">
-                                            {store.StoreName}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* COORDINATES */}
-                                <div className="mt-4 grid grid-cols-2 gap-4">
-                                    <div className="rounded-xl bg-emerald-50 p-4">
-                                        <p className="text-xs font-medium text-emerald-600">
-                                            Latitude
-                                        </p>
-
-                                        <p className="mt-1 text-sm font-semibold text-slate-700">
-                                            {store.Latitude ?? "--"}
-                                        </p>
-                                    </div>
-
-                                    <div className="rounded-xl bg-emerald-50 p-4">
-                                        <p className="text-xs font-medium text-emerald-600">
-                                            Longitude
-                                        </p>
-
-                                        <p className="mt-1 text-sm font-semibold text-slate-700">
-                                            {store.Longitude ?? "--"}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
+                            <StoreMap
+                                store={store}
+                                latitude={latitude}
+                                longitude={longitude}
+                                hasLocation={hasLocation}
+                            />
                         </div>
 
                         {/* RIGHT */}
@@ -290,40 +262,20 @@ export default function PublicStore() {
                                         </span>
 
                                         <span className="text-sm font-semibold text-slate-700">
-                                            0
+                                            {productLoading ? "..." : products.length}
                                         </span>
                                     </div>
+
                                 </div>
                             </div>
 
-                            {/* ACTION */}
-                            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-6">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100">
-                                    <StoreIcon
-                                        size={20}
-                                        className="text-emerald-600"
-                                    />
-                                </div>
-
-                                <h3 className="mt-4 font-semibold text-emerald-900">
-                                    Quản lý cửa hàng
-                                </h3>
-
-                                <p className="mt-2 text-sm leading-6 text-emerald-700">
-                                    Cập nhật thông tin cửa hàng, địa chỉ và vị
-                                    trí để khách hàng dễ dàng tìm thấy bạn.
-                                </p>
-
-                                <button
-                                    type="button"
-                                    className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
-                                >
-                                    <Pencil size={16} />
-                                    Chỉnh sửa cửa hàng
-                                </button>
-                            </div>
                         </div>
                     </div>
+
+                    <StoreProduct
+                        products={products}
+                        loading={productLoading}
+                    />
                 </div>
             </div>
         </div>

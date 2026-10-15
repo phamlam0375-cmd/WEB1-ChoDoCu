@@ -1,13 +1,13 @@
 'use strict';
 
-const MINIMUM_ROWS = 10;
+const MINIMUM_ROWS = 50;
 const requestedRows = Number.parseInt(process.env.SEED_RECORDS_PER_TABLE || '', 10);
 const requestedBatchSize = Number.parseInt(process.env.SEED_BATCH_SIZE || '', 10);
 const ROWS_PER_TABLE = Math.min(
-  20,
+  50,
   Math.max(
     MINIMUM_ROWS,
-    Number.isFinite(requestedRows) ? requestedRows : 15
+    Number.isFinite(requestedRows) ? requestedRows : 50
   )
 );
 const BATCH_SIZE = Math.min(
@@ -16,6 +16,23 @@ const BATCH_SIZE = Math.min(
 );
 const BASE_TIME = Date.parse('2026-01-01T00:00:00.000Z');
 const DAY = 24 * 60 * 60 * 1000;
+const DEMO_PASSWORD_HASH = '$2b$10$b9pum1iGugwcTqiXp5nWmuq.ln/Lthh/wUNYT6PQxWRpVEOhmNY1m';
+const DEMO_REGISTERED_USER = {
+  UserId: 999,
+  Username: 'admin',
+  PasswordHash: DEMO_PASSWORD_HASH,
+  FullName: 'Quản trị viên',
+  Email: 'admin@example.local',
+  Phone: '0900000999',
+  GoogleId: null,
+  AvatarUrl: null,
+  Address: 'Việt Nam',
+  EmailVerified: true,
+  PhoneVerified: true,
+  Status: 'ACTIVE',
+  CreatedAt: new Date(BASE_TIME),
+  UpdatedAt: new Date(BASE_TIME)
+};
 
 const pad = (value, length = 6) => String(value).padStart(length, '0');
 const demoDate = (value, extraDays = 0) => new Date(BASE_TIME + ((value % 365) + extraDays) * DAY);
@@ -27,9 +44,9 @@ const TABLES = [
     row: (i) => ({
       UserId: i,
       Username: `user_${pad(i)}`,
-      PasswordHash: 'demo_hash_not_for_production',
+      PasswordHash: DEMO_PASSWORD_HASH,
       FullName: `Người dùng ${pad(i)}`,
-      Email: `user_${pad(i)}@example.local`,
+      Email: `user_${pad(i)}@gmail.com`,
       Phone: `09${String(i).padStart(8, '0')}`,
       GoogleId: null,
       AvatarUrl: `/demo/avatars/${i % 20}.png`,
@@ -70,7 +87,7 @@ const TABLES = [
     name: 'UserRoles',
     row: (i) => ({
       UserId: i,
-      RoleId: i === 1 ? 2 : 1,
+      RoleId: i <= 5 ? 3 : i <= 10 ? 4 : 1,
       AssignedAt: demoDate(i)
     })
   },
@@ -422,6 +439,12 @@ module.exports = {
       for (const table of TABLES) {
         await insertInBatches(queryInterface, table);
       }
+      await queryInterface.bulkInsert('Users', [DEMO_REGISTERED_USER]);
+      await queryInterface.bulkInsert('UserRoles', [{
+        UserId: DEMO_REGISTERED_USER.UserId,
+        RoleId: 2,
+        AssignedAt: new Date(BASE_TIME)
+      }]);
     } finally {
       await queryInterface.sequelize.query('SET FOREIGN_KEY_CHECKS = 1');
     }

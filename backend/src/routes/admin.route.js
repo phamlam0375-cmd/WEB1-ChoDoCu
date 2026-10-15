@@ -44,6 +44,7 @@ router.patch("/reports/:id", reports.handleReport);
 // B05 Kiểm duyệt tin
 router.get("/listings", listings.listListings);
 router.post("/listings/ai-review-pending", listings.reviewPendingWithAi);
+router.post("/listings/bulk-review", listings.bulkReviewListings);
 router.get("/listings/:id", listings.getListing);
 router.patch("/listings/:id/review", listings.reviewListing);
 router.post("/listings/:id/ai-review", listings.runAiReview);

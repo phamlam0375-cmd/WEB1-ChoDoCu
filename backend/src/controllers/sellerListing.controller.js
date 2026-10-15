@@ -40,7 +40,7 @@ const createListing = async (req, res) => {
     }
 }
 
-const getAllListing = async (req, res) => {
+const getAllListingStore = async (req, res) => {
     try {
         const { StoreId } = req.params;
         if (!StoreId || !/^\d+$/.test(StoreId)) {
@@ -219,4 +219,4 @@ const hiddenListing = async (req, res) => {
         });
     }
 }
-module.exports = { createListing, getAllListing, getListingId, updateListing, hiddenListing };
+module.exports = { createListing, getAllListingStore, getListingId, updateListing, hiddenListing };

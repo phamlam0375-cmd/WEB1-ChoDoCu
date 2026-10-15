@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { toast } from 'react-toastify'
 import { Link } from 'react-router-dom'
-import { Eye } from 'lucide-react'
+import { Check, Eye } from 'lucide-react'
 import { Badge, ConfirmDialog, DataTable, FilterBar, PageHeader, Pagination, SearchInput, Section, StatusBadge } from '../../components/admin/AdminUi'
 import { btn } from '../../components/admin/styles'
 import CommissionDetail from '../../components/admin/CommissionDetail'
@@ -77,6 +77,27 @@ export default function AdminFeePaymentsPage() {
   const isDebtors = view === 'DEBTORS'
   const { response, loading, error, reload } = useApi(isDebtors ? null : '/admin/fee-payments', { ...filters, status: VIEWS[view].status })
   const { busy, run } = useMutation()
+  const [checked, setChecked] = useState([])
+  const [bulkOpen, setBulkOpen] = useState(false)
+  const selectable = view === 'REPORTED'
+  const pageRows = response?.data || []
+  const allChecked = pageRows.length > 0 && pageRows.every((row) => checked.includes(row.CommissionId))
+  const toggle = (id) => setChecked((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]))
+  const checkedTotal = pageRows.filter((row) => checked.includes(row.CommissionId)).reduce((sum, row) => sum + Number(row.AmountDue), 0)
+
+  // Xác nhận đã thu nhiều khoản "Chờ xác nhận" một lần.
+  const submitBulk = async () => {
+    try {
+      const result = await run('post', '/admin/fee-payments/bulk-review', { ids: checked, action: 'CONFIRM' })
+      if (result.data.failed.length) toast.warn(result.message)
+      else toast.success(result.message)
+      setBulkOpen(false)
+      setChecked([])
+      reload()
+    } catch (err) {
+      toast.error(errorMessage(err))
+    }
+  }
 
   const submit = async (note) => {
     try {
@@ -94,6 +115,32 @@ export default function AdminFeePaymentsPage() {
   const countOf = (key) => (VIEWS[key].status || '').split(',').reduce((sum, status) => sum + (totals[status]?.count || 0), 0)
 
   const columns = [
+    ...(selectable
+      ? [
+          {
+            key: 'select',
+            title: (
+              <input
+                type="checkbox"
+                className="size-4 accent-emerald-600"
+                checked={allChecked}
+                onChange={() => setChecked(allChecked ? [] : pageRows.map((row) => row.CommissionId))}
+                aria-label="Chọn tất cả khoản trên trang"
+              />
+            ),
+            render: (row) => (
+              <input
+                type="checkbox"
+                className="size-4 accent-emerald-600"
+                checked={checked.includes(row.CommissionId)}
+                onChange={() => toggle(row.CommissionId)}
+                onClick={(event) => event.stopPropagation()}
+                aria-label={`Chọn khoản ${row.PaymentReference}`}
+              />
+            ),
+          },
+        ]
+      : []),
     ...feeColumns,
     {
       key: 'actions',
@@ -124,6 +171,7 @@ export default function AdminFeePaymentsPage() {
               aria-selected={view === key}
               onClick={() => {
                 setView(key)
+                setChecked([])
                 setFilters({ q: '', page: 1 })
               }}
               className={`-mb-px shrink-0 border-b-2 px-3 py-2 text-sm font-medium ${view === key ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
@@ -148,6 +196,19 @@ export default function AdminFeePaymentsPage() {
               </FilterBar>
           </Section>
           <Section title={VIEWS[view].label} meta={response?.pagination ? `${response.pagination.total} khoản` : null} flush>
+            {selectable && checked.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 border-b border-emerald-100 bg-emerald-50 px-4 py-2 text-sm">
+                <span className="font-medium text-emerald-900">
+                  Đã chọn {checked.length} khoản · {formatMoney(checkedTotal)}
+                </span>
+                <button type="button" className={`${btn.primary} py-1.5`} onClick={() => setBulkOpen(true)}>
+                  <Check size={15} /> Xác nhận đã thu {checked.length} khoản
+                </button>
+                <button type="button" className={`${btn.ghost} py-1.5`} onClick={() => setChecked([])}>
+                  Bỏ chọn
+                </button>
+              </div>
+            )}
             <DataTable
               columns={columns}
               rows={response?.data}
@@ -189,6 +250,15 @@ export default function AdminFeePaymentsPage() {
         busy={busy}
         onConfirm={submit}
         onClose={() => setPending(null)}
+      />
+      <ConfirmDialog
+        open={bulkOpen}
+        title={`Xác nhận đã thu ${checked.length} khoản?`}
+        message={`Tổng ${formatMoney(checkedTotal)}. Chỉ xác nhận khi đã đối chiếu sao kê ngân hàng. Người bán nhận thông báo, thao tác được ghi nhật ký.`}
+        confirmText="Xác nhận đã thu"
+        busy={busy}
+        onConfirm={submitBulk}
+        onClose={() => setBulkOpen(false)}
       />
     </>
   )

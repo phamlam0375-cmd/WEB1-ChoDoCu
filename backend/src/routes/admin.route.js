@@ -64,6 +64,7 @@ router.patch("/fee-payments/:id", commissions.reviewFeePayment);
 
 // B10 Thống kê
 router.get("/statistics", statistics.getStatistics);
+router.get("/pending-counts", statistics.getPendingCounts);
 
 // B11 Nhật ký thao tác quản trị — chỉ đọc
 router.get("/audit-logs", auditLogs.listAuditLogs);

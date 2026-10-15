@@ -338,6 +338,28 @@ function ListingQueue() {
   const update = (patch) => setFilters((current) => ({ ...current, page: 1, ...patch }))
   const conditionLabel = (code) => conditions?.find((item) => item.value === code)?.label || CONDITION_LABELS[code] || code
   const { busy: aiBusy, run } = useMutation()
+  const { busy: bulkBusy, run: runBulk } = useMutation()
+  const [checked, setChecked] = useState([])
+  const [bulkAction, setBulkAction] = useState(null)
+  const selectable = filters.status === 'PENDING'
+  const pageIds = (response?.data || []).map((row) => row.ListingId)
+  const allChecked = pageIds.length > 0 && pageIds.every((id) => checked.includes(id))
+  const toggle = (id) => setChecked((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]))
+  const toggleAll = () => setChecked(allChecked ? [] : pageIds)
+
+  // Duyệt / từ chối hàng loạt các tin đã chọn.
+  const submitBulk = async (note) => {
+    try {
+      const result = await runBulk('post', '/admin/listings/bulk-review', { ids: checked, action: bulkAction, note })
+      if (result.data.failed.length) toast.warn(result.message)
+      else toast.success(result.message)
+      setBulkAction(null)
+      setChecked([])
+      reload()
+    } catch (err) {
+      toast.error(errorMessage(err))
+    }
+  }
   const aiConfigured = Boolean(response?.ai?.configured)
   const autoRan = useRef(false)
 
@@ -363,6 +385,24 @@ function ListingQueue() {
   })
 
   const columns = [
+    ...(selectable
+      ? [
+          {
+            key: 'select',
+            title: <input type="checkbox" className="size-4 accent-emerald-600" checked={allChecked} onChange={toggleAll} aria-label="Chọn tất cả tin trên trang" />,
+            render: (row) => (
+              <input
+                type="checkbox"
+                className="size-4 accent-emerald-600"
+                checked={checked.includes(row.ListingId)}
+                onChange={() => toggle(row.ListingId)}
+                onClick={(event) => event.stopPropagation()}
+                aria-label={`Chọn tin #${row.ListingId}`}
+              />
+            ),
+          },
+        ]
+      : []),
     { key: 'ListingId', title: 'Mã', render: (row) => <span className="font-mono text-xs text-slate-500">#{row.ListingId}</span> },
     {
       key: 'Title',
@@ -398,7 +438,7 @@ function ListingQueue() {
   return (
     <>
       <Section title="Tìm kiếm và lọc" bodyClassName="px-4 pt-4">
-        <StatusTabs map={LISTING_STATUS} value={filters.status} onChange={(status) => update({ status })} counts={response?.counts} />
+        <StatusTabs map={LISTING_STATUS} value={filters.status} onChange={(status) => { setChecked([]); update({ status }) }} counts={response?.counts} />
         <FilterBar onReset={() => setFilters({ status: 'PENDING', q: '', categoryId: '', page: 1 })}>
           <SearchInput value={filters.q} onChange={(q) => update({ q })} placeholder="Tiêu đề, người bán hoặc mã tin" />
           <Field className="w-52">
@@ -423,6 +463,20 @@ function ListingQueue() {
         }
         flush
       >
+      {selectable && checked.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-emerald-100 bg-emerald-50 px-4 py-2 text-sm">
+          <span className="font-medium text-emerald-900">Đã chọn {checked.length} tin</span>
+          <button type="button" className={`${btn.primary} py-1.5`} onClick={() => setBulkAction('APPROVE')}>
+            <Check size={15} /> Duyệt {checked.length} tin
+          </button>
+          <button type="button" className={`${btn.danger} py-1.5`} onClick={() => setBulkAction('REJECT')}>
+            <X size={15} /> Từ chối {checked.length} tin
+          </button>
+          <button type="button" className={`${btn.ghost} py-1.5`} onClick={() => setChecked([])}>
+            Bỏ chọn
+          </button>
+        </div>
+      )}
       <DataTable
         columns={columns}
         rows={response?.data}
@@ -436,6 +490,19 @@ function ListingQueue() {
       <Pagination pagination={response?.pagination} onPage={(page) => setFilters((current) => ({ ...current, page }))} />
       </Section>
       {selected && <ListingDetail id={selected} onClose={() => setSelected(null)} onSaved={reload} />}
+      <ConfirmDialog
+        open={Boolean(bulkAction)}
+        title={bulkAction === 'APPROVE' ? `Duyệt ${checked.length} tin đã chọn?` : `Từ chối ${checked.length} tin đã chọn`}
+        message="Người bán của từng tin sẽ nhận thông báo. Thao tác được ghi vào nhật ký quản trị."
+        confirmText={bulkAction === 'APPROVE' ? 'Duyệt tất cả' : 'Từ chối tất cả'}
+        tone={bulkAction === 'APPROVE' ? 'primary' : 'danger'}
+        reasonLabel={bulkAction === 'REJECT' ? 'Lý do từ chối (áp dụng cho mọi tin)' : 'Ghi chú (không bắt buộc)'}
+        reasonRequired={bulkAction === 'REJECT'}
+        reasonEmptyMessage="Vui lòng nhập lý do từ chối"
+        busy={bulkBusy}
+        onConfirm={submitBulk}
+        onClose={() => setBulkAction(null)}
+      />
     </>
   )
 }

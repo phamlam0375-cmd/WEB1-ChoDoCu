@@ -76,6 +76,10 @@ export default function AdminDashboardPage() {
   const { data, loading, error, reload } = useApi('/admin/statistics', range)
 
   const summary = data?.summary
+  // Kỳ liền trước cùng độ dài để so sánh, ví dụ "17/08–15/09".
+  const previous = data?.previous
+  const shortDate = (key) => (key ? `${key.slice(8, 10)}/${key.slice(5, 7)}` : '')
+  const compareLabel = previous ? `${shortDate(previous.from)}–${shortDate(previous.to)}` : 'kỳ trước'
   const period = data?.range.groupBy === 'month' ? 'Tháng' : 'Ngày'
 
   return (
@@ -137,6 +141,7 @@ export default function AdminDashboardPage() {
               hint={`Hoa hồng đã thu ${formatMoney(summary.commissionCollected)} + phí VIP ${formatMoney(summary.vipFees)}`}
               tone="green"
               icon={CircleDollarSign}
+              compare={{ current: summary.revenue, previous: previous?.revenue, compareLabel }}
             />
             <StatCard
               label="Giá trị giao dịch"
@@ -144,6 +149,7 @@ export default function AdminDashboardPage() {
               hint={`${formatNumber(summary.completedOrders)} đơn hoàn tất · ${formatNumber(summary.cancelledOrders)} đơn hủy`}
               tone="blue"
               icon={PackageCheck}
+              compare={{ current: summary.gmv, previous: previous?.gmv, compareLabel }}
             />
             <StatCard
               label="Hoa hồng phải thu"
@@ -151,6 +157,7 @@ export default function AdminDashboardPage() {
               hint={`Tổng còn nợ hiện tại ${formatMoney(data.snapshot.outstandingCommission)}`}
               tone="amber"
               icon={Banknote}
+              compare={{ current: summary.commissionDue, previous: previous?.commissionDue, compareLabel }}
             />
             <StatCard
               label="Hoàn tiền"
@@ -158,6 +165,7 @@ export default function AdminDashboardPage() {
               hint={`${formatNumber(summary.refundCount)} yêu cầu hoàn tất`}
               tone="red"
               icon={RotateCcw}
+              compare={{ current: summary.refundAmount, previous: previous?.refundAmount, compareLabel, goodWhenUp: false }}
             />
           </div>
 

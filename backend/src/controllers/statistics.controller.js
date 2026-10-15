@@ -55,6 +55,42 @@ const bucket = (column, groupBy) =>
 
 const seriesQuery = (sql, replacements) => sequelize.query(sql, { replacements, type: SELECT });
 
+// Số việc đang chờ quản trị xử lý (dùng cho trang Thống kê và số trên menu quản trị).
+const pendingCounts = async () => {
+  const [snapshot] = await seriesQuery(
+  `SELECT
+     (SELECT COALESCE(SUM(AmountDue), 0) FROM Commissions WHERE Status IN ('UNPAID','ADJUSTED','REPORTED')) AS outstandingCommission,
+     (SELECT COUNT(*) FROM Commissions WHERE Status IN ('UNPAID','ADJUSTED') AND DueAt < :now) AS overdueCommissions,
+     (SELECT COUNT(*) FROM PartnerApplications WHERE Status = 'PENDING') AS pendingPartnerApplications,
+     (SELECT COUNT(*) FROM Listings WHERE Status = 'PENDING') AS pendingListings,
+     (SELECT COUNT(*) FROM Reports WHERE Status IN ('PENDING','PROCESSING')) AS openReports,
+     (SELECT COUNT(*) FROM RefundRequests WHERE Status = 'PENDING') AS pendingRefunds,
+     (SELECT COUNT(*) FROM Commissions WHERE Status = 'REPORTED') AS reportedFeePayments`,
+  { now: new Date() }
+  );
+  return Object.fromEntries(Object.entries(snapshot).map(([key, value]) => [key, Number(value)]));
+};
+
+// Tổng của một khoảng thời gian (không chia kỳ), để so sánh với kỳ liền trước cùng độ dài.
+const periodTotals = async (from, to) => {
+  const [row] = await seriesQuery(
+    `SELECT
+       (SELECT COUNT(*) FROM Orders WHERE Status IN ('COMPLETED','REFUND_PENDING','REFUNDED') AND CompletedAt BETWEEN :from AND :to) AS completedOrders,
+       (SELECT COUNT(*) FROM Orders WHERE Status = 'CANCELLED' AND CreatedAt BETWEEN :from AND :to) AS cancelledOrders,
+       (SELECT COALESCE(SUM(ProductAmount), 0) FROM Orders WHERE Status IN ('COMPLETED','REFUND_PENDING','REFUNDED') AND CompletedAt BETWEEN :from AND :to) AS gmv,
+       (SELECT COALESCE(SUM(c.AmountDue), 0) FROM Commissions c JOIN Orders o ON o.OrderId = c.OrderId WHERE c.Status <> 'WAIVED' AND o.CompletedAt BETWEEN :from AND :to) AS commissionDue,
+       (SELECT COALESCE(SUM(AmountDue), 0) FROM Commissions WHERE Status = 'PAID' AND ConfirmedAt BETWEEN :from AND :to) AS commissionCollected,
+       (SELECT COALESCE(SUM(FeeAmount), 0) FROM ListingPromotions WHERE Status IN ('ACTIVE','EXPIRED') AND ConfirmedAt BETWEEN :from AND :to) AS vipFees,
+       (SELECT COALESCE(SUM(Amount), 0) FROM RefundRequests WHERE Status = 'COMPLETED' AND CompletedAt BETWEEN :from AND :to) AS refundAmount`,
+    { from, to }
+  );
+  const totals = Object.fromEntries(Object.entries(row).map(([key, value]) => [key, Number(value)]));
+  return { ...totals, revenue: totals.commissionCollected + totals.vipFees };
+};
+
+// GET /admin/pending-counts — số việc chờ xử lý cho menu quản trị.
+const getPendingCounts = async (_req, res) => res.status(200).json({ success: true, data: await pendingCounts() });
+
 const getStatistics = async (req, res) => {
   const range = parseRange(req.query);
   const { from, to, groupBy } = range;
@@ -96,17 +132,10 @@ const getStatistics = async (req, res) => {
     seriesQuery(`SELECT COUNT(*) AS total FROM Listings WHERE CreatedAt BETWEEN :from AND :to`, params),
   ]);
 
-  const [snapshot] = await seriesQuery(
-    `SELECT
-       (SELECT COALESCE(SUM(AmountDue), 0) FROM Commissions WHERE Status IN ('UNPAID','ADJUSTED','REPORTED')) AS outstandingCommission,
-       (SELECT COUNT(*) FROM Commissions WHERE Status IN ('UNPAID','ADJUSTED') AND DueAt < :now) AS overdueCommissions,
-       (SELECT COUNT(*) FROM PartnerApplications WHERE Status = 'PENDING') AS pendingPartnerApplications,
-       (SELECT COUNT(*) FROM Listings WHERE Status = 'PENDING') AS pendingListings,
-       (SELECT COUNT(*) FROM Reports WHERE Status IN ('PENDING','PROCESSING')) AS openReports,
-       (SELECT COUNT(*) FROM RefundRequests WHERE Status = 'PENDING') AS pendingRefunds,
-       (SELECT COUNT(*) FROM Commissions WHERE Status = 'REPORTED') AS reportedFeePayments`,
-    { now: new Date() }
-  );
+  // Kỳ liền trước cùng độ dài, ví dụ 30 ngày trước đó.
+  const previousTo = new Date(from.getTime() - 1);
+  const previousFrom = new Date(from.getTime() - (to.getTime() - from.getTime() + 1));
+  const [snapshot, previous] = await Promise.all([pendingCounts(), periodTotals(previousFrom, previousTo)]);
 
   const topSellers = await seriesQuery(
     `SELECT o.SellerId, u.FullName, COUNT(*) AS orders, COALESCE(SUM(o.ProductAmount), 0) AS gmv
@@ -165,10 +194,11 @@ const getStatistics = async (req, res) => {
       range: { from: localDateKey(from), to: localDateKey(to), groupBy },
       summary,
       series,
-      snapshot: Object.fromEntries(Object.entries(snapshot).map(([key, value]) => [key, Number(value)])),
+      previous: { from: localDateKey(previousFrom), to: localDateKey(previousTo), ...previous },
+      snapshot,
       topSellers: topSellers.map((row) => ({ ...row, orders: Number(row.orders), gmv: Number(row.gmv) })),
     },
   });
 };
 
-module.exports = { getStatistics };
+module.exports = { getStatistics, getPendingCounts };

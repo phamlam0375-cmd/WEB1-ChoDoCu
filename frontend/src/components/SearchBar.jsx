@@ -1,23 +1,74 @@
-import { Layers3, MapPin, Search } from 'lucide-react'
+import { useState } from 'react'
+import { Clock3, Layers3, MapPin, Search, Trash2 } from 'lucide-react'
 
-function SearchBar({ keyword, category, location, categories, locations, onKeywordChange, onCategoryChange, onLocationChange, onSubmit }) {
+function SearchBar({
+  keyword,
+  category,
+  location,
+  categories,
+  locations,
+  searchHistory,
+  onKeywordChange,
+  onCategoryChange,
+  onLocationChange,
+  onSubmit,
+  onHistorySelect,
+  onClearHistory,
+}) {
+  const [searchFocused, setSearchFocused] = useState(false)
+  const showHistory = searchFocused && searchHistory.length > 0 && !keyword.trim()
+
   return (
     <div className="relative z-20 mx-auto -mt-12 max-w-7xl px-4 sm:px-6 lg:px-8">
       <form
         onSubmit={onSubmit}
         className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl shadow-slate-900/8 md:grid-cols-[minmax(240px,1fr)_210px_200px_auto] md:items-center md:rounded-3xl md:p-4"
       >
-        <label className="flex h-12 items-center gap-3 rounded-xl bg-slate-50 px-4 ring-1 ring-transparent transition focus-within:bg-white focus-within:ring-emerald-500">
-          <Search size={19} className="shrink-0 text-slate-400" />
-          <span className="sr-only">Từ khóa tìm kiếm</span>
-          <input
-            type="search"
-            value={keyword}
-            onChange={(event) => onKeywordChange(event.target.value)}
-            placeholder="Bạn đang tìm sản phẩm gì?"
-            className="min-w-0 flex-1 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400"
-          />
-        </label>
+        <div className="relative">
+          <label className="flex h-12 items-center gap-3 rounded-xl bg-slate-50 px-4 ring-1 ring-transparent transition focus-within:bg-white focus-within:ring-emerald-500">
+            <Search size={19} className="shrink-0 text-slate-400" />
+            <span className="sr-only">Từ khóa tìm kiếm</span>
+            <input
+              type="search"
+              value={keyword}
+              onChange={(event) => onKeywordChange(event.target.value)}
+              placeholder="Bạn đang tìm sản phẩm gì?"
+              className="min-w-0 flex-1 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400"
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
+            />
+          </label>
+
+          {showHistory && (
+            <div
+              className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white p-2 shadow-xl"
+              onMouseDown={(event) => event.preventDefault()}
+            >
+              <div className="flex items-center justify-between px-2 py-1.5">
+                <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Tìm kiếm gần đây</span>
+                <button
+                  type="button"
+                  onClick={onClearHistory}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-red-600"
+                >
+                  <Trash2 size={13} />
+                  Xóa lịch sử
+                </button>
+              </div>
+              {searchHistory.map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => onHistorySelect(item)}
+                  className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-800"
+                >
+                  <Clock3 size={15} className="shrink-0 text-slate-400" />
+                  <span className="truncate">{item}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         <label className="flex h-12 items-center gap-3 rounded-xl bg-slate-50 px-4 ring-1 ring-transparent transition focus-within:bg-white focus-within:ring-emerald-500">
           <Layers3 size={18} className="shrink-0 text-slate-400" />

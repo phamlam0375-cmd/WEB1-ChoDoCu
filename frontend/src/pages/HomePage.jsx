@@ -12,6 +12,9 @@ import SearchBar from '../components/SearchBar'
 import WhyChooseUs from '../components/WhyChooseUs'
 import { categories as fallbackCategories, conditions as fallbackConditions, locations as fallbackLocations } from '../data/mockProducts'
 import { getAllListing } from '../api/listingApi'
+import { matchesProductCategory } from '../utils/productFilters'
+import { searchProducts } from '../utils/searchEngine'
+import { clearSearchHistory, getSearchHistory, saveSearchHistory } from '../utils/searchHistory'
 
 const defaultFilters = {
   category: 'all',
@@ -21,12 +24,6 @@ const defaultFilters = {
   location: 'all',
   sort: 'newest',
 }
-
-const normalizeText = (value) => value
-  .toLocaleLowerCase('vi-VN')
-  .normalize('NFD')
-  .replace(/[\u0300-\u036f]/g, '')
-  .replace(/đ/g, 'd')
 
 function HomePage() {
   const navigate = useNavigate()
@@ -44,6 +41,7 @@ function HomePage() {
   const [savedIds, setSavedIds] = useState(() => new Set())
   const [savedOnly, setSavedOnly] = useState(false)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
+  const [searchHistory, setSearchHistory] = useState(() => getSearchHistory())
 
   useEffect(() => {
     let cancelled = false
@@ -73,6 +71,7 @@ function HomePage() {
           name: item.Title,
           price: Number(item.Price),
           category: String(item.CategoryId),
+          categoryName: item.Category?.CategoryName || '',
           condition: { NEW: 'Như mới', LIKE_NEW: 'Như mới', GOOD: 'Đã sử dụng', FAIR: 'Đã sử dụng', POOR: 'Cần sửa chữa nhẹ' }[item.ConditionLevel] || item.ConditionLevel,
           location: item.Location || 'Chưa cập nhật',
           postedAt: new Date(item.CreatedAt).toLocaleDateString('vi-VN'),
@@ -97,27 +96,37 @@ function HomePage() {
   }, [])
 
   const filteredProducts = useMemo(() => {
-    const normalizedKeyword = normalizeText(appliedKeyword.trim())
     const minPrice = Number(appliedFilters.minPrice) || 0
     const maxPrice = Number(appliedFilters.maxPrice) || Number.POSITIVE_INFINITY
+    const matchesFilters = (product) => {
+      const matchesCategory = matchesProductCategory(product, appliedFilters.category, categories)
+      const matchesCondition = appliedFilters.condition === 'all' || product.condition === appliedFilters.condition
+      const matchesLocation = appliedFilters.location === 'all' || product.location === appliedFilters.location
+      const matchesPrice = product.price >= minPrice && product.price <= maxPrice
+      const matchesSaved = !savedOnly || savedIds.has(product.id)
 
-    return products
-      .filter((product) => {
-        const matchesKeyword = !normalizedKeyword || normalizeText(product.name).includes(normalizedKeyword)
-        const matchesCategory = appliedFilters.category === 'all' || product.category === appliedFilters.category
-        const matchesCondition = appliedFilters.condition === 'all' || product.condition === appliedFilters.condition
-        const matchesLocation = appliedFilters.location === 'all' || product.location === appliedFilters.location
-        const matchesPrice = product.price >= minPrice && product.price <= maxPrice
-        const matchesSaved = !savedOnly || savedIds.has(product.id)
+      return matchesCategory && matchesCondition && matchesLocation && matchesPrice && matchesSaved
+    }
 
-        return matchesKeyword && matchesCategory && matchesCondition && matchesLocation && matchesPrice && matchesSaved
-      })
+    if (!appliedKeyword.trim()) {
+      return products
+        .filter(matchesFilters)
+        .sort((first, second) => {
+          if (appliedFilters.sort === 'price-asc') return first.price - second.price
+          if (appliedFilters.sort === 'price-desc') return second.price - first.price
+          return second.createdOrder - first.createdOrder
+        })
+    }
+
+    return searchProducts(products, appliedKeyword)
+      .filter(({ product }) => matchesFilters(product))
       .sort((first, second) => {
-        if (appliedFilters.sort === 'price-asc') return first.price - second.price
-        if (appliedFilters.sort === 'price-desc') return second.price - first.price
-        return second.createdOrder - first.createdOrder
+        if (appliedFilters.sort === 'price-asc') return first.product.price - second.product.price || second.score - first.score
+        if (appliedFilters.sort === 'price-desc') return second.product.price - first.product.price || second.score - first.score
+        return second.score - first.score || second.product.createdOrder - first.product.createdOrder
       })
-  }, [appliedFilters, appliedKeyword, products, savedIds, savedOnly])
+      .map(({ product }) => product)
+  }, [appliedFilters, appliedKeyword, categories, products, savedIds, savedOnly])
 
   const featuredProducts = useMemo(() => products.filter((product) => product.isFeatured), [products])
 
@@ -133,9 +142,23 @@ function HomePage() {
   const handleSearch = (event) => {
     event.preventDefault()
     setAppliedKeyword(keyword)
+    setSearchHistory(saveSearchHistory(keyword))
     syncQuickFilters(searchCategory, searchLocation)
     setSavedOnly(false)
     scrollToProducts()
+  }
+
+  const handleHistorySelect = (query) => {
+    setKeyword(query)
+    setAppliedKeyword(query)
+    setSearchHistory(saveSearchHistory(query))
+    syncQuickFilters(searchCategory, searchLocation)
+    setSavedOnly(false)
+    scrollToProducts()
+  }
+
+  const handleClearSearchHistory = () => {
+    setSearchHistory(clearSearchHistory())
   }
 
   const handleCategorySelect = (category) => {
@@ -223,10 +246,13 @@ function HomePage() {
           location={searchLocation}
           categories={categories}
           locations={locations}
+          searchHistory={searchHistory}
           onKeywordChange={setKeyword}
           onCategoryChange={setSearchCategory}
           onLocationChange={setSearchLocation}
           onSubmit={handleSearch}
+          onHistorySelect={handleHistorySelect}
+          onClearHistory={handleClearSearchHistory}
         />
         <CategorySection
           categories={categories}

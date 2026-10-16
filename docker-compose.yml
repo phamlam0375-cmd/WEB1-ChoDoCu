@@ -32,15 +32,19 @@ services:
   api:
     build: ./backend
     restart: unless-stopped
+    env_file:
+      - path: ./backend/.env
+        required: false
+      - path: ./.env
+        required: false
     # backend/.env (nếu có) được backend tự đọc qua thư mục mount ./backend;
-    # thiếu file thì dùng giá trị mặc định trong config.
+    # các file này cũng đưa cấu hình vào container. .env gốc có ưu tiên cao hơn.
     # Trong Docker, API luôn kết nối MySQL qua tên dịch vụ "mysql", cổng 3306.
     environment:
       NODE_ENV: development
       OTP_DELIVERY_MODE: development-log
       DB_HOST: mysql
       DB_PORT: 3306
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       # Cùng một cờ cấp cho backend runtime và frontend build; mặc định an toàn.
       D01_DEMO_MODE: ${D01_DEMO_MODE:-false}
       D01_DEMO_USER_ID: ${D01_DEMO_USER_ID:-}

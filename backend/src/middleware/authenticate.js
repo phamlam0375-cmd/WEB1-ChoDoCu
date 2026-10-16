@@ -2,6 +2,7 @@
 
 const crypto = require('crypto');
 const AppError = require('../errors/AppError');
+const { getJwtSecret } = require('../utils/jwtSecret');
 
 function decodePart(part) {
   try {
@@ -12,8 +13,10 @@ function decodePart(part) {
 }
 
 function verifyToken(token) {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
+  let secret;
+  try {
+    secret = getJwtSecret();
+  } catch (_error) {
     throw new AppError(500, 'AUTH_NOT_CONFIGURED', 'Dịch vụ xác thực chưa được cấu hình.');
   }
 

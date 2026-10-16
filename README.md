@@ -53,6 +53,10 @@ Theo dõi quá trình khởi động nếu cần: `docker compose logs -f api`.
 | 3 | Người bán: phí và hoa hồng `/seller/fees` (khoản HH009001, HH009002) |
 | 4, 8 | Hồ sơ đối tác đã xác thực ở tab Chờ duyệt (demo bấm Duyệt) |
 
+## Tìm kiếm sản phẩm
+
+Trang chủ tải tin đăng từ API; `frontend/src/data/mockProducts.js` cung cấp danh mục và catalog dự phòng. Tìm kiếm chạy cục bộ bằng JavaScript, không gọi dịch vụ tìm kiếm bên thứ ba và không cần cài thêm package. Từ khóa được chuẩn hóa tiếng Việt (có/không dấu), hỗ trợ một số viết tắt phổ biến như `dt`, `ip`, `mt`, `xm`, từ khóa tiếng Anh tương ứng như `phone`, `laptop`, `chair`, và dung sai lỗi gõ gần đúng. Tìm kiếm xét tên sản phẩm và tên danh mục, đồng thời yêu cầu mọi phần của truy vấn đều khớp để hạn chế kết quả không liên quan. Tối đa 8 từ khóa gần đây được lưu trong local storage của trình duyệt; có thể xóa ngay tại danh sách lịch sử. Lịch sử không đồng bộ giữa các máy hoặc trình duyệt.
+
 ## Chia sẻ dữ liệu giữa các máy
 
 Dữ liệu nằm trong Docker trên từng máy, không tự đi theo Git. Muốn máy khác có đúng dữ liệu của mình:
@@ -80,9 +84,18 @@ docker compose up -d --build
 
 Ảnh người dùng tải lên (thư mục `backend/uploads/`) không nằm trong file dữ liệu; cần thì chép thư mục này sang máy kia.
 
-## Cấu hình (không bắt buộc)
+## Cấu hình môi trường
 
-Docker chạy được ngay không cần file cấu hình. Muốn đổi giá trị mặc định thì tạo `backend/.env` từ file mẫu:
+Docker Compose development có sẵn giá trị mặc định cho database và JWT; không cần tạo file `.env` để chạy đăng ký, đăng nhập email/mật khẩu, xác thực OTP hoặc quên mật khẩu. OTP mặc định chỉ được in trong log API (development), không gửi email. Chạy:
+
+```powershell
+docker compose up -d --build
+docker compose logs -f api
+```
+
+Tìm dòng `[OTP][development]` trong log rồi nhập mã trên trang xác thực. Không dùng chế độ ghi OTP vào log trong production. Muốn gửi email khi development, đặt `OTP_DELIVERY_MODE=email` và cấu hình SMTP; production luôn yêu cầu SMTP.
+
+Muốn thay đổi cấu hình thì tạo `backend/.env` từ file mẫu:
 
 ```bash
 # Windows
@@ -93,12 +106,14 @@ cp backend/.env.example backend/.env
 
 - Khi chạy trong Docker, API luôn kết nối MySQL qua `mysql:3306`, không cần sửa `DB_HOST`/`DB_PORT`.
 - Đặt `AUTO_SEED=false` trong `backend/.env` nếu không muốn tự nạp dữ liệu mẫu.
-- Để đăng ký, xác thực email và đặt lại mật khẩu gửi được mã, điền `MAIL_USER` và `MAIL_PASS` trong `backend/.env` (Gmail cần App Password), rồi khởi động lại API.
+- Muốn gửi mã OTP thật qua email, điền `MAIL_USER` và `MAIL_PASS` trong `backend/.env` (Gmail cần App Password), rồi khởi động lại API.
 - Không commit file `.env`.
 
-### Đăng nhập bằng Google
+### Đăng nhập bằng Google (tùy chọn)
 
-Đăng nhập Google cần OAuth Client ID dạng Web application:
+Đăng nhập Google thật cần OAuth Client ID dạng Web application. Khi chưa cấu hình, Docker Compose development hiển thị nút **Đăng nhập Google thử nghiệm**; chức năng này chỉ tạo tài khoản giả với email kết thúc bằng `@example.test`, không xác minh hay đăng nhập thay cho Gmail thật. Tài khoản dùng chung database không thể bị chiếm qua nút thử nghiệm. Không dùng chức năng mock trong production.
+
+Để thấy nút thử nghiệm sau khi lấy code mới, chạy lại `docker compose up -d --build nginx api` rồi mở http://localhost:8081. Nếu chạy Vite bằng `pnpm dev`, nút thử nghiệm tự hiện khi chưa đặt `VITE_GOOGLE_CLIENT_ID`. Nếu máy đã cấu hình Client ID, giao diện ưu tiên nút Google thật.
 
 1. Trong Google Cloud Console, tạo OAuth Client ID cho ứng dụng web.
 2. Thêm Authorized JavaScript origins `http://localhost:8081` và `http://localhost:5173`.
@@ -114,7 +129,7 @@ cp backend/.env.example backend/.env
    docker compose up -d --build api nginx
    ```
 
-Khi chạy frontend bằng `pnpm dev` thay vì Docker, đặt cùng Client ID trong `frontend/.env.local` dưới tên `VITE_GOOGLE_CLIENT_ID`; Docker Compose chuyển `GOOGLE_CLIENT_ID` từ `.env` ở thư mục gốc đến cả API và bước build website. Nếu chạy backend ngoài Docker, đặt `GOOGLE_CLIENT_ID` trong `backend/.env`. Client ID là cấu hình công khai, không phải client secret. Ứng dụng chỉ nhận email/name/avatar và mã định danh đã được Google xác minh, không nhận mật khẩu Google.
+Khi chạy frontend bằng `pnpm dev` thay vì Docker, đặt cùng Client ID trong `frontend/.env.local` dưới tên `VITE_GOOGLE_CLIENT_ID`. Với Docker Compose, bước build website lấy `GOOGLE_CLIENT_ID` từ `.env` ở thư mục gốc; API lấy giá trị từ `.env` gốc hoặc `backend/.env` (nếu cả hai có thì `.env` gốc được ưu tiên). Cả frontend lẫn API phải dùng cùng Client ID, nếu không Google có thể cho chọn tài khoản nhưng API sẽ báo chưa cấu hình hoặc từ chối token. Nếu chạy backend ngoài Docker, đặt `GOOGLE_CLIENT_ID` trong `backend/.env`. Client ID là cấu hình công khai, không phải client secret. Ứng dụng chỉ nhận email/name/avatar và mã định danh đã được Google xác minh, không nhận mật khẩu Google.
 
 Trước khi chuyển OAuth app sang chế độ production, cần triển khai website lên HTTPS domain do bạn sở hữu, xác minh domain trong Google Search Console, rồi khai báo URL trang chủ và đường dẫn `/privacy` trong Google Auth Platform → Branding. Trang chính sách này không thể thay thế việc triển khai domain công khai hoặc quy trình xác minh mà Google yêu cầu.
 

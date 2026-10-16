@@ -295,6 +295,25 @@
   background: var(--color-page);
 }
 
+.google-mock-login {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.google-mock-login button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.google-login-hint {
+  margin: 0;
+  color: var(--color-text-subtle);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+
 .google-g {
   color: #4285f4;
   font-size: 18px;

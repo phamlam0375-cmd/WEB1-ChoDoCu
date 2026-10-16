@@ -44,6 +44,7 @@ router.patch("/reports/:id", reports.handleReport);
 // B05 Kiểm duyệt tin
 router.get("/listings", listings.listListings);
 router.post("/listings/ai-review-pending", listings.reviewPendingWithAi);
+router.post("/listings/bulk-review", listings.bulkReviewListings);
 router.get("/listings/:id", listings.getListing);
 router.patch("/listings/:id/review", listings.reviewListing);
 router.post("/listings/:id/ai-review", listings.runAiReview);
@@ -59,10 +60,12 @@ router.post("/commissions/remind-overdue", commissions.remindOverdue);
 // B09 Thu và đối soát phí
 router.get("/fee-payments", commissions.listFeePayments);
 router.get("/fee-payments/debtors", commissions.listDebtors);
+router.post("/fee-payments/bulk-review", commissions.bulkReviewFeePayments);
 router.patch("/fee-payments/:id", commissions.reviewFeePayment);
 
 // B10 Thống kê
 router.get("/statistics", statistics.getStatistics);
+router.get("/pending-counts", statistics.getPendingCounts);
 
 // B11 Nhật ký thao tác quản trị — chỉ đọc
 router.get("/audit-logs", auditLogs.listAuditLogs);

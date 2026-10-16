@@ -1,10 +1,10 @@
 require('dotenv').config();
 const express = require('express');
 const bcrypt = require('bcrypt');
-const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const sequelize = require('../database');
 const { Users, VerificationCodes } = require('../models');
+const { sendOtpEmail, usesDevelopmentOtpLog } = require('../services/otpMailer');
 
 const router = express.Router();
 
@@ -12,29 +12,23 @@ const OTP_CHANNEL = 'EMAIL';
 const PASSWORD_RESET_PURPOSE = 'PASSWORD_RESET';
 const OTP_EXPIRY_MS = 10 * 60 * 1000;
 const OTP_RESEND_COOLDOWN_MS = 60 * 1000;
+const DEVELOPMENT_MODE = usesDevelopmentOtpLog();
 const GENERIC_RESPONSE = {
   success: true,
-  message: 'Nếu email thuộc tài khoản hợp lệ, mã xác thực sẽ được gửi đến hộp thư của bạn.'
+  delivery: DEVELOPMENT_MODE ? 'development-log' : 'email',
+  message: DEVELOPMENT_MODE
+    ? 'Nếu email thuộc tài khoản hợp lệ, mã xác thực đã được tạo. Xem log backend trong development.'
+    : 'Nếu email thuộc tài khoản hợp lệ, mã xác thực sẽ được gửi đến hộp thư của bạn.'
 };
 
 const normalizeEmail = (value) => String(value ?? '').trim().toLowerCase();
 const normalizeOtp = (value) => String(value ?? '').replace(/\D/g, '').slice(0, 6);
 
-const transporter = nodemailer.createTransport({
-  host: process.env.MAIL_HOST || 'smtp.gmail.com',
-  port: Number(process.env.MAIL_PORT) || 587,
-  secure: false,
-  auth: {
-    user: process.env.MAIL_USER,
-    pass: process.env.MAIL_PASS
-  },
-  tls: { rejectUnauthorized: false }
-});
-
 const sendPasswordResetCode = async (toEmail, otpCode) => {
-  return transporter.sendMail({
-    from: `"Chợ Đồ Cũ" <${process.env.MAIL_USER}>`,
+  return sendOtpEmail({
     to: toEmail,
+    code: otpCode,
+    purpose: 'password-reset',
     subject: 'Mã xác thực đặt lại mật khẩu ChoĐồCũ',
     html: `<p>Mã xác thực đặt lại mật khẩu của bạn là: <b style="font-size: 18px; color: #007bff;">${otpCode}</b></p><p>Mã có hiệu lực trong 10 phút. Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này.</p>`
   });

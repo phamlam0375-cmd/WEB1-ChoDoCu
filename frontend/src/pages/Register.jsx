@@ -71,7 +71,10 @@ const Register = () => {
 
       if (response.ok) {
         sessionStorage.setItem('pendingVerificationEmail', normalizedEmail);
-        navigate('/verify-email', { state: { email: normalizedEmail, password } });
+        sessionStorage.setItem('pendingVerificationDelivery', data.delivery || 'email');
+        navigate('/verify-email', {
+          state: { email: normalizedEmail, password, delivery: data.delivery || 'email' }
+        });
       } else {
         setEmailError(data.message || 'Email không hợp lệ hoặc đã được đăng ký');
       }

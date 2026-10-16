@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { errorMessage, setDevUserId } from '../lib/api'
+import api, { errorMessage, setDevUserId } from '../lib/api'
 import { completeLogin } from '../lib/auth'
 import { loginWithGoogle, loginWithPassword } from '../services/authApi'
 import './Login.scss'
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
+const GOOGLE_MOCK_ENABLED = import.meta.env.DEV || import.meta.env.VITE_ENABLE_GOOGLE_MOCK === 'true'
 
 function Login() {
   const navigate = useNavigate()
@@ -42,6 +43,49 @@ function Login() {
       setLoading(false)
     }
   }, [location.state, navigate, searchParams])
+
+  const handleDevGoogle = useCallback(async () => {
+    try {
+      setLoading(true)
+      setGoogleError('')
+      const defaultEmail = email.endsWith('@example.test')
+        ? email
+        : `dev+${Math.floor(Math.random() * 10000)}@example.test`
+      const input = window.prompt('Nhập email thử nghiệm (phải kết thúc bằng @example.test):', defaultEmail)
+      if (!input) return
+      const chosen = String(input).trim().toLowerCase()
+
+      const baseURL = api.defaults.baseURL.replace(/\/v1\/?$/, '')
+      const { data } = await api.post('/auth/google/dev', { email: chosen }, { baseURL, skipSession: true })
+      const accessToken = data?.accessToken || data?.token
+      if (typeof accessToken !== 'string' || !accessToken.trim()) throw new Error('Không nhận được token từ server')
+
+      const me = await api.get('/me', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        skipSession: true,
+      })
+
+      const session = {
+        accessToken,
+        user: { ...data.user, ...me.data.data },
+        message: data.message || 'Đăng nhập Google thử nghiệm thành công!'
+      }
+
+      completeLogin(session, {
+        storage: window.localStorage,
+        redirectStorage: window.sessionStorage,
+        queryReturnTo: searchParams.get('returnTo'),
+        stateFrom: location.state?.from,
+        clearDevIdentity: () => setDevUserId(''),
+        navigate,
+      })
+    } catch (error) {
+      console.error('Lỗi đăng nhập Google (dev):', error)
+      setGoogleError(errorMessage(error, error.message || 'Không thể đăng nhập bằng Google thử nghiệm.'))
+    } finally {
+      setLoading(false)
+    }
+  }, [email, navigate, location.state, searchParams])
 
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID || !googleButtonRef.current) return undefined
@@ -201,19 +245,31 @@ function Login() {
           </button>
         </form>
 
-        <div className="login-divider"><span>hoặc</span></div>
         {GOOGLE_CLIENT_ID ? (
-          <div className="google-login-button" ref={googleButtonRef} />
+          <>
+            <div className="login-divider"><span>hoặc</span></div>
+            <div className="google-login-button" ref={googleButtonRef} />
+          </>
+        ) : (GOOGLE_MOCK_ENABLED ? (
+          <>
+            <div className="login-divider"><span>hoặc</span></div>
+            <div className="google-mock-login">
+              <button
+                type="button"
+                className="google-login-unconfigured"
+                onClick={handleDevGoogle}
+                disabled={loading}
+              >
+                {loading ? 'Đang xử lý...' : 'Đăng nhập Google thử nghiệm'}
+              </button>
+              <p className="google-login-hint">Chỉ dành cho development. Dùng email giả kết thúc bằng @example.test; không cần cấu hình Google Client ID.</p>
+            </div>
+          </>
         ) : (
-          <button
-            type="button"
-            className="google-login-unconfigured"
-            onClick={() => setGoogleError('Đăng nhập Google chưa được cấu hình Client ID.')}
-          >
-            <span className="google-g" aria-hidden="true">G</span>
-            Đăng nhập bằng Google
-          </button>
-        )}
+          <p className="google-login-error">
+            Đăng nhập Google chưa được bật; hãy dùng email và mật khẩu.
+          </p>
+        ))}
         {googleError && <p className="google-login-error" role="alert">{googleError}</p>}
 
         <p className="login-register">

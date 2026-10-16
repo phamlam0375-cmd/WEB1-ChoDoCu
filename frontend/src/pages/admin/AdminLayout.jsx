@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link, NavLink, Outlet } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   BarChart3,
   Banknote,
@@ -20,6 +20,7 @@ import {
 import DevAccountSwitcher from '../../components/DevAccountSwitcher'
 import DevAccountError from '../../components/DevAccountError'
 import { Loading } from '../../components/admin/AdminUi'
+import { useApi } from '../../hooks/useApi'
 import { useDevAccount } from '../../hooks/useDevAccount'
 
 const NAV_GROUPS = [
@@ -33,23 +34,23 @@ const NAV_GROUPS = [
     title: 'Người dùng',
     items: [
       { to: '/admin/users', label: 'Tài khoản & phân quyền', icon: Users },
-      { to: '/admin/partner-applications', label: 'Duyệt đối tác', icon: Handshake },
+      { to: '/admin/partner-applications', countKey: 'pendingPartnerApplications', label: 'Duyệt đối tác', icon: Handshake },
     ],
   },
   {
     title: 'Nội dung',
     items: [
       { to: '/admin/categories', label: 'Danh mục', icon: FolderTree },
-      { to: '/admin/listings', label: 'Kiểm duyệt tin', icon: ClipboardCheck },
-      { to: '/admin/reports', label: 'Báo cáo vi phạm', icon: Flag },
+      { to: '/admin/listings', countKey: 'pendingListings', label: 'Kiểm duyệt tin', icon: ClipboardCheck },
+      { to: '/admin/reports', countKey: 'openReports', label: 'Báo cáo vi phạm', icon: Flag },
     ],
   },
   {
     title: 'Tài chính',
     items: [
-      { to: '/admin/refunds', label: 'Hoàn tiền', icon: RotateCcw },
-      { to: '/admin/commissions', label: 'Hoa hồng theo đơn', icon: Percent },
-      { to: '/admin/fee-payments', label: 'Thu & đối soát phí', icon: Banknote },
+      { to: '/admin/refunds', countKey: 'pendingRefunds', label: 'Hoàn tiền', icon: RotateCcw },
+      { to: '/admin/commissions', countKey: 'overdueCommissions', label: 'Hoa hồng theo đơn', icon: Percent },
+      { to: '/admin/fee-payments', countKey: 'reportedFeePayments', label: 'Thu & đối soát phí', icon: Banknote },
     ],
   },
   {
@@ -61,14 +62,28 @@ const NAV_GROUPS = [
   },
 ]
 
-function Sidebar({ onNavigate }) {
+// Số việc chờ xử lý trên menu: tải lại khi đổi trang và mỗi phút một lần.
+function usePendingCounts() {
+  const { me } = useDevAccount()
+  const location = useLocation()
+  const [tick, setTick] = useState(0)
+  useEffect(() => {
+    const timer = setInterval(() => setTick((value) => value + 1), 60000)
+    return () => clearInterval(timer)
+  }, [])
+  const isAdmin = Boolean(me?.roles?.includes('ADMIN'))
+  const { data } = useApi(isAdmin ? '/admin/pending-counts' : null, { page: location.pathname, tick })
+  return data || {}
+}
+
+function Sidebar({ onNavigate, counts = {} }) {
   return (
     <nav className="flex flex-col gap-5 px-3 py-4" aria-label="Điều hướng quản trị">
       {NAV_GROUPS.map((group) => (
         <div key={group.title}>
           <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">{group.title}</p>
           <ul className="flex flex-col gap-0.5">
-            {group.items.map(({ to, end, label, icon: Icon }) => (
+            {group.items.map(({ to, end, label, icon: Icon, countKey }) => (
               <li key={to}>
                 <NavLink
                   to={to}
@@ -82,6 +97,16 @@ function Sidebar({ onNavigate }) {
                 >
                   <Icon size={17} className="shrink-0" />
                   <span className="flex-1 truncate">{label}</span>
+                  {countKey && counts[countKey] > 0 && (
+                    <span
+                      className={`min-w-5 rounded-full px-1.5 text-center text-xs font-semibold tabular-nums ${
+                        countKey === 'overdueCommissions' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'
+                      }`}
+                      title={countKey === 'overdueCommissions' ? 'Khoản quá hạn' : 'Đang chờ xử lý'}
+                    >
+                      {counts[countKey] > 99 ? '99+' : counts[countKey]}
+                    </span>
+                  )}
                 </NavLink>
               </li>
             ))}
@@ -101,8 +126,8 @@ function AccessGate({ children }) {
         <ShieldCheck className="mx-auto text-emerald-600" size={32} />
         <h1 className="mt-3 text-lg font-semibold text-slate-900">Khu vực dành cho quản trị viên</h1>
         <p className="mt-1 text-sm text-slate-500">
-          {me ? 'Bạn không có quyền truy cập chức năng này.' : 'Chọn một tài khoản có vai trò quản trị để tiếp tục.'} Trong
-          dữ liệu mẫu, tài khoản <b>#2</b> là quản trị viên.
+          {me ? 'Bạn không có quyền truy cập chức năng này.' : 'Đăng nhập bằng tài khoản quản trị để tiếp tục.'} Khi demo có thể
+          nhập mã tài khoản thử nghiệm: tài khoản <b>#2</b> là quản trị viên.
         </p>
         <div className="mt-4 flex justify-center">
           <DevAccountSwitcher />
@@ -116,6 +141,7 @@ function AccessGate({ children }) {
 
 export default function AdminLayout() {
   const [menuOpen, setMenuOpen] = useState(false)
+  const counts = usePendingCounts()
 
   return (
     <div className="min-h-screen bg-green-100 text-slate-900">
@@ -146,7 +172,7 @@ export default function AdminLayout() {
 
       <div className="mx-auto flex max-w-[1440px]">
         <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-64 shrink-0 overflow-y-auto border-r border-slate-200 bg-white lg:block">
-          <Sidebar />
+          <Sidebar counts={counts} />
         </aside>
 
         {menuOpen && (
@@ -161,7 +187,7 @@ export default function AdminLayout() {
               <div className="border-b border-slate-100 p-3 md:hidden">
                 <DevAccountSwitcher compact />
               </div>
-              <Sidebar onNavigate={() => setMenuOpen(false)} />
+              <Sidebar counts={counts} onNavigate={() => setMenuOpen(false)} />
             </aside>
           </div>
         )}

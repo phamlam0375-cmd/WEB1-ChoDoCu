@@ -1,6 +1,5 @@
 import {
     MapPin,
-    Package,
     Phone,
     Store as StoreIcon,
 } from "lucide-react";
@@ -103,30 +102,13 @@ export default function PublicStore() {
 
     return (
         <div className="flex min-h-screen flex-col">
-            {/* HEADER */}
             <Header />
 
-            {/* MAIN */}
-            <div className="flex w-full flex-1 bg-linear-to-br from-emerald-50 via-white to-white text-slate-900">
+            <div className="flex w-full flex-1 bg-linear-to-br from-emerald-50 via-white to-white text-slate-900 ">
                 <div className="mx-auto w-full max-w-6xl px-6 py-10">
-                    {/* TITLE */}
-                    <div className="mb-8">
-                        <p className="text-sm font-semibold text-emerald-600">
-                            Chợ Đồ Cũ
-                        </p>
-
-                        <h1 className="mt-2 text-3xl font-bold text-slate-900">
-                            Thông tin cửa hàng
-                        </h1>
-
-                        <p className="mt-2 text-sm text-slate-500">
-                            Thông tin, vị trí và sản phẩm đang được cửa hàng đăng bán.
-                        </p>
-                    </div>
-
-                    <div className="grid gap-6 lg:grid-cols-3">
+                    <div className="mx-auto grid w-full max-w-4xl gap-6">
                         {/* LEFT */}
-                        <div className="space-y-6 lg:col-span-2">
+                        <div className="space-y-6">
                             {/* STORE */}
                             <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
                                 <div className="flex items-start justify-between gap-4">
@@ -144,11 +126,6 @@ export default function PublicStore() {
                                                 <h2 className="text-2xl font-bold text-slate-900">
                                                     {store.StoreName}
                                                 </h2>
-
-                                                <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">
-                                                    {store.Status ||
-                                                        "ACTIVE"}
-                                                </span>
                                             </div>
 
                                             <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">
@@ -211,67 +188,7 @@ export default function PublicStore() {
                                 hasLocation={hasLocation}
                             />
                         </div>
-
-                        {/* RIGHT */}
-                        <div className="space-y-6">
-                            {/* SUMMARY */}
-                            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                                <div className="flex items-center gap-3">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100">
-                                        <Package
-                                            size={20}
-                                            className="text-emerald-600"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <h2 className="text-base font-semibold text-slate-900">
-                                            Tổng quan
-                                        </h2>
-
-                                        <p className="text-xs text-slate-500">
-                                            Thông tin cửa hàng
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div className="mt-6 space-y-4">
-                                    <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                                        <span className="text-sm text-slate-500">
-                                            Trạng thái
-                                        </span>
-
-                                        <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">
-                                            {store.Status || "ACTIVE"}
-                                        </span>
-                                    </div>
-
-                                    <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                                        <span className="text-sm text-slate-500">
-                                            Owner ID
-                                        </span>
-
-                                        <span className="text-sm font-semibold text-slate-700">
-                                            {ownerId}
-                                        </span>
-                                    </div>
-
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm text-slate-500">
-                                            Sản phẩm
-                                        </span>
-
-                                        <span className="text-sm font-semibold text-slate-700">
-                                            {productLoading ? "..." : products.length}
-                                        </span>
-                                    </div>
-
-                                </div>
-                            </div>
-
-                        </div>
                     </div>
-
                     <StoreProduct
                         products={products}
                         loading={productLoading}

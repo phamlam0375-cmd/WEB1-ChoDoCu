@@ -33,16 +33,7 @@ export function StoreProduct({ products, loading }) {
                             <h2 className="text-2xl font-bold text-slate-900">
                                 Sản phẩm của cửa hàng
                             </h2>
-
-                            <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700">
-                                {loading ? "..." : products.length}
-                            </span>
                         </div>
-
-                        <p className="mt-1 text-sm text-slate-500">
-                            Các sản phẩm đang được đăng bán
-                            tại cửa hàng.
-                        </p>
                     </div>
                 </div>
 

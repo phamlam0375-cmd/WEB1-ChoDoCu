@@ -1,6 +1,5 @@
 import {
     MapPin,
-    Package,
     Phone,
     Store as StoreIcon,
 } from "lucide-react";

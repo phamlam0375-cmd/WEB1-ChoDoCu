@@ -7,7 +7,7 @@ const stats = [
   { value: 'An tâm', label: 'Giao dịch an toàn', icon: ShieldCheck },
 ]
 
-function HeroSection({ onExplore, onSell }) {
+function HeroSection({ onExplore }) {
   const navigate = useNavigate();
 
   return (

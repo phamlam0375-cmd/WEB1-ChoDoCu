@@ -1,13 +1,13 @@
 'use strict';
 
-const MINIMUM_ROWS = 10;
+const MINIMUM_ROWS = 50;
 const requestedRows = Number.parseInt(process.env.SEED_RECORDS_PER_TABLE || '', 10);
 const requestedBatchSize = Number.parseInt(process.env.SEED_BATCH_SIZE || '', 10);
 const ROWS_PER_TABLE = Math.min(
-  20,
+  50,
   Math.max(
     MINIMUM_ROWS,
-    Number.isFinite(requestedRows) ? requestedRows : 15
+    Number.isFinite(requestedRows) ? requestedRows : 50
   )
 );
 const BATCH_SIZE = Math.min(
@@ -16,10 +16,41 @@ const BATCH_SIZE = Math.min(
 );
 const BASE_TIME = Date.parse('2026-01-01T00:00:00.000Z');
 const DAY = 24 * 60 * 60 * 1000;
+const DEMO_PASSWORD_HASH = '$2b$10$b9pum1iGugwcTqiXp5nWmuq.ln/Lthh/wUNYT6PQxWRpVEOhmNY1m';
+const DEMO_REGISTERED_USER = {
+  UserId: 999,
+  Username: 'admin',
+  PasswordHash: DEMO_PASSWORD_HASH,
+  FullName: 'Quản trị viên',
+  Email: 'admin@gmail.com',
+  Phone: '0900000999',
+  GoogleId: null,
+  AvatarUrl: null,
+  Address: 'Việt Nam',
+  EmailVerified: true,
+  PhoneVerified: true,
+  Status: 'ACTIVE',
+  CreatedAt: new Date(BASE_TIME),
+  UpdatedAt: new Date(BASE_TIME)
+};
 
 const pad = (value, length = 6) => String(value).padStart(length, '0');
 const demoDate = (value, extraDays = 0) => new Date(BASE_TIME + ((value % 365) + extraDays) * DAY);
 const nextId = (value) => (value === ROWS_PER_TABLE ? 1 : value + 1);
+
+// Danh sách sản phẩm thực tế cho người bán (SELLER)
+const REAL_PRODUCTS = [
+  { title: 'Laptop Dell Latitude E7470 Core i5', price: 4500000, desc: 'Laptop văn phòng cũ, ngoại hình khá, hoạt động ổn định.' },
+  { title: 'Điện thoại iPhone 11 64GB Quốc tế', price: 5200000, desc: 'Máy nguyên bản, pin 85%, trầy xước nhẹ viền theo thời gian.' },
+  { title: 'Xe đạp địa hình thể thao MTB', price: 2100000, desc: 'Khung nhôm, bộ truyền động Shimano 21 tốc độ, ít sử dụng.' },
+  { title: 'Bàn làm việc gỗ chân sắt chữ Z', price: 650000, desc: 'Kích thước 1m2 x 60cm, chắc chắn, như mới không trầy xước.' },
+  { title: 'Ghế xoay văn phòng lưới ergonomic', price: 450000, desc: 'Lưng lưới thoáng mát, ngả lưng tốt, cần gạt nâng hạ hoàn hảo.' },
+  { title: 'Loa Bluetooth JBL Flip 5 chính hãng', price: 1200000, desc: 'Âm bass hay, chống nước tốt, pin trâu dùng liên tục 8 tiếng.' },
+  { title: 'Màn hình máy tính LG 24 inch IPS', price: 1800000, desc: 'Độ phân giải Full HD, hiển thị sắc nét, không điểm chết.' },
+  { title: 'Nồi chiên không dầu Philips 4L', price: 900000, desc: 'Đã qua sử dụng nhưng còn rất sạch sẽ, hoạt động hoàn hảo.' },
+  { title: 'Máy ảnh Canon 700D kèm lens kit 18-55mm', price: 4800000, desc: 'Phù hợp cho người mới bắt đầu học nhiếp ảnh, hoạt động tốt.' },
+  { title: 'Giày thể thao Nike Air Force 1 Replica chuẩn', price: 350000, desc: 'Size 42, đi thử 1 lần không vừa chân nên nhượng lại rẻ.' }
+];
 
 const TABLES = [
   {
@@ -27,9 +58,9 @@ const TABLES = [
     row: (i) => ({
       UserId: i,
       Username: `user_${pad(i)}`,
-      PasswordHash: 'demo_hash_not_for_production',
+      PasswordHash: DEMO_PASSWORD_HASH,
       FullName: `Người dùng ${pad(i)}`,
-      Email: `user_${pad(i)}@example.local`,
+      Email: `user_${pad(i)}@gmail.com`,
       Phone: `09${String(i).padStart(8, '0')}`,
       GoogleId: null,
       AvatarUrl: `/demo/avatars/${i % 20}.png`,
@@ -44,33 +75,17 @@ const TABLES = [
   {
     name: 'Roles',
     rows: [
-      {
-        RoleId: 1,
-        RoleName: 'USER',
-        Description: 'Người dùng'
-      },
-      {
-        RoleId: 2,
-        RoleName: 'ADMIN',
-        Description: 'Quản trị viên'
-      },
-      {
-        RoleId: 3,
-        RoleName: 'SELLER',
-        Description: 'Người bán'
-      },
-      {
-        RoleId: 4,
-        RoleName: 'DRIVER',
-        Description: 'Tài xế'
-      }
+      { RoleId: 1, RoleName: 'USER', Description: 'Người dùng' },
+      { RoleId: 2, RoleName: 'ADMIN', Description: 'Quản trị viên' },
+      { RoleId: 3, RoleName: 'SELLER', Description: 'Người bán' },
+      { RoleId: 4, RoleName: 'DRIVER', Description: 'Tài xế' }
     ]
   },
   {
     name: 'UserRoles',
     row: (i) => ({
       UserId: i,
-      RoleId: i === 1 ? 2 : 1,
+      RoleId: i <= 5 ? 3 : i <= 10 ? 4 : 1, // User 1 đến 5 mang quyền SELLER
       AssignedAt: demoDate(i)
     })
   },
@@ -114,8 +129,8 @@ const TABLES = [
     row: (i) => ({
       StoreId: i,
       OwnerId: i,
-      StoreName: `Gian hàng đồ cũ ${pad(i)}`,
-      Description: `Gian hàng minh họa số ${i}`,
+      StoreName: i <= 5 ? `Cửa hàng đồ cũ ${REAL_PRODUCTS[(i - 1) % REAL_PRODUCTS.length].title.split(' ')[0]} ${i}` : `Gian hàng đồ cũ ${pad(i)}`,
+      Description: `Gian hàng minh họa chuyên bán đồ đã qua sử dụng số ${i}`,
       Address: `${i} Đường Minh Họa, TP. Hồ Chí Minh`,
       Latitude: (10.7 + (i % 1000) / 10000).toFixed(7),
       Longitude: (106.6 + (i % 1000) / 10000).toFixed(7),
@@ -139,22 +154,29 @@ const TABLES = [
   },
   {
     name: 'Listings',
-    row: (i) => ({
-      ListingId: i,
-      SellerId: i,
-      StoreId: i,
-      CategoryId: i,
-      Title: `Sản phẩm cũ minh họa ${pad(i)}`,
-      Description: `Mô tả sản phẩm cũ số ${i}, dùng cho dữ liệu kiểm thử.`,
-      Price: 50000 + (i % 5000) * 1000,
-      ConditionLevel: ['LIKE_NEW', 'GOOD', 'FAIR', 'POOR'][i % 4],
-      KnownDefects: i % 5 === 0 ? 'Có dấu hiệu sử dụng nhẹ.' : null,
-      Location: `Khu vực ${i % 24}, TP. Hồ Chí Minh`,
-      Status: ['ACTIVE', 'RESERVED', 'SOLD', 'PENDING'][i % 4],
-      ModerationNote: null,
-      CreatedAt: demoDate(i),
-      UpdatedAt: demoDate(i, 1)
-    })
+    row: (i) => {
+      // Nếu là seller (userId từ 1-5), phân phối 10 sản phẩm thực tế rải đều
+      const isSeller = i <= 5;
+      const productIndex = (i - 1) % REAL_PRODUCTS.length;
+      const product = REAL_PRODUCTS[productIndex];
+
+      return {
+        ListingId: i,
+        SellerId: isSeller ? ((i - 1) % 5) + 1 : i,
+        StoreId: isSeller ? ((i - 1) % 5) + 1 : i,
+        CategoryId: i,
+        Title: isSeller ? `${product.title} (Like new #${i})` : `Sản phẩm cũ minh họa ${pad(i)}`,
+        Description: isSeller ? `${product.desc} Mã sản phẩm: SP-${pad(i)}.` : `Mô tả sản phẩm cũ số ${i}, dùng cho dữ liệu kiểm thử.`,
+        Price: isSeller ? product.price + ((i * 1000) % 500000) : 50000 + (i % 5000) * 1000,
+        ConditionLevel: ['LIKE_NEW', 'GOOD', 'FAIR', 'POOR'][i % 4],
+        KnownDefects: i % 5 === 0 ? 'Có dấu hiệu sử dụng nhẹ.' : null,
+        Location: `Khu vực Quận ${((i % 12) + 1)}, TP. Hồ Chí Minh`,
+        Status: ['ACTIVE', 'RESERVED', 'SOLD', 'PENDING'][i % 4],
+        ModerationNote: null,
+        CreatedAt: demoDate(i),
+        UpdatedAt: demoDate(i, 1)
+      };
+    }
   },
   {
     name: 'ListingMedia',
@@ -162,7 +184,7 @@ const TABLES = [
       MediaId: i,
       ListingId: i,
       MediaType: i % 10 === 0 ? 'VIDEO' : 'IMAGE',
-      MediaUrl: `/demo/listings/${pad(i)}.${i % 10 === 0 ? 'mp4' : 'jpg'}`,
+      MediaUrl: i <= 5 ? `/demo/listings/real-product-${((i - 1) % REAL_PRODUCTS.length) + 1}.jpg` : `/demo/listings/${pad(i)}.jpg`,
       SortOrder: 1,
       CreatedAt: demoDate(i)
     })
@@ -422,6 +444,12 @@ module.exports = {
       for (const table of TABLES) {
         await insertInBatches(queryInterface, table);
       }
+      await queryInterface.bulkInsert('Users', [DEMO_REGISTERED_USER]);
+      await queryInterface.bulkInsert('UserRoles', [{
+        UserId: DEMO_REGISTERED_USER.UserId,
+        RoleId: 2,
+        AssignedAt: new Date(BASE_TIME)
+      }]);
     } finally {
       await queryInterface.sequelize.query('SET FOREIGN_KEY_CHECKS = 1');
     }

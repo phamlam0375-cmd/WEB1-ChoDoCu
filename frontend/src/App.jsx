@@ -4,24 +4,24 @@ import './App.scss'
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { Suspense, lazy } from 'react'
 
+import CreateListing from './components/listing/CreateListing'
 import CrudListing from './components/listing/CrudListing'
 import DevAccountProvider from './context/DevAccountProvider'
+import ForgotPassword from './pages/ForgotPassword'
 import HomePage from './pages/HomePage'
 import { Loading } from './components/admin/AdminUi'
 import Login from './pages/Login'
-import ForgotPassword from './pages/ForgotPassword'
-import PrivacyPolicy from './pages/PrivacyPolicy'
-import Register from './pages/Register'
-import ResetPassword from './pages/ResetPassword'
-import VerifyEmail from './pages/VerifyEmail'
 import OrderCancelPage from './pages/D02_HuyDonHang/OrderCancelPage'
-import OrderPaymentPage from './pages/D03_ThanhToan/OrderPaymentPage'
 import OrderCreatePage from './pages/OrderCreatePage'
+import OrderPaymentPage from './pages/D03_ThanhToan/OrderPaymentPage'
+import PrivacyPolicy from './pages/PrivacyPolicy'
 import PublicStore from './components/Store/PublicStore/PublicStore'
+import Register from './pages/Register'
 import RegisterApplication from './components/PartnerApplication/RegisterApplication'
+import ResetPassword from './pages/ResetPassword'
 import SellerStore from './components/Store/SellerStore/SellerStore'
 import { ToastContainer } from 'react-toastify'
-
+import VerifyEmail from './pages/VerifyEmail'
 
 // Phân hệ B: quản trị và doanh thu (tải khi cần để không làm nặng trang chủ)
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'))
@@ -69,6 +69,7 @@ function App() {
         <Route path="store/:ownerId" element={<PublicStore />} />
         <Route path="/seller/store" element={<SellerStore />} />
         <Route path="seller/listings" element={<CrudListing />} />
+        <Route path="seller/listings/create" element={<CreateListing />} />
 
         <Route
           element={

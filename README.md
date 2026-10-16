@@ -55,7 +55,7 @@ Theo dõi quá trình khởi động nếu cần: `docker compose logs -f api`.
 
 ## Tìm kiếm sản phẩm
 
-Trang chủ dùng catalog sản phẩm mẫu trong `frontend/src/data/mockProducts.js`, như trước thay đổi kết nối API ngày 15/10. Tìm kiếm chạy bằng JavaScript có sẵn trong frontend, không gọi dịch vụ/API tìm kiếm bên thứ ba và không cần cài thêm package. Từ khóa được chuẩn hóa tiếng Việt (có/không dấu), hỗ trợ một số viết tắt phổ biến như `dt`, `ip`, `mt`, `xm`, từ khóa tiếng Anh tương ứng như `phone`, `laptop`, `chair`, và dung sai lỗi gõ gần đúng. Tìm kiếm ưu tiên khớp tên sản phẩm/danh mục và yêu cầu mọi phần của truy vấn đều khớp để hạn chế kết quả không liên quan. Tối đa 8 từ khóa gần đây được lưu trong local storage của trình duyệt; có thể xóa ngay tại danh sách lịch sử. Lịch sử không đồng bộ giữa các máy hoặc trình duyệt.
+Trang chủ tải tin đăng từ API; `frontend/src/data/mockProducts.js` cung cấp danh mục và catalog dự phòng. Tìm kiếm chạy cục bộ bằng JavaScript, không gọi dịch vụ tìm kiếm bên thứ ba và không cần cài thêm package. Từ khóa được chuẩn hóa tiếng Việt (có/không dấu), hỗ trợ một số viết tắt phổ biến như `dt`, `ip`, `mt`, `xm`, từ khóa tiếng Anh tương ứng như `phone`, `laptop`, `chair`, và dung sai lỗi gõ gần đúng. Tìm kiếm xét tên sản phẩm và tên danh mục, đồng thời yêu cầu mọi phần của truy vấn đều khớp để hạn chế kết quả không liên quan. Tối đa 8 từ khóa gần đây được lưu trong local storage của trình duyệt; có thể xóa ngay tại danh sách lịch sử. Lịch sử không đồng bộ giữa các máy hoặc trình duyệt.
 
 ## Chia sẻ dữ liệu giữa các máy
 

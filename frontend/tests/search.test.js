@@ -39,11 +39,17 @@ test('tìm bằng từ tiếng Anh theo nghĩa tương ứng', () => {
   assert.ok(titles('headphones').includes('Tai nghe Bluetooth chống ồn, pin 30 giờ'))
 })
 
+test('tìm kiếm theo tên danh mục trên tin đăng tải từ API', () => {
+  const apiListing = { id: 20, name: 'Thiết bị thông minh', category: '12', categoryName: 'Điện thoại' }
+
+  assert.equal(searchProducts([apiListing], 'phone')[0].product.id, 20)
+})
+
 test('không trả về sản phẩm khi từ khóa không khớp', () => {
   assert.deepEqual(searchProducts(searchFixtures, 'máy ảnh film'), [])
 })
 
-test('khôi phục catalog trang chủ cũ có iPhone, không thay bằng dữ liệu seed của API', () => {
+test('catalog mẫu dự phòng vẫn giữ sản phẩm cũ có iPhone', () => {
   const result = searchProducts(homepageProducts, 'iphone')
   assert.equal(result[0].product.name, 'iPhone 13 128GB chính hãng, pin 89%')
   assert.equal(homepageProducts.some((product) => product.name.includes('Bình sữa Pigeon')), false)

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import CategorySection from '../components/CategorySection'
@@ -10,7 +10,8 @@ import ProductFilters from '../components/ProductFilters'
 import ProductGrid from '../components/ProductGrid'
 import SearchBar from '../components/SearchBar'
 import WhyChooseUs from '../components/WhyChooseUs'
-import { categories, conditions, locations, products } from '../data/mockProducts'
+import { categories as fallbackCategories, conditions as fallbackConditions, locations as fallbackLocations } from '../data/mockProducts'
+import { getAllListing } from '../api/listingApi'
 import { matchesProductCategory } from '../utils/productFilters'
 import { searchProducts } from '../utils/searchEngine'
 import { clearSearchHistory, getSearchHistory, saveSearchHistory } from '../utils/searchHistory'
@@ -26,6 +27,11 @@ const defaultFilters = {
 
 function HomePage() {
   const navigate = useNavigate()
+  const [products, setProducts] = useState([])
+  const [categories, setCategories] = useState(fallbackCategories)
+  const [locations, setLocations] = useState(fallbackLocations)
+  const [conditions] = useState(fallbackConditions)
+  const [loading, setLoading] = useState(true)
   const [keyword, setKeyword] = useState('')
   const [appliedKeyword, setAppliedKeyword] = useState('')
   const [searchCategory, setSearchCategory] = useState('all')
@@ -36,6 +42,58 @@ function HomePage() {
   const [savedOnly, setSavedOnly] = useState(false)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const [searchHistory, setSearchHistory] = useState(() => getSearchHistory())
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadListings = async () => {
+      try {
+        const response = await getAllListing(1, 100)
+        if (cancelled) return
+
+        const rows = response.data || []
+        const categoryRows = [...new Map(
+          rows
+            .filter((item) => item.Category)
+            .map((item) => [item.Category.CategoryId, item.Category]),
+        ).values()]
+        const categoryIcons = fallbackCategories.map((item) => item.icon)
+        const categoryOptions = categoryRows.map((item, index) => ({
+          id: String(item.CategoryId),
+          name: item.CategoryName,
+          icon: categoryIcons[index % categoryIcons.length],
+        }))
+
+        setCategories(categoryOptions.length ? categoryOptions : fallbackCategories)
+        setLocations([...new Set(rows.map((item) => item.Location).filter(Boolean))])
+        setProducts(rows.map((item, index) => ({
+          id: item.ListingId,
+          name: item.Title,
+          price: Number(item.Price),
+          category: String(item.CategoryId),
+          categoryName: item.Category?.CategoryName || '',
+          condition: { NEW: 'Như mới', LIKE_NEW: 'Như mới', GOOD: 'Đã sử dụng', FAIR: 'Đã sử dụng', POOR: 'Cần sửa chữa nhẹ' }[item.ConditionLevel] || item.ConditionLevel,
+          location: item.Location || 'Chưa cập nhật',
+          postedAt: new Date(item.CreatedAt).toLocaleDateString('vi-VN'),
+          createdOrder: new Date(item.CreatedAt).getTime() || index,
+          seller: item.Seller?.FullName || `Người bán #${item.SellerId}`,
+          sellerId: item.SellerId,
+          sellerAvatar: item.Seller?.AvatarUrl || '',
+          verified: Boolean(item.Seller?.EmailVerified),
+          isVip: false,
+          isFeatured: index < 3,
+          image: item.Media?.find((media) => media.MediaType === 'IMAGE')?.MediaUrl || '/product-placeholder.svg',
+        })))
+      } catch {
+        if (!cancelled) toast.error('Không thể tải danh sách sản phẩm.')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    loadListings()
+    return () => { cancelled = true }
+  }, [])
 
   const filteredProducts = useMemo(() => {
     const minPrice = Number(appliedFilters.minPrice) || 0
@@ -68,9 +126,9 @@ function HomePage() {
         return second.score - first.score || second.product.createdOrder - first.product.createdOrder
       })
       .map(({ product }) => product)
-  }, [appliedFilters, appliedKeyword, savedIds, savedOnly])
+  }, [appliedFilters, appliedKeyword, categories, products, savedIds, savedOnly])
 
-  const featuredProducts = useMemo(() => products.filter((product) => product.isFeatured), [])
+  const featuredProducts = useMemo(() => products.filter((product) => product.isFeatured), [products])
 
   const scrollToProducts = () => {
     window.setTimeout(() => document.getElementById('san-pham')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0)
@@ -180,7 +238,7 @@ function HomePage() {
         onShowSaved={handleShowSaved}
         onUnavailable={handleUnavailable}
       />
-      <main>
+      <main aria-busy={loading}>
         <HeroSection onExplore={scrollToProducts} onSell={handleUnavailable} />
         <SearchBar
           keyword={keyword}

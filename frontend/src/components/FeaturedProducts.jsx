@@ -1,7 +1,9 @@
-import { ArrowUpRight, BadgeCheck, Heart, MapPin } from 'lucide-react'
+import { ArrowUpRight, BadgeCheck, Heart, MapPin, Store } from 'lucide-react'
 import { formatPrice } from '../data/mockProducts'
+import { useNavigate } from 'react-router-dom'
 
 function FeaturedProducts({ products, savedIds, onToggleSave, onView }) {
+  const navigate = useNavigate()
   return (
     <section className="pb-16 sm:pb-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -41,10 +43,19 @@ function FeaturedProducts({ products, savedIds, onToggleSave, onView }) {
                 <p className="mt-2 text-base font-black text-emerald-700">{formatPrice(product.price)}</p>
                 <p className="mt-2 flex items-center gap-1 text-xs text-slate-500"><MapPin size={12} /> {product.location}</p>
                 <div className="mt-auto flex items-center justify-between gap-2 pt-3">
-                  <span className="flex min-w-0 items-center gap-1 truncate text-xs font-semibold text-slate-500">
+                  <button
+                    type="button"
+                    onClick={() => product.sellerId && navigate(`/store/${product.sellerId}`)}
+                    disabled={!product.sellerId}
+                    className="flex min-w-0 items-center gap-1 truncate text-left text-xs font-semibold text-slate-500 hover:text-emerald-700 disabled:cursor-default"
+                    aria-label={`Xem cửa hàng của ${product.seller}`}
+                  >
+                    <span className="grid size-6 shrink-0 place-items-center rounded-full bg-emerald-50 text-emerald-700">
+                      {product.sellerAvatar ? <img src={product.sellerAvatar} alt="" className="size-6 rounded-full object-cover" /> : <Store size={13} />}
+                    </span>
                     {product.seller}
                     {product.verified && <BadgeCheck size={14} className="shrink-0 fill-sky-500 text-white" />}
-                  </span>
+                  </button>
                   <button type="button" onClick={() => onView(product)} className="text-xs font-bold text-emerald-700 hover:text-emerald-800">Chi tiết</button>
                 </div>
               </div>

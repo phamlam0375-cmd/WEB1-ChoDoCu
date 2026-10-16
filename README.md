@@ -53,6 +53,10 @@ Theo dõi quá trình khởi động nếu cần: `docker compose logs -f api`.
 | 3 | Người bán: phí và hoa hồng `/seller/fees` (khoản HH009001, HH009002) |
 | 4, 8 | Hồ sơ đối tác đã xác thực ở tab Chờ duyệt (demo bấm Duyệt) |
 
+## Tìm kiếm sản phẩm
+
+Trang chủ dùng catalog sản phẩm mẫu trong `frontend/src/data/mockProducts.js`, như trước thay đổi kết nối API ngày 15/10. Tìm kiếm chạy bằng JavaScript có sẵn trong frontend, không gọi dịch vụ/API tìm kiếm bên thứ ba và không cần cài thêm package. Từ khóa được chuẩn hóa tiếng Việt (có/không dấu), hỗ trợ một số viết tắt phổ biến như `dt`, `ip`, `mt`, `xm`, từ khóa tiếng Anh tương ứng như `phone`, `laptop`, `chair`, và dung sai lỗi gõ gần đúng. Tìm kiếm ưu tiên khớp tên sản phẩm/danh mục và yêu cầu mọi phần của truy vấn đều khớp để hạn chế kết quả không liên quan. Tối đa 8 từ khóa gần đây được lưu trong local storage của trình duyệt; có thể xóa ngay tại danh sách lịch sử. Lịch sử không đồng bộ giữa các máy hoặc trình duyệt.
+
 ## Chia sẻ dữ liệu giữa các máy
 
 Dữ liệu nằm trong Docker trên từng máy, không tự đi theo Git. Muốn máy khác có đúng dữ liệu của mình:
@@ -125,7 +129,7 @@ cp backend/.env.example backend/.env
    docker compose up -d --build api nginx
    ```
 
-Khi chạy frontend bằng `pnpm dev` thay vì Docker, đặt cùng Client ID trong `frontend/.env.local` dưới tên `VITE_GOOGLE_CLIENT_ID`; Docker Compose chuyển `GOOGLE_CLIENT_ID` từ `.env` ở thư mục gốc đến cả API và bước build website. Nếu chạy backend ngoài Docker, đặt `GOOGLE_CLIENT_ID` trong `backend/.env`. Client ID là cấu hình công khai, không phải client secret. Ứng dụng chỉ nhận email/name/avatar và mã định danh đã được Google xác minh, không nhận mật khẩu Google.
+Khi chạy frontend bằng `pnpm dev` thay vì Docker, đặt cùng Client ID trong `frontend/.env.local` dưới tên `VITE_GOOGLE_CLIENT_ID`. Với Docker Compose, bước build website lấy `GOOGLE_CLIENT_ID` từ `.env` ở thư mục gốc; API lấy giá trị từ `.env` gốc hoặc `backend/.env` (nếu cả hai có thì `.env` gốc được ưu tiên). Cả frontend lẫn API phải dùng cùng Client ID, nếu không Google có thể cho chọn tài khoản nhưng API sẽ báo chưa cấu hình hoặc từ chối token. Nếu chạy backend ngoài Docker, đặt `GOOGLE_CLIENT_ID` trong `backend/.env`. Client ID là cấu hình công khai, không phải client secret. Ứng dụng chỉ nhận email/name/avatar và mã định danh đã được Google xác minh, không nhận mật khẩu Google.
 
 Trước khi chuyển OAuth app sang chế độ production, cần triển khai website lên HTTPS domain do bạn sở hữu, xác minh domain trong Google Search Console, rồi khai báo URL trang chủ và đường dẫn `/privacy` trong Google Auth Platform → Branding. Trang chính sách này không thể thay thế việc triển khai domain công khai hoặc quy trình xác minh mà Google yêu cầu.
 

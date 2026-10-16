@@ -22,7 +22,7 @@ const DEMO_REGISTERED_USER = {
   Username: 'admin',
   PasswordHash: DEMO_PASSWORD_HASH,
   FullName: 'Quản trị viên',
-  Email: 'admin@example.local',
+  Email: 'admin@gmail.com',
   Phone: '0900000999',
   GoogleId: null,
   AvatarUrl: null,

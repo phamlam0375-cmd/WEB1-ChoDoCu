@@ -44,9 +44,9 @@ function Debtors() {
         </div>
       ),
     },
-    { key: 'ItemCount', title: 'Số khoản', className: 'text-right tabular-nums' },
-    { key: 'Unpaid', title: 'Còn nợ', render: (row) => formatMoney(row.Unpaid), className: 'text-right tabular-nums font-semibold' },
-    { key: 'Reported', title: 'Chờ xác nhận', render: (row) => formatMoney(row.Reported), className: 'text-right tabular-nums' },
+    { key: 'ItemCount', sortable: true, title: 'Số khoản', className: 'text-right tabular-nums' },
+    { key: 'Unpaid', sortable: true, title: 'Còn nợ', render: (row) => formatMoney(row.Unpaid), className: 'text-right tabular-nums font-semibold' },
+    { key: 'Reported', sortable: true, title: 'Chờ xác nhận', render: (row) => formatMoney(row.Reported), className: 'text-right tabular-nums' },
     {
       key: 'flags',
       title: 'Cảnh báo',

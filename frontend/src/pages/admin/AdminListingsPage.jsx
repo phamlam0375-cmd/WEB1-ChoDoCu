@@ -352,7 +352,7 @@ function ProcessingReports({ initialReportId }) {
   const { response, loading, error, reload } = useApi('/admin/reports', { status: 'PROCESSING', page })
 
   const columns = [
-    { key: 'ReportId', title: 'Mã', render: (row) => <span className="font-mono text-xs text-slate-500">#{row.ReportId}</span> },
+    { key: 'ReportId', sortable: true, title: 'Mã', render: (row) => <span className="font-mono text-xs text-slate-500">#{row.ReportId}</span> },
     {
       key: 'target',
       title: 'Tin / đối tượng bị báo cáo',
@@ -364,7 +364,7 @@ function ProcessingReports({ initialReportId }) {
     },
     { key: 'Reason', title: 'Lý do' },
     { key: 'Reporter', title: 'Người gửi', render: (row) => row.Reporter?.FullName },
-    { key: 'CreatedAt', title: 'Thời gian', render: (row) => formatDateTime(row.CreatedAt), className: 'whitespace-nowrap' },
+    { key: 'CreatedAt', sortable: true, title: 'Thời gian', render: (row) => formatDateTime(row.CreatedAt), className: 'whitespace-nowrap' },
     {
       key: 'actions',
       title: '',
@@ -397,7 +397,9 @@ function ProcessingReports({ initialReportId }) {
 }
 
 function ListingQueue() {
-  const [filters, setFilters] = useState({ status: 'PENDING', q: '', categoryId: '', page: 1 })
+  const [searchParams] = useSearchParams()
+  const initialQuery = searchParams.get('q') || ''
+  const [filters, setFilters] = useState({ status: initialQuery ? '' : 'PENDING', q: initialQuery, categoryId: '', page: 1 })
   const [selected, setSelected] = useState(null)
   const { response, loading, error, reload } = useApi('/admin/listings', filters)
   const { data: categories } = useApi('/categories')
@@ -470,7 +472,7 @@ function ListingQueue() {
           },
         ]
       : []),
-    { key: 'ListingId', title: 'Mã', render: (row) => <span className="font-mono text-xs text-slate-500">#{row.ListingId}</span> },
+    { key: 'ListingId', sortable: true, title: 'Mã', render: (row) => <span className="font-mono text-xs text-slate-500">#{row.ListingId}</span> },
     {
       key: 'Title',
       title: 'Tin đăng',
@@ -481,16 +483,17 @@ function ListingQueue() {
         </div>
       ),
     },
-    { key: 'Price', title: 'Giá', render: (row) => formatMoney(row.Price), className: 'whitespace-nowrap text-right tabular-nums' },
+    { key: 'Price', sortable: true, title: 'Giá', render: (row) => formatMoney(row.Price), className: 'whitespace-nowrap text-right tabular-nums' },
     { key: 'ConditionLevel', title: 'Tình trạng', render: (row) => conditionLabel(row.ConditionLevel) },
-    { key: 'Status', title: 'Trạng thái', render: (row) => <StatusBadge map={LISTING_STATUS} value={row.Status} /> },
-    { key: 'aiReview', title: 'AI gợi ý', render: (row) => <AiBadge review={row.aiReview} />, className: 'whitespace-nowrap' },
+    { key: 'Status', sortable: true, title: 'Trạng thái', render: (row) => <StatusBadge map={LISTING_STATUS} value={row.Status} /> },
+    { key: 'aiReview', sortValue: (row) => ({ REJECT: 3, REVIEW: 2, APPROVE: 1 })[row.aiReview?.recommendation] ?? 0, title: 'AI gợi ý', render: (row) => <AiBadge review={row.aiReview} />, className: 'whitespace-nowrap' },
     {
       key: 'OpenReportCount',
+      sortable: true,
       title: 'Báo cáo mở',
       render: (row) => (Number(row.OpenReportCount) > 0 ? <Badge tone="red">{row.OpenReportCount}</Badge> : <span className="text-slate-400">0</span>),
     },
-    { key: 'CreatedAt', title: 'Đăng lúc', render: (row) => formatDateTime(row.CreatedAt), className: 'whitespace-nowrap' },
+    { key: 'CreatedAt', sortable: true, title: 'Đăng lúc', render: (row) => formatDateTime(row.CreatedAt), className: 'whitespace-nowrap' },
     {
       key: 'actions',
       title: '',

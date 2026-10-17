@@ -6,6 +6,7 @@ const partners = require("../controllers/adminPartnerApplications.controller");
 const categories = require("../controllers/categories.controller");
 const reports = require("../controllers/reports.controller");
 const listings = require("../controllers/adminListings.controller");
+const search = require("../controllers/adminSearch.controller");
 const refunds = require("../controllers/refunds.controller");
 const commissions = require("../controllers/commissions.controller");
 const statistics = require("../controllers/statistics.controller");
@@ -17,6 +18,9 @@ const router = express.Router();
 router.use(requireAuth, requireRole("ADMIN"));
 
 // B01 Quản lý tài khoản và phân quyền
+// Tìm kiếm nhanh trên thanh tiêu đề
+router.get("/search", search.quickSearch);
+
 router.get("/users", users.listUsers);
 router.get("/users/:id", users.getUser);
 router.patch("/users/:id", users.updateUser);
@@ -71,6 +75,7 @@ router.get("/pending-counts", statistics.getPendingCounts);
 router.get("/audit-logs", auditLogs.listAuditLogs);
 router.get("/audit-logs/meta", auditLogs.getAuditLogMeta);
 router.get("/audit-logs/export", auditLogs.exportAuditLogs);
+router.get("/my-activity", auditLogs.getMyActivity);
 
 // B12 Cấu hình quy tắc hệ thống
 router.get("/settings", settings.getSettings);

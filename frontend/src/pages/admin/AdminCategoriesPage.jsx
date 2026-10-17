@@ -142,9 +142,10 @@ export default function AdminCategoriesPage() {
         : { title: 'Hiện lại danh mục', message: `Hiện lại danh mục "${pending.row.CategoryName}" trong form đăng tin và bộ lọc?`, confirm: 'Hiện lại', tone: 'primary' }
 
   const columns = [
-    { key: 'CategoryId', title: 'Mã', render: (row) => <span className="font-mono text-xs text-slate-500">#{row.CategoryId}</span> },
+    { key: 'CategoryId', sortable: true, title: 'Mã', render: (row) => <span className="font-mono text-xs text-slate-500">#{row.CategoryId}</span> },
     {
       key: 'CategoryName',
+      sortable: true,
       title: 'Danh mục',
       render: (row) => (
         <div>
@@ -153,9 +154,9 @@ export default function AdminCategoriesPage() {
         </div>
       ),
     },
-    { key: 'ListingCount', title: 'Số tin đang dùng', render: (row) => row.ListingCount, className: 'text-right tabular-nums' },
-    { key: 'Status', title: 'Trạng thái', render: (row) => <StatusBadge map={CATEGORY_STATUS} value={row.Status} /> },
-    { key: 'CreatedAt', title: 'Ngày tạo', render: (row) => formatDate(row.CreatedAt) },
+    { key: 'ListingCount', sortable: true, title: 'Số tin đang dùng', render: (row) => row.ListingCount, className: 'text-right tabular-nums' },
+    { key: 'Status', sortable: true, title: 'Trạng thái', render: (row) => <StatusBadge map={CATEGORY_STATUS} value={row.Status} /> },
+    { key: 'CreatedAt', sortable: true, title: 'Ngày tạo', render: (row) => formatDate(row.CreatedAt) },
     {
       key: 'actions',
       title: '',

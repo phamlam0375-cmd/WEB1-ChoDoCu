@@ -76,9 +76,9 @@ export default function AdminAuditLogsPage() {
   }
 
   const columns = [
-    { key: 'CreatedAt', title: 'Thời gian', render: (row) => formatDateTime(row.CreatedAt), className: 'whitespace-nowrap' },
-    { key: 'Admin', title: 'Quản trị viên', render: (row) => row.Admin?.FullName || `#${row.AdminId}` },
-    { key: 'Action', title: 'Hành động', render: (row) => <span className="font-medium text-slate-900">{row.ActionLabel}</span> },
+    { key: 'CreatedAt', sortable: true, title: 'Thời gian', render: (row) => formatDateTime(row.CreatedAt), className: 'whitespace-nowrap' },
+    { key: 'Admin', sortValue: (row) => row.Admin?.FullName, title: 'Quản trị viên', render: (row) => row.Admin?.FullName || `#${row.AdminId}` },
+    { key: 'Action', sortable: true, title: 'Hành động', render: (row) => <span className="font-medium text-slate-900">{row.ActionLabel}</span> },
     {
       key: 'Target',
       title: 'Đối tượng',

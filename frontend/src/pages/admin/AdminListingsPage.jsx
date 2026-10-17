@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
-import { Bot, Check, Eye, EyeOff, ImageOff, Loader2, RotateCcw, Trash2, X } from 'lucide-react'
+import { AlertTriangle, Bot, Check, Eye, EyeOff, ImageOff, Loader2, RotateCcw, ShieldCheck, Trash2, X } from 'lucide-react'
 import { Badge, ConfirmDialog, DataTable, Field, FilterBar, InfoRow, Loading, Modal, PageHeader, Pagination, SearchInput, Section, StatusBadge, StatusTabs } from '../../components/admin/AdminUi'
 import { btn, input } from '../../components/admin/styles'
 import ReportInfo from '../../components/report/ReportInfo'
@@ -17,6 +17,67 @@ const ACTIONS = {
   HIDE: { label: 'Ẩn tin', icon: EyeOff, style: btn.secondary, tone: 'danger', noteRequired: true, from: ['ACTIVE', 'RESERVED', 'HIDDEN'] },
   REMOVE: { label: 'Gỡ tin', icon: Trash2, style: btn.danger, tone: 'danger', noteRequired: true, from: ['ACTIVE', 'RESERVED', 'HIDDEN', 'SUSPENDED'] },
   RESTORE: { label: 'Khôi phục', icon: RotateCcw, style: btn.secondary, tone: 'primary', noteRequired: false, from: ['SUSPENDED'] },
+}
+
+// Lý do soạn sẵn kèm hướng dẫn sửa, bấm để điền vào ô lý do (vẫn sửa hoặc gõ thêm được).
+const VIOLATION_REASONS = [
+  { label: 'Hàng cấm', text: 'Sản phẩm thuộc nhóm hàng cấm mua bán, không được phép đăng trên website.' },
+  { label: 'Hàng giả, hàng nhái', text: 'Sản phẩm có dấu hiệu là hàng giả, hàng nhái thương hiệu.' },
+  { label: 'Dấu hiệu lừa đảo', text: 'Tin có dấu hiệu lừa đảo (giá quá rẻ, yêu cầu chuyển tiền trước ngoài quy trình của website).' },
+  { label: 'Sai mô tả', text: 'Nội dung, ảnh hoặc tình trạng sản phẩm không đúng với thực tế.' },
+  { label: 'Có thông tin liên hệ', text: 'Tiêu đề hoặc mô tả có số điện thoại, đường link, email hoặc mạng xã hội. Vui lòng trao đổi qua tính năng nhắn tin của website.' },
+  { label: 'Tin trùng lặp', text: 'Tin trùng với tin khác đã đăng (kể cả tin đã ẩn). Muốn bán lại món đã ẩn, hãy hiện lại tin cũ thay vì đăng tin mới.' },
+]
+const REJECT_REASONS = [
+  VIOLATION_REASONS[5],
+  { label: 'Ảnh lấy trên mạng', text: 'Ảnh lấy từ mạng, không phải ảnh tự chụp. Vui lòng đăng ảnh thật của chính món hàng.' },
+  { label: 'Ảnh không đạt', text: 'Thiếu ảnh, hoặc ảnh mờ, nghiêng, ghép, chỉnh sửa quá mức, có chữ/logo/số điện thoại. Vui lòng chụp lại ảnh rõ, đủ các góc.' },
+  { label: 'Thiếu thông tin', text: 'Mô tả thiếu thông tin: hãng, model, kích cỡ, thời gian sử dụng, tình trạng hiện tại, lý do bán, phụ kiện kèm theo.' },
+  VIOLATION_REASONS[4],
+  { label: 'Sai danh mục / tình trạng', text: 'Danh mục hoặc tình trạng đã chọn không khớp với sản phẩm. Vui lòng chọn lại cho đúng.' },
+  { label: 'Viết không dấu', text: 'Tiêu đề và mô tả cần viết tiếng Việt có dấu để người mua dễ tìm.' },
+  { label: 'Giá không hợp lý', text: 'Giá quá cao hoặc quá thấp bất thường so với sản phẩm cùng loại. Vui lòng kiểm tra lại giá.' },
+  ...VIOLATION_REASONS.slice(0, 3),
+]
+const PRESETS_BY_ACTION = { REJECT: REJECT_REASONS, HIDE: VIOLATION_REASONS, REMOVE: VIOLATION_REASONS }
+
+// Kết quả kiểm tra tự động (không cần AI): tin trùng lặp và các lỗi hay gặp.
+function ListingChecks({ checks, onOpenListing }) {
+  if (!checks) return null
+  const { warnings = [], duplicates = [] } = checks
+  if (!warnings.length) {
+    return (
+      <p className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+        <ShieldCheck size={16} /> Kiểm tra tự động: không phát hiện tin trùng hay lỗi thường gặp.
+      </p>
+    )
+  }
+  return (
+    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">
+      <p className="mb-2 flex items-center gap-2 font-semibold text-amber-900">
+        <AlertTriangle size={16} /> Kiểm tra tự động ({warnings.length} cảnh báo)
+      </p>
+      <ul className="list-disc space-y-1 pl-5 text-amber-900">
+        {warnings.map((warning) => <li key={`${warning.code}-${warning.message}`}>{warning.message}</li>)}
+      </ul>
+      {duplicates.length > 0 && (
+        <ul className="mt-3 divide-y divide-amber-100 overflow-hidden rounded-md border border-amber-200 bg-white">
+          {duplicates.map((item) => (
+            <li key={item.ListingId}>
+              <button type="button" onClick={() => onOpenListing(item.ListingId)} className="flex w-full flex-wrap items-center gap-2 px-3 py-2 text-left hover:bg-slate-50">
+                <span className="font-mono text-xs text-slate-500">#{item.ListingId}</span>
+                <span className="min-w-0 flex-1 truncate font-medium text-slate-900">{item.Title}</span>
+                <StatusBadge map={LISTING_STATUS} value={item.Status} />
+                <span className="text-xs text-slate-500">
+                  {formatMoney(item.Price)} · giống {item.similarity}% · {item.sameSeller ? 'cùng người bán' : `người bán khác: ${item.Seller?.FullName}`}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
 }
 
 function MediaThumb({ media }) {
@@ -35,6 +96,7 @@ function ListingDetail({ id, onClose, onSaved }) {
   const { data: listing, loading, error, reload } = useApi(`/admin/listings/${id}`)
   const { busy, run } = useMutation()
   const [action, setAction] = useState(null)
+  const [duplicateId, setDuplicateId] = useState(null)
 
   const submit = async (note) => {
     try {
@@ -73,6 +135,8 @@ function ListingDetail({ id, onClose, onSaved }) {
               {listing.Media.map((media) => <MediaThumb key={media.MediaId} media={media} />)}
             </div>
           )}
+
+          <ListingChecks checks={listing.checks} onOpenListing={setDuplicateId} />
 
           <AiReviewPanel
             listingId={id}
@@ -135,10 +199,12 @@ function ListingDetail({ id, onClose, onSaved }) {
         reasonLabel={ACTIONS[action]?.noteRequired ? 'Lý do' : 'Ghi chú (không bắt buộc)'}
         reasonRequired={ACTIONS[action]?.noteRequired}
         reasonEmptyMessage={ACTIONS[action]?.empty}
+        reasonPresets={PRESETS_BY_ACTION[action]}
         busy={busy}
         onConfirm={submit}
         onClose={() => setAction(null)}
       />
+      {duplicateId && <ListingDetail id={duplicateId} onClose={() => setDuplicateId(null)} onSaved={onSaved} />}
     </Modal>
   )
 }
@@ -264,6 +330,7 @@ function ReportHandleDetail({ id, onClose, onSaved }) {
         tone={rule?.tone}
         reasonLabel={resolving ? 'Lý do' : 'Ghi chú (không bắt buộc)'}
         reasonRequired={resolving}
+        reasonPresets={resolving ? VIOLATION_REASONS : []}
         busy={busy}
         onConfirm={submit}
         onClose={() => setDecision(null)}
@@ -499,6 +566,7 @@ function ListingQueue() {
         reasonLabel={bulkAction === 'REJECT' ? 'Lý do từ chối (áp dụng cho mọi tin)' : 'Ghi chú (không bắt buộc)'}
         reasonRequired={bulkAction === 'REJECT'}
         reasonEmptyMessage="Vui lòng nhập lý do từ chối"
+        reasonPresets={bulkAction === 'REJECT' ? REJECT_REASONS : []}
         busy={bulkBusy}
         onConfirm={submitBulk}
         onClose={() => setBulkAction(null)}

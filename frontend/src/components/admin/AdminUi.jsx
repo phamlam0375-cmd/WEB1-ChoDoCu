@@ -288,6 +288,7 @@ function ConfirmDialogBody({
   reasonRequired = false,
   reasonMin = 1,
   reasonEmptyMessage = 'Vui lòng nhập lý do',
+  reasonPresets = [],
   busy = false,
   onConfirm,
   onClose,
@@ -301,6 +302,12 @@ function ConfirmDialogBody({
   const submit = () => {
     setTouched(true)
     if (!invalid) onConfirm(trimmed)
+  }
+  // Bấm một lý do soạn sẵn: thêm vào ô lý do (bấm lại thì bỏ ra).
+  const togglePreset = (text) => {
+    const lines = reason.split('\n').map((line) => line.trim()).filter(Boolean)
+    const next = lines.includes(text) ? lines.filter((line) => line !== text) : [...lines, text]
+    setReason(next.join('\n').slice(0, 500))
   }
 
   return (
@@ -327,7 +334,25 @@ function ConfirmDialogBody({
           label={`${reasonLabel}${reasonRequired ? ' *' : ''}`}
           error={touched && invalid ? (trimmed ? `Vui lòng nhập ít nhất ${reasonMin} ký tự` : reasonEmptyMessage) : null}
         >
-          <textarea rows={3} value={reason} onChange={(event) => setReason(event.target.value)} className={input} maxLength={500} />
+          {reasonPresets.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {reasonPresets.map((preset) => {
+                const active = reason.split('\n').map((line) => line.trim()).includes(preset.text)
+                return (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    title={preset.text}
+                    onClick={() => togglePreset(preset.text)}
+                    className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${active ? 'border-emerald-600 bg-emerald-50 text-emerald-800' : 'border-slate-300 text-slate-600 hover:border-slate-400 hover:bg-slate-50'}`}
+                  >
+                    {preset.label}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          <textarea rows={reasonPresets.length ? 4 : 3} value={reason} onChange={(event) => setReason(event.target.value)} className={input} maxLength={500} />
         </Field>
       )}
     </Modal>

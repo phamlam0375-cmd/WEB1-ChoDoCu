@@ -21,6 +21,7 @@ import {
 import DevAccountSwitcher from '../../components/DevAccountSwitcher'
 import DevAccountError from '../../components/DevAccountError'
 import { Loading } from '../../components/admin/AdminUi'
+import QuickSearch from '../../components/admin/QuickSearch'
 import { useApi } from '../../hooks/useApi'
 import { useDevAccount } from '../../hooks/useDevAccount'
 
@@ -144,6 +145,9 @@ function AccessGate({ children }) {
 export default function AdminLayout() {
   const [menuOpen, setMenuOpen] = useState(false)
   const counts = usePendingCounts()
+  const { me } = useDevAccount()
+  const isAdmin = Boolean(me?.roles?.includes('ADMIN'))
+  const location = useLocation()
 
   return (
     <div className="min-h-screen bg-green-100 text-slate-900">
@@ -167,6 +171,11 @@ export default function AdminLayout() {
           </Link>
           <span className="rounded-md bg-slate-900 px-2 py-0.5 text-[11px] font-semibold uppercase text-white">Quản trị</span>
         </div>
+        {isAdmin && (
+          <div className="hidden min-w-0 flex-1 justify-center sm:flex">
+            <QuickSearch />
+          </div>
+        )}
         <div className="hidden md:block">
           <DevAccountSwitcher compact />
         </div>
@@ -196,7 +205,8 @@ export default function AdminLayout() {
 
         <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
           <AccessGate>
-            <Outlet />
+            {/* Mở lại trang khi đổi từ khóa tìm nhanh (?q=) để bộ lọc nhận từ khóa mới. */}
+            <Outlet key={`${location.pathname}?${new URLSearchParams(location.search).get('q') || ''}`} />
           </AccessGate>
         </main>
       </div>

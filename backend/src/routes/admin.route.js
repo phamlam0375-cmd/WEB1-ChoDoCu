@@ -6,6 +6,7 @@ const partners = require("../controllers/adminPartnerApplications.controller");
 const categories = require("../controllers/categories.controller");
 const reports = require("../controllers/reports.controller");
 const listings = require("../controllers/adminListings.controller");
+const search = require("../controllers/adminSearch.controller");
 const refunds = require("../controllers/refunds.controller");
 const commissions = require("../controllers/commissions.controller");
 const statistics = require("../controllers/statistics.controller");
@@ -17,6 +18,9 @@ const router = express.Router();
 router.use(requireAuth, requireRole("ADMIN"));
 
 // B01 Quản lý tài khoản và phân quyền
+// Tìm kiếm nhanh trên thanh tiêu đề
+router.get("/search", search.quickSearch);
+
 router.get("/users", users.listUsers);
 router.get("/users/:id", users.getUser);
 router.patch("/users/:id", users.updateUser);

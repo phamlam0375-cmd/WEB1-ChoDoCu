@@ -23,6 +23,8 @@ const REPORT_REASONS = [
   "Sản phẩm cấm",
   "Nghi ngờ lừa đảo",
   "Spam hoặc tin trùng lặp",
+  "Tin đã bán nhưng chưa gỡ",
+  "Không liên hệ được người bán",
   "Nội dung không phù hợp",
   "Khác",
 ];

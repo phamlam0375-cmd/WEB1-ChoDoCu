@@ -17,7 +17,7 @@ const REVIEW_MESSAGES = {
   RESTORE: "Đã khôi phục tin đăng",
 };
 
-const LISTING_STATUSES = ["DRAFT", "PENDING", "ACTIVE", "RESERVED", "SOLD", "HIDDEN", "REMOVED", "REJECTED"];
+const LISTING_STATUSES = ["DRAFT", "PENDING", "ACTIVE", "RESERVED", "SOLD", "HIDDEN", "SUSPENDED", "REMOVED", "REJECTED"];
 
 const openReportCount = [
   sequelize.literal(

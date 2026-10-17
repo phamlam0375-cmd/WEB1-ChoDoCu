@@ -14,9 +14,9 @@ import { CONDITION_LABELS, LISTING_STATUS, REPORT_STATUS } from '../../lib/label
 const ACTIONS = {
   APPROVE: { label: 'Duyệt tin', icon: Check, style: btn.primary, tone: 'primary', noteRequired: false, from: ['PENDING'] },
   REJECT: { label: 'Từ chối tin', icon: X, style: btn.danger, tone: 'danger', noteRequired: true, empty: 'Vui lòng nhập lý do từ chối', from: ['PENDING'] },
-  HIDE: { label: 'Ẩn tin', icon: EyeOff, style: btn.secondary, tone: 'danger', noteRequired: true, from: ['ACTIVE', 'RESERVED'] },
-  REMOVE: { label: 'Gỡ tin', icon: Trash2, style: btn.danger, tone: 'danger', noteRequired: true, from: ['ACTIVE', 'RESERVED', 'HIDDEN'] },
-  RESTORE: { label: 'Khôi phục', icon: RotateCcw, style: btn.secondary, tone: 'primary', noteRequired: false, from: ['HIDDEN'] },
+  HIDE: { label: 'Ẩn tin', icon: EyeOff, style: btn.secondary, tone: 'danger', noteRequired: true, from: ['ACTIVE', 'RESERVED', 'HIDDEN'] },
+  REMOVE: { label: 'Gỡ tin', icon: Trash2, style: btn.danger, tone: 'danger', noteRequired: true, from: ['ACTIVE', 'RESERVED', 'HIDDEN', 'SUSPENDED'] },
+  RESTORE: { label: 'Khôi phục', icon: RotateCcw, style: btn.secondary, tone: 'primary', noteRequired: false, from: ['SUSPENDED'] },
 }
 
 function MediaThumb({ media }) {
@@ -163,7 +163,7 @@ function ReportHandleDetail({ id, onClose, onSaved }) {
   const choices = !report
     ? []
     : report.Listing && report.Listing.Status !== 'REMOVED'
-      ? ['HIDE', 'REMOVE', 'DISMISS'].filter((key) => key !== 'HIDE' || report.Listing.Status !== 'HIDDEN')
+      ? ['HIDE', 'REMOVE', 'DISMISS'].filter((key) => key !== 'HIDE' || report.Listing.Status !== 'SUSPENDED')
       : ['RESOLVE', 'DISMISS']
   const rule = REPORT_DECISIONS[decision]
   const resolving = rule?.body.status === 'RESOLVED'

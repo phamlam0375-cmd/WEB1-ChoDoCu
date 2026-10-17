@@ -330,7 +330,9 @@ function ProcessingReports({ initialReportId }) {
 }
 
 function ListingQueue() {
-  const [filters, setFilters] = useState({ status: 'PENDING', q: '', categoryId: '', page: 1 })
+  const [searchParams] = useSearchParams()
+  const initialQuery = searchParams.get('q') || ''
+  const [filters, setFilters] = useState({ status: initialQuery ? '' : 'PENDING', q: initialQuery, categoryId: '', page: 1 })
   const [selected, setSelected] = useState(null)
   const { response, loading, error, reload } = useApi('/admin/listings', filters)
   const { data: categories } = useApi('/categories')

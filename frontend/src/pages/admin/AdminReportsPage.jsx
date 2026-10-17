@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { ArrowRightCircle, Eye } from 'lucide-react'
 import { Badge, ConfirmDialog, DataTable, Field, FilterBar, Loading, Modal, PageHeader, Pagination, SearchInput, Section, StatusBadge, StatusTabs } from '../../components/admin/AdminUi'
@@ -71,7 +71,9 @@ function ReportDetail({ id, onClose, onSaved }) {
 }
 
 export default function AdminReportsPage() {
-  const [filters, setFilters] = useState({ status: 'PENDING', targetType: '', reason: '', q: '', from: '', to: '', page: 1 })
+  const [searchParams] = useSearchParams()
+  const initialQuery = searchParams.get('q') || ''
+  const [filters, setFilters] = useState({ status: initialQuery ? '' : 'PENDING', targetType: '', reason: '', q: initialQuery, from: '', to: '', page: 1 })
   const [selected, setSelected] = useState(null)
   const { response, loading, error, reload } = useApi('/admin/reports', filters)
   const { data: reasons } = useApi('/reports/reasons')

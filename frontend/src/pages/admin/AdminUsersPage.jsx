@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { Eye, Lock, Unlock } from 'lucide-react'
 import { Badge, ConfirmDialog, DataTable, Field, FilterBar, InfoRow, Loading, Modal, PageHeader, Pagination, SearchInput, Section, StatusBadge } from '../../components/admin/AdminUi'
@@ -152,7 +153,9 @@ function UserDetail({ userId, onClose, onSaved }) {
 }
 
 export default function AdminUsersPage() {
-  const [filters, setFilters] = useState({ q: '', role: '', status: '', page: 1 })
+  const [searchParams] = useSearchParams()
+  const initialQuery = searchParams.get('q') || ''
+  const [filters, setFilters] = useState({ q: initialQuery, role: '', status: '', page: 1 })
   const [selected, setSelected] = useState(null)
   const { response, loading, error, reload } = useApi('/admin/users', filters)
   const update = (patch) => setFilters((current) => ({ ...current, page: 1, ...patch }))

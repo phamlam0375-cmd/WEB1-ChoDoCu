@@ -158,9 +158,10 @@ export default function AdminUsersPage() {
   const update = (patch) => setFilters((current) => ({ ...current, page: 1, ...patch }))
 
   const columns = [
-    { key: 'UserId', title: 'Mã', render: (row) => <span className="font-mono text-xs text-slate-500">#{row.UserId}</span> },
+    { key: 'UserId', sortable: true, title: 'Mã', render: (row) => <span className="font-mono text-xs text-slate-500">#{row.UserId}</span> },
     {
       key: 'FullName',
+      sortable: true,
       title: 'Tài khoản',
       render: (row) => (
         <div>
@@ -171,8 +172,8 @@ export default function AdminUsersPage() {
     },
     { key: 'Phone', title: 'Điện thoại', render: (row) => row.Phone || '—' },
     { key: 'Roles', title: 'Vai trò', render: (row) => <RoleBadges roles={row.Roles} /> },
-    { key: 'Status', title: 'Trạng thái', render: (row) => <StatusBadge map={USER_STATUS} value={row.Status} /> },
-    { key: 'CreatedAt', title: 'Ngày tạo', render: (row) => formatDateTime(row.CreatedAt), className: 'whitespace-nowrap' },
+    { key: 'Status', sortable: true, title: 'Trạng thái', render: (row) => <StatusBadge map={USER_STATUS} value={row.Status} /> },
+    { key: 'CreatedAt', sortable: true, title: 'Ngày tạo', render: (row) => formatDateTime(row.CreatedAt), className: 'whitespace-nowrap' },
     {
       key: 'actions',
       title: '',

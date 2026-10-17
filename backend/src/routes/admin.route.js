@@ -71,6 +71,7 @@ router.get("/pending-counts", statistics.getPendingCounts);
 router.get("/audit-logs", auditLogs.listAuditLogs);
 router.get("/audit-logs/meta", auditLogs.getAuditLogMeta);
 router.get("/audit-logs/export", auditLogs.exportAuditLogs);
+router.get("/my-activity", auditLogs.getMyActivity);
 
 // B12 Cấu hình quy tắc hệ thống
 router.get("/settings", settings.getSettings);

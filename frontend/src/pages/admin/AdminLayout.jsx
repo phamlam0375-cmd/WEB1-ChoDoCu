@@ -14,6 +14,7 @@ import {
   Settings,
   ShieldCheck,
   Store,
+  UserCircle2,
   Users,
   X,
 } from 'lucide-react'
@@ -58,6 +59,7 @@ const NAV_GROUPS = [
     items: [
       { to: '/admin/audit-logs', label: 'Nhật ký thao tác', icon: FileClock },
       { to: '/admin/settings', label: 'Cấu hình quy tắc', icon: Settings },
+      { to: '/admin/profile', label: 'Hồ sơ của tôi', icon: UserCircle2 },
     ],
   },
 ]

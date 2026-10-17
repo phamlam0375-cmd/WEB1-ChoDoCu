@@ -8,6 +8,7 @@ const { HttpError, badRequest, notFound } = require("../utils/httpError");
 const aiReview = require("../services/listingAiReview.service");
 const { parsePagination, pagedResponse, parseId, optionalId, text, oneOf } = require("../utils/request");
 const { LISTING_ACTIONS, moderateListing } = require("../services/moderation.service");
+const { checkListing } = require("../services/listingChecks.service");
 
 const REVIEW_MESSAGES = {
   APPROVE: "Duyệt thành công",
@@ -17,7 +18,7 @@ const REVIEW_MESSAGES = {
   RESTORE: "Đã khôi phục tin đăng",
 };
 
-const LISTING_STATUSES = ["DRAFT", "PENDING", "ACTIVE", "RESERVED", "SOLD", "HIDDEN", "REMOVED", "REJECTED"];
+const LISTING_STATUSES = ["DRAFT", "PENDING", "ACTIVE", "RESERVED", "SOLD", "HIDDEN", "SUSPENDED", "REMOVED", "REJECTED"];
 
 const openReportCount = [
   sequelize.literal(
@@ -120,7 +121,9 @@ const getListing = async (req, res) => {
     limit: 20,
   });
 
-  return res.status(200).json({ success: true, data: { ...withAiReview(listing), reports, aiConfigured: aiReview.isConfigured() } });
+  const checks = await checkListing(listing);
+
+  return res.status(200).json({ success: true, data: { ...withAiReview(listing), reports, checks, aiConfigured: aiReview.isConfigured() } });
 };
 
 // Lỗi khi gọi AI: báo lý do dễ hiểu, không làm hỏng trang kiểm duyệt.

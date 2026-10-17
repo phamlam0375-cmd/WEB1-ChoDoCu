@@ -11,9 +11,9 @@ const { sendAccountStatusEmail } = require("./partnerMail.service");
 const LISTING_ACTIONS = {
   APPROVE: { from: ["PENDING"], audit: "LISTING_APPROVE", noteRequired: false, title: "Tin đăng đã được duyệt" },
   REJECT: { from: ["PENDING"], audit: "LISTING_REJECT", noteRequired: true, title: "Tin đăng bị từ chối" },
-  HIDE: { from: ["PENDING", "ACTIVE", "RESERVED"], audit: "LISTING_HIDE", noteRequired: true, title: "Tin đăng bị ẩn" },
-  REMOVE: { from: ["PENDING", "ACTIVE", "RESERVED", "HIDDEN"], audit: "LISTING_REMOVE", noteRequired: true, title: "Tin đăng bị gỡ" },
-  RESTORE: { from: ["HIDDEN"], audit: "LISTING_RESTORE", noteRequired: false, title: "Tin đăng được khôi phục" },
+  HIDE: { from: ["PENDING", "ACTIVE", "RESERVED", "HIDDEN"], audit: "LISTING_HIDE", noteRequired: true, title: "Tin đăng bị ẩn" },
+  REMOVE: { from: ["PENDING", "ACTIVE", "RESERVED", "HIDDEN", "SUSPENDED"], audit: "LISTING_REMOVE", noteRequired: true, title: "Tin đăng bị gỡ" },
+  RESTORE: { from: ["SUSPENDED"], audit: "LISTING_RESTORE", noteRequired: false, title: "Tin đăng được khôi phục" },
 };
 
 const OPEN_ORDER_STATUSES = ["RESERVED", "WAITING_PAYMENT", "PAID", "IN_DELIVERY", "DELIVERED", "REFUND_PENDING"];
@@ -21,7 +21,8 @@ const OPEN_ORDER_STATUSES = ["RESERVED", "WAITING_PAYMENT", "PAID", "IN_DELIVERY
 const nextListingStatus = async (listing, action, transaction) => {
   if (action === "APPROVE") return "ACTIVE";
   if (action === "REJECT") return "REJECTED";
-  if (action === "HIDE") return "HIDDEN";
+  // Ẩn do kiểm duyệt dùng SUSPENDED, tách khỏi HIDDEN do người bán tự ẩn, để người bán không tự hiện lại được.
+  if (action === "HIDE") return "SUSPENDED";
   if (action === "REMOVE") return "REMOVED";
   // Khôi phục tin đang có đơn dở dang thì trả về RESERVED để không bán trùng.
   const openOrder = await Orders.count({

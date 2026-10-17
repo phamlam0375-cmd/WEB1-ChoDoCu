@@ -4,7 +4,7 @@ import { COMMISSION_STATUS } from '../../lib/labels'
 
 // Cột bảng hoa hồng dùng chung cho trang hoa hồng và trang đối soát phí.
 export const commissionColumns = [
-  { key: 'PaymentReference', title: 'Mã đối soát', render: (row) => <span className="font-mono text-xs">{row.PaymentReference}</span> },
+  { key: 'PaymentReference', sortable: true, title: 'Mã đối soát', render: (row) => <span className="font-mono text-xs">{row.PaymentReference}</span> },
   {
     key: 'order',
     title: 'Đơn hàng',
@@ -15,11 +15,12 @@ export const commissionColumns = [
       </div>
     ),
   },
-  { key: 'Seller', title: 'Người bán', render: (row) => row.Seller?.FullName },
-  { key: 'ProductAmount', title: 'Giá SP', render: (row) => formatMoney(row.Order?.ProductAmount), className: 'whitespace-nowrap text-right tabular-nums' },
-  { key: 'Rate', title: 'Tỷ lệ', render: (row) => `${Number(row.Rate)}%`, className: 'text-right tabular-nums' },
+  { key: 'Seller', sortValue: (row) => row.Seller?.FullName, title: 'Người bán', render: (row) => row.Seller?.FullName },
+  { key: 'ProductAmount', sortValue: (row) => row.Order?.ProductAmount, title: 'Giá SP', render: (row) => formatMoney(row.Order?.ProductAmount), className: 'whitespace-nowrap text-right tabular-nums' },
+  { key: 'Rate', sortable: true, title: 'Tỷ lệ', render: (row) => `${Number(row.Rate)}%`, className: 'text-right tabular-nums' },
   {
     key: 'AmountDue',
+    sortable: true,
     title: 'Phải nộp',
     render: (row) => (
       <div className="text-right tabular-nums">
@@ -34,6 +35,7 @@ export const commissionColumns = [
   },
   {
     key: 'DueAt',
+    sortable: true,
     title: 'Hạn nộp',
     render: (row) => (
       <span className="whitespace-nowrap">
@@ -41,6 +43,6 @@ export const commissionColumns = [
       </span>
     ),
   },
-  { key: 'Status', title: 'Trạng thái', render: (row) => <StatusBadge map={COMMISSION_STATUS} value={row.Status} /> },
+  { key: 'Status', sortable: true, title: 'Trạng thái', render: (row) => <StatusBadge map={COMMISSION_STATUS} value={row.Status} /> },
 ]
 

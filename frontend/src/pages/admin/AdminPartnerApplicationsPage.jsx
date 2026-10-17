@@ -212,7 +212,7 @@ export default function AdminPartnerApplicationsPage() {
   const update = (patch) => setFilters((current) => ({ ...current, page: 1, ...patch }))
 
   const columns = [
-    { key: 'ApplicationId', title: 'Mã', render: (row) => <span className="font-mono text-xs text-slate-500">#{row.ApplicationId}</span> },
+    { key: 'ApplicationId', sortable: true, title: 'Mã', render: (row) => <span className="font-mono text-xs text-slate-500">#{row.ApplicationId}</span> },
     {
       key: 'Applicant',
       title: 'Người đăng ký',
@@ -223,7 +223,7 @@ export default function AdminPartnerApplicationsPage() {
         </div>
       ),
     },
-    { key: 'PartnerType', title: 'Loại', render: (row) => PARTNER_TYPE[row.PartnerType] },
+    { key: 'PartnerType', sortable: true, title: 'Loại', render: (row) => PARTNER_TYPE[row.PartnerType] },
     {
       key: 'verify',
       title: 'Xác thực',
@@ -235,8 +235,8 @@ export default function AdminPartnerApplicationsPage() {
         </div>
       ),
     },
-    { key: 'Status', title: 'Trạng thái', render: (row) => <StatusBadge map={PARTNER_STATUS} value={row.Status} /> },
-    { key: 'SubmittedAt', title: 'Ngày gửi', render: (row) => formatDateTime(row.SubmittedAt), className: 'whitespace-nowrap' },
+    { key: 'Status', sortable: true, title: 'Trạng thái', render: (row) => <StatusBadge map={PARTNER_STATUS} value={row.Status} /> },
+    { key: 'SubmittedAt', sortable: true, title: 'Ngày gửi', render: (row) => formatDateTime(row.SubmittedAt), className: 'whitespace-nowrap' },
     {
       key: 'actions',
       title: '',

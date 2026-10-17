@@ -5,6 +5,7 @@ const { Orders, Users, Roles } = require("../models");
 const { badRequest, conflict } = require("../utils/httpError");
 const { logAdminAction } = require("./auditLog.service");
 const { notify } = require("./notification.service");
+const { sendAccountStatusEmail } = require("./partnerMail.service");
 
 // Kiểm duyệt tin: các hành động, trạng thái được phép và trạng thái đích.
 const LISTING_ACTIONS = {
@@ -111,6 +112,12 @@ const setUserStatus = async (req, user, status, reason, { transaction, source } 
     },
     { transaction }
   );
+
+  // Gửi email sau khi lưu xong (không gửi nếu giao dịch bị hủy); lỗi gửi mail không ảnh hưởng thao tác.
+  const sendEmail = () =>
+    sendAccountStatusEmail({ to: user.Email, fullName: user.FullName || user.Email, status, reason });
+  if (transaction) transaction.afterCommit(sendEmail);
+  else sendEmail();
   return true;
 };
 

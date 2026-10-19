@@ -129,8 +129,7 @@ function AccessGate({ children }) {
         <ShieldCheck className="mx-auto text-emerald-600" size={32} />
         <h1 className="mt-3 text-lg font-semibold text-slate-900">Khu vực dành cho quản trị viên</h1>
         <p className="mt-1 text-sm text-slate-500">
-          {me ? 'Bạn không có quyền truy cập chức năng này.' : 'Đăng nhập bằng tài khoản quản trị để tiếp tục.'} Khi demo có thể
-          nhập mã tài khoản thử nghiệm: tài khoản <b>#2</b> là quản trị viên.
+          {me ? 'Bạn không có quyền truy cập chức năng này. Hãy đăng xuất rồi đăng nhập bằng tài khoản quản trị.' : 'Đăng nhập bằng tài khoản quản trị để tiếp tục.'}
         </p>
         <div className="mt-4 flex justify-center">
           <DevAccountSwitcher />

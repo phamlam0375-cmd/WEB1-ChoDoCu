@@ -1,4 +1,4 @@
-import api from "./axios";
+import api from "./apiClient";
 
 const getStoreByOwnerId = (ownerId) => {
     return api.get(`/stores/${ownerId}`);

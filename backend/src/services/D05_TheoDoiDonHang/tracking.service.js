@@ -57,6 +57,7 @@ function capabilities(state, role, user, now) {
     cancel: action(buyer && c.action === 'CANCEL', `/orders/${id}/cancel`, c.detail || c.message || 'Chỉ người mua được hủy khi đơn còn phù hợp.'),
     payment: action(buyer && p.canReport, `/orders/${id}/payment`, p.code === 'SELLER_ACCEPTANCE_REQUIRED' ? 'Chờ người bán chấp nhận đơn.' : p.message),
     confirmPayment: action(seller && f.canDecide, `/seller/orders/${id}/payment`, seller ? f.message : 'Chỉ người bán của đơn được đối chiếu nhận tiền.'),
+    rejectOrder: action(seller && state.order.Status === 'RESERVED' && !state.payment && !state.deliveries.length, `/seller/orders/${id}/reject`, seller ? 'Từ chối đơn hàng đang chờ người bán chấp nhận.' : 'Chỉ người bán của đơn được từ chối đơn.'),
     refund: action(buyer && !user.d01Demo && r.enabled, `/orders/${id}/refund`, user.d01Demo ? 'Yêu cầu hoàn tiền cần phiên tài khoản hiện có, không dùng chế độ thử mua hàng.' : r.reason || 'Chỉ người mua được yêu cầu hoàn tiền.'),
     receive: action(false, null, 'Chức năng xác nhận nhận hàng chưa sẵn sàng.'),
     chat: action(false, null, state.order.DeliveryMethod === 'PICKUP' ? 'Đơn tự đến lấy không có tài xế.' : state.deliveries.some(d => d.DriverId) ? 'Trò chuyện theo đơn chưa sẵn sàng.' : 'Chưa thể mở trò chuyện với tài xế khi chưa được phân công.'),

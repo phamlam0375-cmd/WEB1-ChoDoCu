@@ -1,5 +1,5 @@
 import { Camera, Car, Clock, ShieldCheck, Upload, Users } from "lucide-react";
-import { postPartnerApplication, sendPartnerOtp, verifyPartnerOtp, } from "../../api/partnerApplicationApi";
+import { postPartnerApplication, sendPartnerOtp, verifyPartnerOtp, } from "../../services/partnerApplicationApi";
 import { useRef, useState } from "react";
 
 import Header from "../Header";

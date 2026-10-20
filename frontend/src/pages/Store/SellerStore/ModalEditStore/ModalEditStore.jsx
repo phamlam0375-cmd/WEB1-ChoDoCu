@@ -1,7 +1,7 @@
 import {
     updateStore,
     uploadQrImage,
-} from "../../../../api/store";
+} from "../../../../services/storeApi";
 import { useEffect, useRef, useState } from "react";
 
 import StoreBasicInfo from "./StoreBasicInfo";

@@ -11,7 +11,7 @@ import { formatDateTime, formatDecimalMoney } from '../../lib/format'
 import { ORDER_STATUS, PAYMENT_STATUS, DELIVERY_STATUS, REFUND_STATUS } from '../../lib/labels'
 
 const load = ({ orderId, historyPage }, signal) => getOrderTracking(orderId, { historyPage, historyLimit: 20 }, { signal })
-const actionLabels = { cancel: 'Hủy đơn', payment: 'Thanh toán / Báo chuyển tiền', confirmPayment: 'Xác nhận nhận tiền', refund: 'Yêu cầu hoàn tiền', receive: 'Xác nhận nhận hàng', chat: 'Liên hệ tài xế' }
+const actionLabels = { cancel: 'Hủy đơn', payment: 'Thanh toán / Báo chuyển tiền', confirmPayment: 'Xác nhận nhận tiền', rejectOrder: 'Từ chối đơn hàng', refund: 'Yêu cầu hoàn tiền', receive: 'Xác nhận nhận hàng', chat: 'Liên hệ tài xế' }
 function TrackingDetail({ orderId }) {
   const [historyPage, setHistoryPage] = useState(1)
   const { data, loading, error, notice, refresh } = useTrackingResource(load, JSON.stringify({ orderId, historyPage }), true)
@@ -77,7 +77,7 @@ function TrackingDetail({ orderId }) {
       <Card className="mt-5 p-5">
         <h2 className="font-bold">Thao tác liên quan</h2>
         <div className="mt-4 flex flex-wrap gap-3">{Object.entries(data.capabilities).filter(([, action]) => action.enabled && action.href).map(([key, action]) => <Link key={key} to={action.href} className={btn.secondary}>{actionLabels[key]}</Link>)}</div>
-        <ul className="mt-4 space-y-2 text-sm text-slate-500">{Object.entries(data.capabilities).filter(([key, action]) => !action.enabled && (data.viewer.role === 'BUYER' ? key !== 'confirmPayment' : key === 'confirmPayment' || key === 'chat')).map(([key, action]) => <li key={key}>{actionLabels[key]}: {action.reason}</li>)}</ul>
+        <ul className="mt-4 space-y-2 text-sm text-slate-500">{Object.entries(data.capabilities).filter(([key, action]) => !action.enabled && (data.viewer.role === 'BUYER' ? key !== 'confirmPayment' && key !== 'rejectOrder' : key === 'confirmPayment' || key === 'rejectOrder' || key === 'chat')).map(([key, action]) => <li key={key}>{actionLabels[key]}: {action.reason}</li>)}</ul>
       </Card>
       <TrackingTimeline histories={data.histories} pagination={data.historyPagination} onPage={setHistoryPage} />
     </>}

@@ -1,4 +1,4 @@
-import { getStoreListing, hideListing, updateListing } from "../../api/listingApi";
+import { getStoreListing, hideListing, updateListing } from "../../services/listingApi";
 import { useEffect, useState } from "react";
 
 import Header from "../../components/Header";

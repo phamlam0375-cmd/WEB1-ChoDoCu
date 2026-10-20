@@ -14,6 +14,7 @@ import Login from './pages/Login'
 import OrderCancelPage from './pages/D02_HuyDonHang/OrderCancelPage'
 import OrderCreatePage from './pages/OrderCreatePage'
 import OrderPaymentPage from './pages/D03_ThanhToan/OrderPaymentPage'
+import OrderRejectPage from './pages/OrderRejectPage'
 import PrivacyPolicy from './pages/PrivacyPolicy'
 import PublicStore from './pages/Store/PublicStore'
 import Register from './pages/Register'
@@ -65,6 +66,7 @@ function App() {
         <Route path="/orders/create/:listingId" element={<OrderCreatePage />} />
         <Route path="/orders/:orderId/cancel" element={<OrderCancelPage />} />
         <Route path="/orders/:orderId/payment" element={<OrderPaymentPage />} />
+        <Route path="/seller/orders/:orderId/reject" element={<OrderRejectPage />} />
 
         <Route path="/partner-application" element={<RegisterApplication />} />
         <Route path="store/:ownerId" element={<PublicStore />} />

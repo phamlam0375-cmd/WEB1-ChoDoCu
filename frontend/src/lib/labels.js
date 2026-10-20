@@ -90,6 +90,7 @@ export const ORDER_STATUS = {
   DELIVERED: 'Đã giao',
   COMPLETED: 'Hoàn tất',
   CANCELLED: 'Đã hủy',
+  SELLER_REJECTED: 'Người bán từ chối',
   REFUND_PENDING: 'Đang hoàn tiền',
   REFUNDED: 'Đã hoàn tiền',
 }

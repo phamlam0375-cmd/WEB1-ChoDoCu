@@ -1,4 +1,5 @@
 import { PackageSearch, SlidersHorizontal } from 'lucide-react'
+
 import ProductCard from './ProductCard'
 
 function ProductGrid({ products, savedIds, savedOnly, onToggleSave, onView, onBuy, onOpenFilters, onReset }) {

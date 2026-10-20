@@ -17,12 +17,13 @@ const BATCH_SIZE = Math.min(
 const BASE_TIME = Date.parse('2026-01-01T00:00:00.000Z');
 const DAY = 24 * 60 * 60 * 1000;
 const DEMO_PASSWORD_HASH = '$2b$10$b9pum1iGugwcTqiXp5nWmuq.ln/Lthh/wUNYT6PQxWRpVEOhmNY1m';
+const SELLER_USER_IDS = [1, 2, 3, 4, 5];
 const DEMO_REGISTERED_USER = {
   UserId: 999,
   Username: 'admin',
   PasswordHash: DEMO_PASSWORD_HASH,
   FullName: 'Quản trị viên',
-  Email: 'admin@gmail.com',
+  Email: 'admin@example.local',
   Phone: '0900000999',
   GoogleId: null,
   AvatarUrl: null,
@@ -37,6 +38,7 @@ const DEMO_REGISTERED_USER = {
 const pad = (value, length = 6) => String(value).padStart(length, '0');
 const demoDate = (value, extraDays = 0) => new Date(BASE_TIME + ((value % 365) + extraDays) * DAY);
 const nextId = (value) => (value === ROWS_PER_TABLE ? 1 : value + 1);
+const sellerIdForListing = (listingId) => SELLER_USER_IDS[(listingId - 1) % SELLER_USER_IDS.length];
 
 // Danh sách sản phẩm thực tế cho người bán (SELLER)
 const REAL_PRODUCTS = [
@@ -155,19 +157,18 @@ const TABLES = [
   {
     name: 'Listings',
     row: (i) => {
-      // Nếu là seller (userId từ 1-5), phân phối 10 sản phẩm thực tế rải đều
-      const isSeller = i <= 5;
+      const sellerId = sellerIdForListing(i);
       const productIndex = (i - 1) % REAL_PRODUCTS.length;
       const product = REAL_PRODUCTS[productIndex];
 
       return {
         ListingId: i,
-        SellerId: isSeller ? ((i - 1) % 5) + 1 : i,
-        StoreId: isSeller ? ((i - 1) % 5) + 1 : i,
+        SellerId: sellerId,
+        StoreId: sellerId,
         CategoryId: i,
-        Title: isSeller ? `${product.title} (Like new #${i})` : `Sản phẩm cũ minh họa ${pad(i)}`,
-        Description: isSeller ? `${product.desc} Mã sản phẩm: SP-${pad(i)}.` : `Mô tả sản phẩm cũ số ${i}, dùng cho dữ liệu kiểm thử.`,
-        Price: isSeller ? product.price + ((i * 1000) % 500000) : 50000 + (i % 5000) * 1000,
+        Title: `${product.title} (Like new #${i})`,
+        Description: `${product.desc} Mã sản phẩm: SP-${pad(i)}.`,
+        Price: product.price + ((i * 1000) % 500000),
         ConditionLevel: ['LIKE_NEW', 'GOOD', 'FAIR', 'POOR'][i % 4],
         KnownDefects: i % 5 === 0 ? 'Có dấu hiệu sử dụng nhẹ.' : null,
         Location: `Khu vực Quận ${((i % 12) + 1)}, TP. Hồ Chí Minh`,
@@ -184,7 +185,7 @@ const TABLES = [
       MediaId: i,
       ListingId: i,
       MediaType: i % 10 === 0 ? 'VIDEO' : 'IMAGE',
-      MediaUrl: i <= 5 ? `/demo/listings/real-product-${((i - 1) % REAL_PRODUCTS.length) + 1}.jpg` : `/demo/listings/${pad(i)}.jpg`,
+      MediaUrl: i <= 5 ? `/listings/real-product-${((i - 1) % REAL_PRODUCTS.length) + 1}.jpg` : `/listings/${pad(i)}.jpg`,
       SortOrder: 1,
       CreatedAt: demoDate(i)
     })
@@ -198,7 +199,7 @@ const TABLES = [
     row: (i) => ({
       PromotionId: i,
       ListingId: i,
-      SellerId: i,
+      SellerId: sellerIdForListing(i),
       PlanName: ['VIP_3_DAYS', 'VIP_7_DAYS', 'VIP_14_DAYS'][i % 3],
       FeeAmount: [20000, 40000, 70000][i % 3],
       PaymentReference: `VIP${pad(i)}`,
@@ -219,7 +220,7 @@ const TABLES = [
         OrderId: i,
         BuyerId: nextId(i),
         ListingId: i,
-        SellerId: i,
+        SellerId: sellerIdForListing(i),
         DeliveryMethod: i % 2 === 0 ? 'DELIVERY' : 'PICKUP',
         ReceiverName: `Người nhận ${pad(i)}`,
         ReceiverPhone: `08${String(i).padStart(8, '0')}`,
@@ -280,7 +281,7 @@ const TABLES = [
       return {
         CommissionId: i,
         OrderId: i,
-        SellerId: i,
+        SellerId: sellerIdForListing(i),
         Rate: 5,
         OriginalAmount: originalAmount,
         AdjustmentAmount: adjustment,

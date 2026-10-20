@@ -1,4 +1,7 @@
-import { Package } from "lucide-react";
+import { Eye, Package } from "lucide-react";
+
+import DetailListing from "../../pages/Store/SellerStore/DetailListing";
+import { useState } from "react";
 
 const formatPrice = (price) => {
     if (price === null || price === undefined) {
@@ -13,6 +16,7 @@ const formatPrice = (price) => {
 };
 
 const getProductImage = (product) =>
+    product.Media?.find((media) => media.MediaType === "IMAGE")?.MediaUrl ||
     product.ImageUrl ||
     product.imageUrl ||
     product.ThumbnailUrl ||
@@ -20,7 +24,42 @@ const getProductImage = (product) =>
     product.Image ||
     null;
 
+const resolveProductImage = (image) => {
+    if (typeof image !== "string" || !image) return null;
+    if (image.startsWith("/demo/listings/")) {
+        return `/api/v1/uploads/listings/${image.slice("/demo/listings/".length)}`;
+    }
+    if (image.startsWith("/listings/")) {
+        return `/api/v1/uploads${image}`;
+    }
+    return image;
+};
+
+function ProductImage({ image, alt }) {
+    const [failed, setFailed] = useState(false);
+
+    if (!image || failed) {
+        return (
+            <div className="flex h-full w-full items-center justify-center">
+                <Package className="h-12 w-12 text-slate-300" />
+            </div>
+        );
+    }
+
+    return (
+        <img
+            src={resolveProductImage(image)}
+            alt={alt}
+            onError={() => setFailed(true)}
+            className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+        />
+    );
+}
+
 export function StoreProduct({ products, loading }) {
+const [openDetail, setOpenDetail] = useState(false);
+    const [selectedDetail, setSelectedDetail] = useState(null);
+
     return (
         <>
             <section className="mt-10">
@@ -62,10 +101,7 @@ export function StoreProduct({ products, loading }) {
                 ) : (
                     <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                         {products.map((product) => {
-                            const image =
-                                getProductImage(
-                                    product
-                                );
+                            const image = getProductImage(product);
 
                             return (
                                 <div
@@ -79,21 +115,10 @@ export function StoreProduct({ products, loading }) {
                                     {/* IMAGE */}
                                     <div className="relative h-52 overflow-hidden bg-slate-100">
 
-                                        {image ? (
-                                            <img
-                                                src={image}
-                                                alt={
-                                                    product.Title ||
-                                                    product.Name ||
-                                                    "Sản phẩm"
-                                                }
-                                                className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                                            />
-                                        ) : (
-                                            <div className="flex h-full w-full items-center justify-center">
-                                                <Package className="h-12 w-12 text-slate-300" />
-                                            </div>
-                                        )}
+                                        <ProductImage
+                                            image={image}
+                                            alt={product.Title || product.Name || "Sản phẩm"}
+                                        />
 
                                         {/* STATUS */}
                                         {product.Status && (
@@ -128,13 +153,16 @@ export function StoreProduct({ products, loading }) {
                                             </p>
                                         )}
 
-                                        <button
-                                            type="button"
-                                            className="mt-4 w-full rounded-xl border border-emerald-200 py-2.5 text-sm font-medium text-emerald-700 transition hover:bg-emerald-50"
+                                       <button
+                                            onClick={() => {
+                                                setSelectedDetail(product);
+                                                setOpenDetail(true);
+                                            }}
+                                            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-600 hover:text-white"
                                         >
-                                            Xem sản phẩm
+                                            <Eye size={14} />
+                                            Chi tiết
                                         </button>
-
                                     </div>
                                 </div>
                             );
@@ -142,6 +170,16 @@ export function StoreProduct({ products, loading }) {
                     </div>
                 )}
             </section>
+
+            {openDetail && selectedDetail && (
+                <DetailListing
+                    product={selectedDetail}
+                    onClose={() => {
+                        setOpenDetail(false);
+                        setSelectedDetail(null);
+                    }}
+                />
+            )}
         </>
     );
 }

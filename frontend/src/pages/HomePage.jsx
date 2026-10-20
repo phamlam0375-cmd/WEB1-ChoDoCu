@@ -12,6 +12,8 @@ import SearchBar from '../components/SearchBar'
 import WhyChooseUs from '../components/WhyChooseUs'
 import { categories as fallbackCategories, conditions as fallbackConditions, locations as fallbackLocations } from '../data/mockProducts'
 import { getAllListing } from '../api/listingApi'
+import ListingDetail from './listing/ListingDetail'
+import { useListingStore } from '../store/useListing'
 import { matchesProductCategory } from '../utils/productFilters'
 import { searchProducts } from '../utils/searchEngine'
 import { clearSearchHistory, getSearchHistory, saveSearchHistory } from '../utils/searchHistory'
@@ -27,7 +29,8 @@ const defaultFilters = {
 
 function HomePage() {
   const navigate = useNavigate()
-  const [products, setProducts] = useState([])
+  const listing = useListingStore((state) => state.listing)
+  const setListing = useListingStore((state) => state.setListing)
   const [categories, setCategories] = useState(fallbackCategories)
   const [locations, setLocations] = useState(fallbackLocations)
   const [conditions] = useState(fallbackConditions)
@@ -42,6 +45,7 @@ function HomePage() {
   const [savedOnly, setSavedOnly] = useState(false)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const [searchHistory, setSearchHistory] = useState(() => getSearchHistory())
+  const [selectedProduct, setSelectedProduct] = useState(null)
 
   useEffect(() => {
     let cancelled = false
@@ -66,24 +70,7 @@ function HomePage() {
 
         setCategories(categoryOptions.length ? categoryOptions : fallbackCategories)
         setLocations([...new Set(rows.map((item) => item.Location).filter(Boolean))])
-        setProducts(rows.map((item, index) => ({
-          id: item.ListingId,
-          name: item.Title,
-          price: Number(item.Price),
-          category: String(item.CategoryId),
-          categoryName: item.Category?.CategoryName || '',
-          condition: { NEW: 'Như mới', LIKE_NEW: 'Như mới', GOOD: 'Đã sử dụng', FAIR: 'Đã sử dụng', POOR: 'Cần sửa chữa nhẹ' }[item.ConditionLevel] || item.ConditionLevel,
-          location: item.Location || 'Chưa cập nhật',
-          postedAt: new Date(item.CreatedAt).toLocaleDateString('vi-VN'),
-          createdOrder: new Date(item.CreatedAt).getTime() || index,
-          seller: item.Seller?.FullName || `Người bán #${item.SellerId}`,
-          sellerId: item.SellerId,
-          sellerAvatar: item.Seller?.AvatarUrl || '',
-          verified: Boolean(item.Seller?.EmailVerified),
-          isVip: false,
-          isFeatured: index < 3,
-          image: item.Media?.find((media) => media.MediaType === 'IMAGE')?.MediaUrl || '/product-placeholder.svg',
-        })))
+        setListing(rows)
       } catch {
         if (!cancelled) toast.error('Không thể tải danh sách sản phẩm.')
       } finally {
@@ -93,7 +80,29 @@ function HomePage() {
 
     loadListings()
     return () => { cancelled = true }
-  }, [])
+  }, [setListing])
+
+  const products = useMemo(() => listing.map((item, index) => ({
+    id: item.ListingId,
+    name: item.Title,
+    price: Number(item.Price),
+    category: String(item.CategoryId),
+    categoryName: item.Category?.CategoryName || '',
+    description: item.Description || '',
+    knownDefects: item.KnownDefects || '',
+    status: item.Status || '',
+    condition: { NEW: 'Như mới', LIKE_NEW: 'Như mới', GOOD: 'Đã sử dụng', FAIR: 'Đã sử dụng', POOR: 'Cần sửa chữa nhẹ' }[item.ConditionLevel] || item.ConditionLevel,
+    location: item.Location || 'Chưa cập nhật',
+    postedAt: new Date(item.CreatedAt).toLocaleDateString('vi-VN'),
+    createdOrder: new Date(item.CreatedAt).getTime() || index,
+    seller: item.Seller?.FullName || `Người bán #${item.SellerId}`,
+    sellerId: item.SellerId,
+    sellerAvatar: item.Seller?.AvatarUrl || '',
+    verified: Boolean(item.Seller?.EmailVerified),
+    isVip: false,
+    isFeatured: index < 3,
+    image: item.Media?.find((media) => media.MediaType === 'IMAGE')?.MediaUrl || '/product-placeholder.svg',
+  })), [listing])
 
   const filteredProducts = useMemo(() => {
     const minPrice = Number(appliedFilters.minPrice) || 0
@@ -218,7 +227,7 @@ function HomePage() {
   }
 
   const handleViewProduct = (product) => {
-    toast.info(`Chi tiết “${product.name}” đang được cập nhật`)
+    setSelectedProduct(product)
   }
 
   const handleBuyProduct = (product) => {
@@ -295,6 +304,10 @@ function HomePage() {
         <WhyChooseUs onSell={handleUnavailable} />
       </main>
       <Footer />
+      <ListingDetail
+        product={selectedProduct}
+        onClose={() => setSelectedProduct(null)}
+      />
     </div>
   )
 }

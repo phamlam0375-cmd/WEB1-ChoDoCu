@@ -1,6 +1,6 @@
 'use strict';
 
-const { Listings, Store } = require("../models");
+const { Listings, ListingMedia, Store } = require("../models");
 
 const createListing = async (req, res) => {
     try {
@@ -64,6 +64,13 @@ const getAllListingStore = async (req, res) => {
 
         const { count, rows } = await Listings.findAndCountAll({
             where: { StoreId },
+            include: [{
+                model: ListingMedia,
+                as: "Media",
+                attributes: ["MediaId", "MediaUrl", "MediaType", "SortOrder"],
+                separate: true,
+                order: [["SortOrder", "ASC"]],
+            }],
             limit,
             offset: (page - 1) * limit
         });

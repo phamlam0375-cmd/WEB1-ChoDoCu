@@ -80,7 +80,7 @@ function HomePage() {
 
     loadListings()
     return () => { cancelled = true }
-  }, [])
+  }, [setListing])
 
   const products = useMemo(() => listing.map((item, index) => ({
     id: item.ListingId,

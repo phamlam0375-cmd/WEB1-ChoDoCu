@@ -1,12 +1,11 @@
-import { useNavigate } from "react-router-dom";
 import { getStoreListing, hideListing, updateListing } from "../../api/listingApi";
 import { useEffect, useState } from "react";
 
-import Header from "../Header";
+import Header from "../../components/Header";
 import UpdateListingModal from "./UpdateListingModal";
 import { toast } from "react-toastify";
 import { useListingStore } from "../../store/useListing";
-
+import { useNavigate } from "react-router-dom";
 
 export default function CrudListing() {
     const listing = useListingStore((state) => state.listing);
@@ -56,7 +55,7 @@ export default function CrudListing() {
         };
 
         fetchSellerListing();
-    }, [page]);
+    }, [page,setListing]);
 
     const handleUpdate = async (data) => {
         try {

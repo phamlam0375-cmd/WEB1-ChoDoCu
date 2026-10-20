@@ -6,12 +6,12 @@ import {
 import "leaflet/dist/leaflet.css";
 import { useEffect, useState } from "react";
 
-import Header from "../../Header";
+import Header from "../../components/Header";
 import { useParams } from "react-router-dom";
-import { getStoreByOwnerId } from "../../../api/store";
-import { getStoreListing } from "../../../api/listingApi";
-import StoreMap from "../StoreMap";
-import { StoreProduct } from "../StoreProduct";
+import { getStoreByOwnerId } from "../../api/store";
+import { getStoreListing } from "../../api/listingApi";
+import StoreMap from "../../components/Store/StoreMap";
+import { StoreProduct } from "../../components/Store/StoreProduct";
 
 export default function PublicStore() {
     const { ownerId } = useParams();

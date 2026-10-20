@@ -1,6 +1,6 @@
 import {ArrowLeft,Camera,PackagePlus,X} from "lucide-react";
 
-import Header from "../Header";
+import Header from "../../components/Header";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { createListing } from "../../api/listingApi";

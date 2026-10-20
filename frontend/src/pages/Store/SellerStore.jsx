@@ -2,17 +2,17 @@ import "leaflet/dist/leaflet.css";
 
 import { useEffect, useState } from "react";
 
-import { getStoreByOwnerId } from "../../../api/store";
-import { getStoreListing } from "../../../api/listingApi";
+import { getStoreByOwnerId } from "../../api/store";
+import { getStoreListing } from "../../api/listingApi";
 import {
     AlertCircle
 } from "lucide-react";
-import Header from "../../Header";
-import RightSummary from "./RightSummary";
-import StoreInformation from "../StoreInformation";
-import StoreLoadingSkeleton from "../StoreLoadingSkeleton";
-import StoreMap from "../StoreMap";
-import { StoreProduct } from "../StoreProduct";
+import Header from "../../components/Header";
+import RightSummary from "./SellerStore/RightSummary";
+import StoreInformation from "../../components/Store/StoreInformation";
+import StoreLoadingSkeleton from "../../components/Store/StoreLoadingSkeleton";
+import StoreMap from "../../components/Store/StoreMap";
+import { StoreProduct } from "../../components/Store/StoreProduct";
 
 const getLoggedInUserId = () => {
     try {

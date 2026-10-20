@@ -1,4 +1,4 @@
-import api from "./axios";
+import api from "./apiClient";
 
 const postPartnerApplication = (formData) => {
     return api.post("/partner-applications", formData)

@@ -1,4 +1,4 @@
-import api from "./axios";
+import api from "./apiClient";
 
 const getStoreListing = async (StoreId, page, limit) => {
     const res = await api.get(`/seller/listing/store/${StoreId}`, {

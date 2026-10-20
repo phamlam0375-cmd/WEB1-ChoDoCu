@@ -8,8 +8,8 @@ import { useEffect, useState } from "react";
 
 import Header from "../../components/Header";
 import { useParams } from "react-router-dom";
-import { getStoreByOwnerId } from "../../api/store";
-import { getStoreListing } from "../../api/listingApi";
+import { getStoreByOwnerId } from "../../services/storeApi";
+import { getStoreListing } from "../../services/listingApi";
 import StoreMap from "../../components/Store/StoreMap";
 import { StoreProduct } from "../../components/Store/StoreProduct";
 

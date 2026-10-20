@@ -3,7 +3,7 @@ import {ArrowLeft,Camera,PackagePlus,X} from "lucide-react";
 import Header from "../../components/Header";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { createListing } from "../../api/listingApi";
+import { createListing } from "../../services/listingApi";
 import { toast } from "react-toastify";
 
 const CreateListing = () => {

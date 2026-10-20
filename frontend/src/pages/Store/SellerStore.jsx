@@ -2,8 +2,8 @@ import "leaflet/dist/leaflet.css";
 
 import { useEffect, useState } from "react";
 
-import { getStoreByOwnerId } from "../../api/store";
-import { getStoreListing } from "../../api/listingApi";
+import { getStoreByOwnerId } from "../../services/storeApi";
+import { getStoreListing } from "../../services/listingApi";
 import {
     AlertCircle
 } from "lucide-react";

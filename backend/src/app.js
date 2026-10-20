@@ -49,6 +49,7 @@ app.use('/api/auth', passwordResetRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/v1/orders', orderRoutes.createOrderRouter(requireAuth));
 app.use('/api/v1/orders', cancellationRoutes);
+app.use('/api/v1/orders', require('./routes/C06_TuChoiDonHang/rejection.route'));
 app.use('/api/v1/orders', paymentRoutes);
 app.use('/api/v1/orders', trackingRoutes);
 app.use('/api/v1/seller/orders', confirmationRoutes);

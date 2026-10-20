@@ -31,7 +31,15 @@ async function markCancelled(order, reason, transaction) {
   return affected;
 }
 
+async function updateOrderStatus(order, status, cancelReason, transaction) {
+  const [affected] = await Orders.update(
+    { Status: status, CancelReason: cancelReason },
+    { where: { OrderId: order.OrderId, SellerId: order.SellerId, Status: order.Status }, transaction }
+  );
+  return affected;
+}
+
 const createHistory = (data, transaction) => StatusHistories.create(data, { transaction });
 const notifyUser = (id, payload, transaction) => notify(id, payload, { transaction });
 
-module.exports = { withTransaction, readState, markCancelled, reopenListing, createHistory, notifyUser };
+module.exports = { withTransaction, readState, markCancelled, updateOrderStatus, reopenListing, createHistory, notifyUser };

@@ -29,13 +29,13 @@ export default function AdminRefundsPage() {
   }
 
   const columns = [
-    { key: 'OrderId', title: 'Mã đơn', render: (row) => <span className="font-mono text-xs">#{row.OrderId}</span> },
-    { key: 'Requester', title: 'Người mua', render: (row) => row.Requester?.FullName },
+    { key: 'OrderId', sortable: true, title: 'Mã đơn', render: (row) => <span className="font-mono text-xs">#{row.OrderId}</span> },
+    { key: 'Requester', sortValue: (row) => row.Requester?.FullName, title: 'Người mua', render: (row) => row.Requester?.FullName },
     { key: 'Seller', title: 'Người bán', render: (row) => row.Order?.Seller?.FullName },
     { key: 'Reason', title: 'Lý do', render: (row) => <p className="line-clamp-2 max-w-[220px]">{row.Reason}</p> },
-    { key: 'Amount', title: 'Số tiền', render: (row) => formatMoney(row.Amount), className: 'whitespace-nowrap text-right tabular-nums' },
-    { key: 'RequestedAt', title: 'Ngày gửi', render: (row) => formatDateTime(row.RequestedAt), className: 'whitespace-nowrap' },
-    { key: 'Status', title: 'Trạng thái', render: (row) => <StatusBadge map={REFUND_STATUS} value={row.Status} /> },
+    { key: 'Amount', sortable: true, title: 'Số tiền', render: (row) => formatMoney(row.Amount), className: 'whitespace-nowrap text-right tabular-nums' },
+    { key: 'RequestedAt', sortable: true, title: 'Ngày gửi', render: (row) => formatDateTime(row.RequestedAt), className: 'whitespace-nowrap' },
+    { key: 'Status', sortable: true, title: 'Trạng thái', render: (row) => <StatusBadge map={REFUND_STATUS} value={row.Status} /> },
     {
       key: 'actions',
       title: '',

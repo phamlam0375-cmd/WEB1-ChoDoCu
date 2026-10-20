@@ -36,6 +36,7 @@ const AdminCommissionsPage = lazy(() => import('./pages/admin/AdminCommissionsPa
 const AdminFeePaymentsPage = lazy(() => import('./pages/admin/AdminFeePaymentsPage'))
 const AdminAuditLogsPage = lazy(() => import('./pages/admin/AdminAuditLogsPage'))
 const AdminSettingsPage = lazy(() => import('./pages/admin/AdminSettingsPage'))
+const AdminProfilePage = lazy(() => import('./pages/admin/AdminProfilePage'))
 const AccountShell = lazy(() => import('./pages/account/AccountShell'))
 const ReportCreatePage = lazy(() => import('./pages/account/ReportCreatePage'))
 const MyReportsPage = lazy(() => import('./pages/account/MyReportsPage'))
@@ -92,6 +93,7 @@ function App() {
             <Route path="fee-payments" element={<AdminFeePaymentsPage />} />
             <Route path="audit-logs" element={<AdminAuditLogsPage />} />
             <Route path="settings" element={<AdminSettingsPage />} />
+            <Route path="profile" element={<AdminProfilePage />} />
           </Route>
           <Route element={<TrackingLayout />}>
             <Route path="/orders" element={<BuyerOrdersPage />} />

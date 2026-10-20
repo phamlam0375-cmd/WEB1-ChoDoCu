@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { BellRing, Eye } from 'lucide-react'
 import { DataTable, Field, FilterBar, PageHeader, Pagination, SearchInput, Section, StatusBadge, StatusTabs } from '../../components/admin/AdminUi'
@@ -12,7 +13,9 @@ import { COMMISSION_STATUS } from '../../lib/labels'
 
 // Trang chỉ hiển thị dữ liệu: hoa hồng do hệ thống ghi khi đơn hoàn tất.
 export default function AdminCommissionsPage() {
-  const [filters, setFilters] = useState({ status: '', overdue: '', q: '', from: '', to: '', page: 1 })
+  const [searchParams] = useSearchParams()
+  const initialQuery = searchParams.get('q') || ''
+  const [filters, setFilters] = useState({ status: '', overdue: '', q: initialQuery, from: '', to: '', page: 1 })
   const [selected, setSelected] = useState(null)
   const { response, loading, error, reload } = useApi('/admin/commissions', filters)
   const { busy, run } = useMutation()

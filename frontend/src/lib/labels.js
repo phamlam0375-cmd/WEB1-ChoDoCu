@@ -31,7 +31,8 @@ export const LISTING_STATUS = {
   ACTIVE: { label: 'Đang bán', tone: 'green' },
   RESERVED: { label: 'Đang giữ', tone: 'blue' },
   SOLD: { label: 'Đã bán', tone: 'slate' },
-  HIDDEN: { label: 'Đã ẩn', tone: 'slate' },
+  HIDDEN: { label: 'Người bán ẩn', tone: 'slate' },
+  SUSPENDED: { label: 'Bị ẩn do vi phạm', tone: 'red' },
   REMOVED: { label: 'Đã gỡ', tone: 'red' },
   REJECTED: { label: 'Bị từ chối', tone: 'red' },
 }

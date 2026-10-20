@@ -1,12 +1,12 @@
-import { useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { AlertTriangle } from 'lucide-react'
-import { toast } from 'react-toastify'
+import { useRef, useState } from 'react'
 
-import Footer from '../../components/Footer'
-import Header from '../../components/Header'
-import { errorMessage } from '../../lib/api'
-import { rejectOrder } from '../../services/C06_TuChoiDonHang/rejectionApi'
+import { AlertTriangle } from 'lucide-react'
+import Footer from '../components/Footer'
+import Header from '../components/Header'
+import { errorMessage } from '../lib/api'
+import { rejectOrder } from '../services/C06_TuChoiDonHang/rejectionApi'
+import { toast } from 'react-toastify'
 
 export default function OrderRejectPage() {
   const { orderId } = useParams()

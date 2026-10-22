@@ -1,5 +1,5 @@
 import { getOrders, updateOrderStatus } from "../../services/sellerOrderApi";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import Header from "../../components/Header";
 
@@ -14,13 +14,38 @@ const SellerOrder = () => {
     const [actionError, setActionError] = useState("");
     const [notice, setNotice] = useState("");
 
-    useEffect(() => {
-        const fetchOrders = async () => {
-            try {
-                setLoading(true);
-                setError("");
+    const fetchOrders = useCallback(async () => {
+        try {
+            setLoading(true);
+            setError("");
 
+            const res = await getOrders();
+
+            const orderData = Array.isArray(res)
+                ? res
+                : Array.isArray(res?.data)
+                    ? res.data
+                    : [];
+
+            setOrders(orderData);
+        } catch (error) {
+            console.error("Lỗi lấy đơn hàng:", error);
+            setError(
+                error.response?.data?.message ||
+                "Không thể tải danh sách đơn hàng."
+            );
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const loadOrders = async () => {
+            try {
                 const res = await getOrders();
+                if (!isMounted) return;
 
                 const orderData = Array.isArray(res)
                     ? res
@@ -30,17 +55,24 @@ const SellerOrder = () => {
 
                 setOrders(orderData);
             } catch (error) {
+                if (!isMounted) return;
                 console.error("Lỗi lấy đơn hàng:", error);
                 setError(
                     error.response?.data?.message ||
                     "Không thể tải danh sách đơn hàng."
                 );
             } finally {
-                setLoading(false);
+                if (isMounted) {
+                    setLoading(false);
+                }
             }
         };
 
-        fetchOrders();
+        loadOrders();
+
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     const openAcceptModal = (orderId) => {

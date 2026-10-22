@@ -1,12 +1,18 @@
+import { getOrders, updateOrderStatus } from "../../services/sellerOrderApi";
 import { useEffect, useState } from "react";
 
 import Header from "../../components/Header";
-import getOrders from "../../services/sellerOrderApi";
 
 const SellerOrder = () => {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+
+    const [processingId, setProcessingId] = useState(null);
+    const [activeModal, setActiveModal] = useState(null);
+    const [rejectReason, setRejectReason] = useState("");
+    const [actionError, setActionError] = useState("");
+    const [notice, setNotice] = useState("");
 
     useEffect(() => {
         const fetchOrders = async () => {
@@ -37,12 +43,82 @@ const SellerOrder = () => {
         fetchOrders();
     }, []);
 
-    const handleAccept = (orderId) => {
-        console.log("Chấp nhận đơn:", orderId);
+    const openAcceptModal = (orderId) => {
+        setActionError("");
+        setActiveModal({ type: "accept", orderId });
+    };
+    const openRejectModal = (orderId) => {
+        setActionError("");
+        setRejectReason("");
+        setActiveModal({ type: "reject", orderId });
     };
 
-    const handleReject = (orderId) => {
-        console.log("Từ chối đơn:", orderId);
+    const closeModal = () => {
+        if (processingId !== null) return;
+
+        setActiveModal(null);
+        setRejectReason("");
+        setActionError("");
+    };
+
+    const handleAccept = async () => {
+        const orderId = activeModal?.orderId;
+        if (!orderId) return;
+        try {
+            setProcessingId(orderId);
+            setActionError("");
+
+            const res = await updateOrderStatus(orderId, "CONFIRM");
+
+            await fetchOrders();
+
+            setActiveModal({ type: "result" });
+            setNotice(res.message);
+
+            await fetchOrders();
+        } catch (err) {
+            setActionError(
+                err.response?.data?.message ||
+                "Không thể chấp nhận đơn hàng."
+            );
+        } finally {
+            setProcessingId(null);
+        }
+    }
+
+    const handleReject = async () => {
+        const orderId = activeModal?.orderId;
+        if (!orderId) return;
+
+        if (!rejectReason.trim()) {
+            setActionError("Vui lòng nhập lý do từ chối.");
+            return;
+        }
+
+        try {
+            setProcessingId(orderId);
+            setActionError("");
+
+            const res = await updateOrderStatus(
+                orderId,
+                "REJECTED",
+                rejectReason.trim()
+            );
+
+            await fetchOrders();
+
+            setActiveModal({ type: "result" });
+            setNotice(res.message || "Đã từ chối đơn hàng.");
+
+            await fetchOrders();
+        } catch (err) {
+            setActionError(
+                err.response?.data?.message ||
+                "Không thể từ chối đơn hàng."
+            );
+        } finally {
+            setProcessingId(null);
+        }
     };
 
     const formatPrice = (price) => {
@@ -68,7 +144,187 @@ const SellerOrder = () => {
     return (
         <>
             <Header />
+            {/* Modal xác nhận chấp nhận đơn */}
+            {activeModal?.type === "accept" && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+                        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100">
+                            <svg
+                                className="h-7 w-7 text-emerald-600"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                strokeWidth={2}
+                            >
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="m5 12 4 4L19 6"
+                                />
+                            </svg>
+                        </div>
 
+                        <h2 className="mt-4 text-center text-xl font-bold text-slate-900">
+                            Xác nhận đơn hàng
+                        </h2>
+
+                        <p className="mt-2 text-center text-sm leading-6 text-slate-500">
+                            Bạn có chắc muốn chấp nhận đơn hàng
+                            {" "}
+                            <span className="font-semibold text-slate-800">
+                                #{activeModal.orderId}
+                            </span>
+                            ? Đơn hàng sẽ chuyển sang trạng thái đã xác nhận.
+                        </p>
+
+                        {actionError && (
+                            <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
+                                {actionError}
+                            </p>
+                        )}
+
+                        <div className="mt-6 flex gap-3">
+                            <button
+                                onClick={closeModal}
+                                disabled={processingId !== null}
+                                className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                            >
+                                Hủy
+                            </button>
+
+                            <button
+                                onClick={handleAccept}
+                                disabled={processingId !== null}
+                                className="flex-1 rounded-xl bg-emerald-600 px-4 py-2.5 font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                            >
+                                {processingId !== null
+                                    ? "Đang xử lý..."
+                                    : "Xác nhận"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal nhập lý do từ chối */}
+            {activeModal?.type === "reject" && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+                        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-100">
+                            <svg
+                                className="h-7 w-7 text-red-600"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                strokeWidth={2}
+                            >
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M6 18 18 6M6 6l12 12"
+                                />
+                            </svg>
+                        </div>
+
+                        <h2 className="mt-4 text-center text-xl font-bold text-slate-900">
+                            Từ chối đơn hàng
+                        </h2>
+
+                        <p className="mt-2 text-center text-sm text-slate-500">
+                            Đơn hàng #{activeModal.orderId}
+                        </p>
+
+                        <label
+                            htmlFor="reject-reason"
+                            className="mt-5 block text-sm font-semibold text-slate-700"
+                        >
+                            Lý do từ chối <span className="text-red-500">*</span>
+                        </label>
+
+                        <textarea
+                            id="reject-reason"
+                            value={rejectReason}
+                            onChange={(e) => setRejectReason(e.target.value)}
+                            maxLength={500}
+                            rows={4}
+                            placeholder="Nhập lý do từ chối đơn hàng..."
+                            className="mt-2 w-full resize-none rounded-xl border border-slate-200 p-3 text-sm outline-none transition focus:border-red-400 focus:ring-4 focus:ring-red-50"
+                        />
+
+                        <p className="mt-1 text-right text-xs text-slate-400">
+                            {rejectReason.length}/500 ký tự
+                        </p>
+
+                        {actionError && (
+                            <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-600">
+                                {actionError}
+                            </p>
+                        )}
+
+                        <div className="mt-5 flex gap-3">
+                            <button
+                                onClick={closeModal}
+                                disabled={processingId !== null}
+                                className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                            >
+                                Hủy
+                            </button>
+
+                            <button
+                                onClick={handleReject}
+                                disabled={processingId !== null}
+                                className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                            >
+                                {processingId !== null
+                                    ? "Đang xử lý..."
+                                    : "Xác nhận từ chối"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal thông báo kết quả */}
+            {activeModal?.type === "result" && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl">
+                        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100">
+                            <svg
+                                className="h-7 w-7 text-emerald-600"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                strokeWidth={2}
+                            >
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="m5 12 4 4L19 6"
+                                />
+                            </svg>
+                        </div>
+
+                        <h2 className="mt-4 text-xl font-bold text-slate-900">
+                            Hoàn tất
+                        </h2>
+
+                        <p className="mt-2 text-sm text-slate-500">
+                            {notice}
+                        </p>
+
+                        <button
+                            onClick={() => {
+                                setActiveModal(null);
+                                setRejectReason("");
+                                setActionError("");
+                            }}
+                            className="mt-6 w-full rounded-xl bg-emerald-600 px-4 py-2.5 font-semibold text-white hover:bg-emerald-700"
+                        >
+                            Đóng
+                        </button>
+                    </div>
+                </div>
+            )}
             <main className="min-h-screen bg-slate-50/50 px-4 py-8 font-sans text-slate-800 sm:px-6 sm:py-10">
                 <div className="mx-auto max-w-7xl">
                     <div className="mb-8">
@@ -93,7 +349,7 @@ const SellerOrder = () => {
                         </div>
 
                         <div className="overflow-x-auto">
-                            <table className="w-full min-w-[850px] text-left">
+                            <table className="w-full min-w-212.5 text-left">
                                 <thead className="border-b border-slate-100 bg-slate-50/70 text-xs font-bold uppercase tracking-wider text-slate-500">
                                     <tr>
                                         <th className="px-6 py-4">Mã đơn</th>
@@ -203,19 +459,17 @@ const SellerOrder = () => {
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center gap-2">
                                                         <button
-                                                            onClick={() =>
-                                                                handleAccept(order.OrderId)
-                                                            }
-                                                            className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+                                                            onClick={() => openAcceptModal(order.OrderId)}
+                                                            disabled={processingId !== null}
+                                                            className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
                                                         >
                                                             Chấp nhận
                                                         </button>
 
                                                         <button
-                                                            onClick={() =>
-                                                                handleReject(order.OrderId)
-                                                            }
-                                                            className="rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700"
+                                                            onClick={() => openRejectModal(order.OrderId)}
+                                                            disabled={processingId !== null}
+                                                            className="rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
                                                         >
                                                             Từ chối
                                                         </button>

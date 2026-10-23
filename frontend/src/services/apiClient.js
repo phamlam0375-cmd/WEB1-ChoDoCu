@@ -1,7 +1,6 @@
 import axios from "axios";
 import { api } from "../lib/api.js";
 import { getAccessToken } from "../lib/auth.js";
-import { getAccessToken } from "../lib/auth";
 import { getDevUserId } from "../lib/api";
 
 const instance = axios.create({

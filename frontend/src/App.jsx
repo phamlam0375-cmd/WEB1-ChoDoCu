@@ -20,6 +20,7 @@ import PublicStore from './pages/Store/PublicStore'
 import Register from './pages/Register'
 import RegisterApplication from './components/PartnerApplication/RegisterApplication'
 import ResetPassword from './pages/ResetPassword'
+import SellerOrders from './pages/SellerOrders/SellerOrders'
 import SellerStore from './pages/Store/SellerStore'
 import { ToastContainer } from 'react-toastify'
 import VerifyEmail from './pages/VerifyEmail'
@@ -73,8 +74,10 @@ function App() {
         <Route path="/driver/deliveries" element={<AvailableDeliveriesPage />} />
         <Route path="store/:ownerId" element={<PublicStore />} />
         <Route path="/seller/store" element={<SellerStore />} />
-        <Route path="seller/listings" element={<CrudListing />} />
-        <Route path="seller/listings/create" element={<CreateListing />} />
+        <Route path="/seller/listings" element={<CrudListing />} />
+        <Route path="/seller/listings/create" element={<CreateListing />} />
+        
+        <Route path="/seller/orders" element={<SellerOrders/>}/>
 
         <Route
           element={

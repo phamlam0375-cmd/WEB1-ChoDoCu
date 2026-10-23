@@ -26,4 +26,4 @@ const getAllListing = async (page = 1, limit = 100) => {
     const res = await api.get(`/seller/listing`, { params: { page, limit } });
     return res.data;
 }
-export { getStoreListing, updateListing, hideListing ,createListing,getAllListing};
+export { getStoreListing, updateListing, hideListing, createListing, getAllListing };

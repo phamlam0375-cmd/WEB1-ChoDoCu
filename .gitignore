@@ -13,3 +13,6 @@ coverage/
 # Ảnh người dùng tải lên (phân hệ B)
 backend/uploads/
 backend/upload/
+
+# Ảnh kiểm chứng production headless (sinh tự động, không phải source).
+frontend/test-results/

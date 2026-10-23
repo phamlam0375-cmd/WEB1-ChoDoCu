@@ -10,6 +10,7 @@ const cancellationRoutes = require('./routes/D02_HuyDonHang/cancellation.route')
 const paymentRoutes = require('./routes/D03_ThanhToan/payment.route');
 const confirmationRoutes = require('./routes/D04_XacNhanNhanTien/confirmation.route');
 const trackingRoutes = require('./routes/D05_TheoDoiDonHang/tracking.route');
+const driverAssignmentRoutes = require('./routes/D07_TaiXeNhanChuyen/assignment.route');
 const { requireAuth } = require('./middlewares/auth.middleware');
 const AppError = require('./errors/AppError');
 const partnerApplicationRoutes = require('./routes/partnerApplication.route');
@@ -53,6 +54,7 @@ app.use('/api/orders', require('./routes/C06_TuChoiDonHang/rejection.route'));
 app.use('/api/v1/orders', paymentRoutes);
 app.use('/api/v1/orders', trackingRoutes);
 app.use('/api/v1/seller/orders', confirmationRoutes);
+app.use('/api/v1/driver', driverAssignmentRoutes);
 
 
 //PARTNER APPLICATION

@@ -31,13 +31,13 @@ export const api = axios.create({
 api.interceptors.request.use((config) => {
   // Login không được dùng token/header dev cũ; /me có Bearer mới được truyền rõ.
   if (config.skipSession) return config
-  const token = getAccessToken()
+  const token = getAccessToken({ sessionOnly: config.sessionOnly })
   if (token) config.headers.Authorization = `Bearer ${token}`
-  else if (config.d01Demo && isD01DemoEnabled()) {
+  else if (!config.sessionOnly && config.d01Demo && isD01DemoEnabled()) {
     // Chỉ service D01/D02/D03 đánh dấu request. Backend tự chọn ID demo, không tin ID client.
     config.headers['x-d01-demo'] = 'true'
   }
-  else {
+  else if (!config.sessionOnly) {
     const userId = getDevUserId()
     if (userId) config.headers['x-user-id'] = userId
   }

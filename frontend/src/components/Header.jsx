@@ -4,6 +4,7 @@ import {
   LogOut,
   Menu,
   ClipboardList,
+  Truck,
   PlusCircle,
   Store,
   UserPlus,
@@ -12,6 +13,7 @@ import {
 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import ColorThemePicker from './ColorThemePicker'
+import { clearSession } from '../lib/auth'
 
 const readStoredUser = () => {
   try {
@@ -63,8 +65,7 @@ function Header({
   }
 
   const handleLogout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
+    clearSession()
     setUser(null)
     closeMenu()
     navigate('/')
@@ -124,6 +125,9 @@ function Header({
         {/* DESKTOP ACTIONS */}
         <div className="hidden items-center gap-1.5 lg:flex">
           <ColorThemePicker />
+          {user && <Link to="/driver/deliveries" className={utilityButtonClass} title="Chuyến tài xế">
+            <Truck size={17} /><span className="hidden 2xl:inline">Chuyến tài xế</span>
+          </Link>}
 
           <Link
             to="/orders"
@@ -238,6 +242,9 @@ function Header({
             ))}
 
             {/* Tin đã lưu */}
+            {user && <Link to="/driver/deliveries" onClick={closeMenu} className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-700">
+              <Truck size={17} />Chuyến tài xế
+            </Link>}
             <Link to="/orders" onClick={closeMenu} className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-800">
               <ClipboardList size={17} />
               Đơn mua của tôi

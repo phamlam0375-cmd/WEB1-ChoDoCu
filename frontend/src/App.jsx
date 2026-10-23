@@ -23,6 +23,7 @@ import ResetPassword from './pages/ResetPassword'
 import SellerStore from './pages/Store/SellerStore'
 import { ToastContainer } from 'react-toastify'
 import VerifyEmail from './pages/VerifyEmail'
+import AvailableDeliveriesPage from './pages/D07_TaiXeNhanChuyen/AvailableDeliveriesPage'
 
 // Phân hệ B: quản trị và doanh thu (tải khi cần để không làm nặng trang chủ)
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'))
@@ -69,6 +70,7 @@ function App() {
         <Route path="/seller/orders/:orderId/reject" element={<OrderRejectPage />} />
 
         <Route path="/partner-application" element={<RegisterApplication />} />
+        <Route path="/driver/deliveries" element={<AvailableDeliveriesPage />} />
         <Route path="store/:ownerId" element={<PublicStore />} />
         <Route path="/seller/store" element={<SellerStore />} />
         <Route path="seller/listings" element={<CrudListing />} />

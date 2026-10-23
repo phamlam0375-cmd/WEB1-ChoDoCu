@@ -23,6 +23,8 @@ const AdminAuditLogs = require("./AdminAuditLogs.model");
 const SystemSettings = require("./SystemSettings.model");
 const VerificationCodes = require("./VerificationCodes.model");
 const Store = require("./Store.model");
+const DriverProfiles = require("./DriverProfiles.model");
+const Deliveries = require("./Deliveries.model");
 
 Users.belongsToMany(Roles, { through: UserRoles, foreignKey: "UserId", otherKey: "RoleId", as: "Roles" });
 Roles.belongsToMany(Users, { through: UserRoles, foreignKey: "RoleId", otherKey: "UserId", as: "Users" });
@@ -89,4 +91,6 @@ module.exports = {
   SystemSettings,
   VerificationCodes,
   Store,
+  DriverProfiles,
+  Deliveries,
 };

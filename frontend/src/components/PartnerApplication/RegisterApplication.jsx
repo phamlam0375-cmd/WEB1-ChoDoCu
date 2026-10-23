@@ -1,13 +1,20 @@
 import { Camera, Car, Clock, ShieldCheck, Upload, Users } from "lucide-react";
 import { postPartnerApplication, sendPartnerOtp, verifyPartnerOtp, } from "../../services/partnerApplicationApi";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Navigate, useLocation, useSearchParams } from 'react-router-dom';
+import { getAccessToken } from '../../lib/auth';
+import { api } from '../../lib/api';
 
 import Header from "../Header";
 import { partnerApplicationSchema } from "../../schema/partnerApplication.schema";
 import { toast } from "react-toastify";
 
 export default function RegisterApplication() {
-    const [role, setRole] = useState("seller");
+    const [params] = useSearchParams();
+    const location = useLocation();
+    const [role, setRole] = useState(() => params.get('type') === 'DRIVER' ? 'driver' : 'seller');
+    const hasSession = Boolean(getAccessToken({ sessionOnly: true }));
+    const [sessionError, setSessionError] = useState('');
     const [identityNumberMasked, setIdentityNumberMasked] = useState("");
     const [image, setImage] = useState(null);
 
@@ -18,6 +25,18 @@ export default function RegisterApplication() {
     const [errors, setErrors] = useState({});
 
     const fileInputRef = useRef(null);
+
+    useEffect(() => {
+        if (!hasSession) return;
+        const controller = new AbortController();
+        api.get('/me', { sessionOnly: true, signal: controller.signal }).then(response => {
+            const current = response.data.data;
+            setEmail(current.Email || '');
+        }).catch(error => {
+            if (!controller.signal.aborted) setSessionError(error.response?.data?.message || 'Không kiểm tra được phiên đăng nhập.');
+        });
+        return () => controller.abort();
+    }, [hasSession]);
 
     const handleResendOtp = async () => {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -127,7 +146,6 @@ export default function RegisterApplication() {
 
             const formData = new FormData();
 
-            formData.append("UserId", "8");
             formData.append(
                 "PartnerType",
                 role.toUpperCase()
@@ -188,6 +206,7 @@ export default function RegisterApplication() {
         },
     ];
 
+    if (!hasSession) return <Navigate to={`/login?returnTo=${encodeURIComponent(location.pathname + location.search)}`} replace state={{ from: location }} />;
     return (
         <>
             <div className="flex min-h-screen flex-col">
@@ -243,6 +262,7 @@ export default function RegisterApplication() {
                         <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
 
                             {/* ROLE */}
+                            {sessionError && <p role="alert" className="mb-4 text-red-700">{sessionError}</p>}
                             <div className="mb-6 grid grid-cols-2 gap-3">
                                 {roleOptions.map(
                                     ({

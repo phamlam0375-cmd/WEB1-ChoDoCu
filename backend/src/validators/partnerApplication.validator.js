@@ -24,7 +24,7 @@ const createPartnerApplicationSchema = z.object({
     UserId: z.coerce
         .number()
         .int("UserId phải là số nguyên")
-        .positive("UserId không hợp lệ"),
+        .positive("UserId không hợp lệ").optional(),
 
     PartnerType: z.enum(["SELLER", "DRIVER"], {
         message: "Vui lòng chọn loại đối tác",

@@ -14,4 +14,5 @@ test('Trang chủ/store dùng cùng nguồn API D01, giữ prefix legacy và kh�
   }
   const response = await legacyApi.get('/seller/listing', { params: { page: 1, limit: 100 } })
   assert.equal(response.data.data[0].ListingId, 10)
+  
 })

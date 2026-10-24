@@ -1,17 +1,24 @@
 const nodemailer = require("nodemailer");
 
+const getEmailCredentials = () => ({
+  user: process.env.MAIL_USER || process.env.EMAIL_USER,
+  pass: process.env.MAIL_PASS || process.env.EMAIL_PASS,
+});
+
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: process.env.MAIL_HOST || "smtp.gmail.com",
+  port: Number(process.env.MAIL_PORT) || 587,
+  secure: Number(process.env.MAIL_PORT) === 465,
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    ...getEmailCredentials(),
   },
 });
 
 async function sendOTPEmail(email, otp) {
   try {
+    const { user } = getEmailCredentials();
     const result = await transporter.sendMail({
-      from: `"Chợ Đồ Cũ" <${process.env.EMAIL_USER}>`,
+      from: `"Chợ Đồ Cũ" <${user}>`,
       to: email,
       subject: "Mã OTP đăng ký đối tác",
       text: `Mã OTP của bạn là ${otp}. Mã có hiệu lực trong 5 phút.`,

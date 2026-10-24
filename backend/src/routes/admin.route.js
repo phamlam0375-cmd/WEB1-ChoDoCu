@@ -6,6 +6,7 @@ const partners = require("../controllers/adminPartnerApplications.controller");
 const categories = require("../controllers/categories.controller");
 const reports = require("../controllers/reports.controller");
 const listings = require("../controllers/adminListings.controller");
+const search = require("../controllers/adminSearch.controller");
 const refunds = require("../controllers/refunds.controller");
 const commissions = require("../controllers/commissions.controller");
 const statistics = require("../controllers/statistics.controller");
@@ -17,6 +18,9 @@ const router = express.Router();
 router.use(requireAuth, requireRole("ADMIN"));
 
 // B01 Quản lý tài khoản và phân quyền
+// Tìm kiếm nhanh trên thanh tiêu đề
+router.get("/search", search.quickSearch);
+
 router.get("/users", users.listUsers);
 router.get("/users/:id", users.getUser);
 router.patch("/users/:id", users.updateUser);
@@ -24,6 +28,7 @@ router.patch("/users/:id", users.updateUser);
 // B02 Duyệt đăng ký đối tác
 router.get("/partner-applications", partners.listApplications);
 router.get("/partner-applications/:id", partners.getApplication);
+router.get("/partner-applications/:id/identity-image", partners.getIdentityImage);
 router.patch("/partner-applications/:id", partners.reviewApplication);
 
 // B03 Quản lý danh mục và lựa chọn tình trạng
@@ -42,8 +47,11 @@ router.patch("/reports/:id", reports.handleReport);
 
 // B05 Kiểm duyệt tin
 router.get("/listings", listings.listListings);
+router.post("/listings/ai-review-pending", listings.reviewPendingWithAi);
+router.post("/listings/bulk-review", listings.bulkReviewListings);
 router.get("/listings/:id", listings.getListing);
 router.patch("/listings/:id/review", listings.reviewListing);
+router.post("/listings/:id/ai-review", listings.runAiReview);
 
 // B06 Tiếp nhận yêu cầu hoàn tiền (các bước xử lý ở PATCH /refund-requests/:id)
 router.get("/refund-requests", refunds.listRefundRequests);
@@ -51,19 +59,23 @@ router.get("/refund-requests", refunds.listRefundRequests);
 // B08 Hoa hồng theo đơn
 router.get("/commissions", commissions.listCommissions);
 router.post("/commissions/sync", commissions.syncCommissions);
+router.post("/commissions/remind-overdue", commissions.remindOverdue);
 
 // B09 Thu và đối soát phí
 router.get("/fee-payments", commissions.listFeePayments);
 router.get("/fee-payments/debtors", commissions.listDebtors);
+router.post("/fee-payments/bulk-review", commissions.bulkReviewFeePayments);
 router.patch("/fee-payments/:id", commissions.reviewFeePayment);
 
 // B10 Thống kê
 router.get("/statistics", statistics.getStatistics);
+router.get("/pending-counts", statistics.getPendingCounts);
 
 // B11 Nhật ký thao tác quản trị — chỉ đọc
 router.get("/audit-logs", auditLogs.listAuditLogs);
 router.get("/audit-logs/meta", auditLogs.getAuditLogMeta);
 router.get("/audit-logs/export", auditLogs.exportAuditLogs);
+router.get("/my-activity", auditLogs.getMyActivity);
 
 // B12 Cấu hình quy tắc hệ thống
 router.get("/settings", settings.getSettings);

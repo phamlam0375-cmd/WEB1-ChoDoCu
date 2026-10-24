@@ -20,6 +20,10 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: [self-hosted, Windows, X64]
     timeout-minutes: 30
+    # GitHub Repository Variables, không phải secret/token. Chỉ bật cho test nhóm.
+    env:
+      D01_DEMO_MODE: ${{ vars.D01_DEMO_MODE || 'false' }}
+      D01_DEMO_USER_ID: ${{ vars.D01_DEMO_USER_ID || '' }}
 
     steps:
       - name: Tai dung commit da qua CI
@@ -51,6 +55,16 @@ jobs:
             throw "Docker Desktop chua chay hoac runner khong co quyen dung Docker."
           }
           docker compose version
+
+      - name: Kiem tra cau hinh demo D01
+        shell: powershell
+        run: |
+          if ($env:D01_DEMO_MODE -notin @('true', 'false')) {
+            throw "D01_DEMO_MODE phai la true hoac false."
+          }
+          if ($env:D01_DEMO_MODE -eq 'true' -and $env:D01_DEMO_USER_ID -notmatch '^[1-9][0-9]*$') {
+            throw "Bat demo D01 can D01_DEMO_USER_ID hop le (tai khoan ACTIVE, khong ADMIN)."
+          }
 
       - name: Kiem tra Docker Compose
         shell: powershell

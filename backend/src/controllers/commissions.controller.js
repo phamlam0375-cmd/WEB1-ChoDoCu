@@ -17,6 +17,7 @@ const {
 const { logAdminAction } = require("../services/auditLog.service");
 const { notify } = require("../services/notification.service");
 const { getSettingsMap } = require("../services/settings.service");
+const { remindOverdueCommissions, remindInBackground } = require("../services/commissionReminder.service");
 const { BANK_BY_CODE } = require("../utils/banks");
 const {
   OUTSTANDING_STATUSES,
@@ -100,7 +101,28 @@ const respondCommissionList = async (res, query) => {
 };
 
 // GET /admin/commissions — toàn bộ hoa hồng theo đơn.
-const listCommissions = (req, res) => respondCommissionList(res, req.query);
+const listCommissions = (req, res) => {
+  remindInBackground();
+  return respondCommissionList(res, req.query);
+};
+
+// POST /admin/commissions/remind-overdue — gửi nhắc ngay cho các khoản quá hạn chưa được nhắc hôm nay.
+const remindOverdue = async (req, res) => {
+  const sent = await remindOverdueCommissions();
+  if (sent > 0) {
+    await logAdminAction(req, {
+      action: "COMMISSION_REMIND",
+      targetType: "COMMISSION",
+      targetId: null,
+      newValue: { sent },
+    });
+  }
+  return res.status(200).json({
+    success: true,
+    message: sent > 0 ? `Đã gửi nhắc cho ${sent} khoản quá hạn` : "Các khoản quá hạn đều đã được nhắc hôm nay",
+    data: { sent },
+  });
+};
 
 // POST /admin/commissions/sync — tạo hoa hồng cho đơn hoàn tất còn thiếu.
 const syncCommissions = async (req, res) => {
@@ -147,6 +169,7 @@ const sellerReference = (sellerId) => `PHI${String(sellerId).padStart(6, "0")}`;
 
 // GET /seller/fee-payments — phí còn nợ + tài khoản nhận phí của website (để tạo mã QR).
 const getSellerFeeOverview = async (req, res) => {
+  remindInBackground({ sellerId: req.user.UserId });
   const [settings, debt, items] = await Promise.all([
     getSettingsMap(),
     getSellerDebt(req.user.UserId),
@@ -272,14 +295,10 @@ const FEE_ACTIONS = {
 };
 
 // PATCH /admin/fee-payments/:id { action: CONFIRM | REJECT | WAIVE, note }
-const reviewFeePayment = async (req, res) => {
-  const id = parseId(req.params.id, "Mã khoản phí");
-  const action = oneOf(req.body.action, Object.keys(FEE_ACTIONS), "Hành động");
-  const rule = FEE_ACTIONS[action];
-  const note = text(req.body.note, "ghi chú", { max: 500 });
-  if (rule.noteRequired && !note) throw badRequest("Vui lòng nhập lý do");
-
-  const commission = await sequelize.transaction(async (transaction) => {
+// Xác nhận đã thu / từ chối / miễn một khoản phí trong một transaction (ghi nhật ký, báo người bán).
+const applyFeeAction = (req, id, action, note) =>
+  sequelize.transaction(async (transaction) => {
+    const rule = FEE_ACTIONS[action];
     const item = await Commissions.findByPk(id, { transaction, lock: transaction.LOCK.UPDATE });
     if (!item) throw notFound("Không tìm thấy khoản phí");
     if (!rule.from.includes(item.Status)) {
@@ -330,6 +349,15 @@ const reviewFeePayment = async (req, res) => {
     return item;
   });
 
+const reviewFeePayment = async (req, res) => {
+  const id = parseId(req.params.id, "Mã khoản phí");
+  const action = oneOf(req.body.action, Object.keys(FEE_ACTIONS), "Hành động");
+  const rule = FEE_ACTIONS[action];
+  const note = text(req.body.note, "ghi chú", { max: 500 });
+  if (rule.noteRequired && !note) throw badRequest("Vui lòng nhập lý do");
+
+  const commission = await applyFeeAction(req, id, action, note);
+
   const fresh = await Commissions.findByPk(commission.CommissionId, { include: [orderInclude, sellerInclude, confirmerInclude] });
   const resultMessages = {
     CONFIRM: "Khoản phí chuyển sang \"Đã thu\"",
@@ -339,8 +367,39 @@ const reviewFeePayment = async (req, res) => {
   return res.status(200).json({ success: true, message: resultMessages[action], data: withOverdue(fresh) });
 };
 
+// POST /admin/fee-payments/bulk-review { ids: [], action: CONFIRM } — xác nhận đã thu nhiều khoản "Chờ xác nhận".
+// Mỗi khoản xử lý riêng: khoản đã đổi trạng thái thì bỏ qua và báo lại.
+const BULK_FEE_LIMIT = 50;
+const bulkReviewFeePayments = async (req, res) => {
+  const action = oneOf(req.body.action, ["CONFIRM"], "Hành động");
+  const ids = Array.isArray(req.body.ids) ? [...new Set(req.body.ids.map((value) => parseId(value, "Mã khoản phí")))] : [];
+  if (!ids.length) throw badRequest("Vui lòng chọn ít nhất một khoản phí");
+  if (ids.length > BULK_FEE_LIMIT) throw badRequest(`Mỗi lần xử lý tối đa ${BULK_FEE_LIMIT} khoản`);
+
+  const done = [];
+  const failed = [];
+  for (const id of ids) {
+    try {
+      const item = await Commissions.findByPk(id, { attributes: ["Status"] });
+      if (!item) throw notFound("Không tìm thấy khoản phí");
+      if (item.Status !== "REPORTED") throw conflict("Khoản phí không còn ở trạng thái Chờ xác nhận");
+      await applyFeeAction(req, id, action, null);
+      done.push(id);
+    } catch (error) {
+      failed.push({ id, message: error.status ? error.message : "Không xử lý được khoản này" });
+    }
+  }
+  return res.status(200).json({
+    success: true,
+    message: failed.length ? `Đã xác nhận ${done.length} khoản, ${failed.length} khoản không xử lý được` : `Đã xác nhận đã thu ${done.length} khoản`,
+    data: { done, failed },
+  });
+};
+
 module.exports = {
+  bulkReviewFeePayments,
   listCommissions,
+  remindOverdue,
   syncCommissions,
   listSellerCommissions,
   getSellerFeeOverview,

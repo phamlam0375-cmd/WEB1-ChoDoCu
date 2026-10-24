@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { toast } from 'react-toastify'
 import { Ban, Eye, Pencil, Plus, Trash2 } from 'lucide-react'
 import {
-  Card,
+  Section,
   ConfirmDialog,
   DataTable,
   Field,
@@ -142,9 +142,10 @@ export default function AdminCategoriesPage() {
         : { title: 'Hiện lại danh mục', message: `Hiện lại danh mục "${pending.row.CategoryName}" trong form đăng tin và bộ lọc?`, confirm: 'Hiện lại', tone: 'primary' }
 
   const columns = [
-    { key: 'CategoryId', title: 'Mã', render: (row) => <span className="font-mono text-xs text-slate-500">#{row.CategoryId}</span> },
+    { key: 'CategoryId', sortable: true, title: 'Mã', render: (row) => <span className="font-mono text-xs text-slate-500">#{row.CategoryId}</span> },
     {
       key: 'CategoryName',
+      sortable: true,
       title: 'Danh mục',
       render: (row) => (
         <div>
@@ -153,9 +154,9 @@ export default function AdminCategoriesPage() {
         </div>
       ),
     },
-    { key: 'ListingCount', title: 'Số tin đang dùng', render: (row) => row.ListingCount, className: 'text-right tabular-nums' },
-    { key: 'Status', title: 'Trạng thái', render: (row) => <StatusBadge map={CATEGORY_STATUS} value={row.Status} /> },
-    { key: 'CreatedAt', title: 'Ngày tạo', render: (row) => formatDate(row.CreatedAt) },
+    { key: 'ListingCount', sortable: true, title: 'Số tin đang dùng', render: (row) => row.ListingCount, className: 'text-right tabular-nums' },
+    { key: 'Status', sortable: true, title: 'Trạng thái', render: (row) => <StatusBadge map={CATEGORY_STATUS} value={row.Status} /> },
+    { key: 'CreatedAt', sortable: true, title: 'Ngày tạo', render: (row) => formatDate(row.CreatedAt) },
     {
       key: 'actions',
       title: '',
@@ -187,8 +188,8 @@ export default function AdminCategoriesPage() {
         }
       />
       <div className="grid gap-6 xl:grid-cols-[1fr_300px]">
-        <Card>
-          <div className="p-4 pb-0">
+        <div className="min-w-0">
+          <Section title="Tìm kiếm và lọc" bodyClassName="px-4 pt-4">
             <FilterBar onReset={() => setFilters({ q: '', status: '', page: 1 })}>
               <SearchInput value={filters.q} onChange={(q) => update({ q })} placeholder="Tìm tên danh mục" />
               <Field className="w-40">
@@ -199,10 +200,12 @@ export default function AdminCategoriesPage() {
                 </select>
               </Field>
             </FilterBar>
-          </div>
-          <DataTable columns={columns} rows={response?.data} rowKey={(row) => row.CategoryId} loading={loading} error={error} onRetry={reload} />
-          <Pagination pagination={response?.pagination} onPage={(page) => setFilters((current) => ({ ...current, page }))} />
-        </Card>
+          </Section>
+          <Section title="Danh sách danh mục" meta={response?.pagination ? `${response.pagination.total} danh mục` : null} flush>
+            <DataTable columns={columns} rows={response?.data} rowKey={(row) => row.CategoryId} loading={loading} error={error} onRetry={reload} />
+            <Pagination pagination={response?.pagination} onPage={(page) => setFilters((current) => ({ ...current, page }))} />
+          </Section>
+        </div>
         <ConditionOptionsCard />
       </div>
       {editing !== undefined && <CategoryForm category={editing} onClose={() => setEditing(undefined)} onSaved={reload} />}

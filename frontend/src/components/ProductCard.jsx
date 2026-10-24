@@ -1,7 +1,10 @@
-import { BadgeCheck, Clock3, Eye, Heart, MapPin, ShoppingBag } from 'lucide-react'
+import { BadgeCheck, Clock3, Eye, Heart, MapPin, ShoppingBag, Store } from 'lucide-react'
+
 import { formatPrice } from '../data/mockProducts'
+import { useNavigate } from 'react-router-dom'
 
 function ProductCard({ product, isSaved, onToggleSave, onView, onBuy }) {
+  const navigate = useNavigate()
   const conditionStyle = product.condition === 'Như mới'
     ? 'bg-emerald-100 text-emerald-800'
     : product.condition === 'Cần sửa chữa nhẹ'
@@ -15,7 +18,7 @@ function ProductCard({ product, isSaved, onToggleSave, onView, onBuy }) {
 
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl hover:shadow-slate-900/8">
-      <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
+      <div className="relative aspect-4/3 overflow-hidden bg-slate-100">
         <img
           src={product.image}
           alt={product.name}
@@ -57,12 +60,24 @@ function ProductCard({ product, isSaved, onToggleSave, onView, onBuy }) {
           </span>
         </div>
 
-        <div className="mt-4 flex items-center gap-2 border-t border-slate-100 pt-3">
-          <span className="grid size-7 shrink-0 place-items-center rounded-full bg-gradient-to-br from-emerald-100 to-teal-100 text-[10px] font-extrabold text-emerald-700">
-            {product.seller.split(' ').map((word) => word[0]).slice(-2).join('')}
-          </span>
-          <span className="min-w-0 truncate text-xs font-semibold text-slate-600">{product.seller}</span>
-          {product.verified && <BadgeCheck size={15} className="shrink-0 fill-sky-500 text-white" aria-label="Người bán đã xác minh" />}
+        <div className="mt-4 border-t border-slate-100 pt-3">
+          <button
+            type="button"
+            onClick={() => product.sellerId && navigate(`/store/${product.sellerId}`)}
+            disabled={!product.sellerId}
+            className="flex max-w-full items-center gap-2 rounded-lg text-left transition hover:text-emerald-700 disabled:cursor-default"
+            aria-label={`Xem cửa hàng của ${product.seller}`}
+          >
+            {product.sellerAvatar ? (
+              <img src={product.sellerAvatar} alt="" className="size-7 shrink-0 rounded-full object-cover" />
+            ) : (
+              <span className="grid size-7 shrink-0 place-items-center rounded-full bg-linear-to-br from-emerald-100 to-teal-100 text-emerald-700">
+                <Store size={14} />
+              </span>
+            )}
+            <span className="min-w-0 truncate text-xs font-semibold text-slate-600">{product.seller}</span>
+            {product.verified && <BadgeCheck size={15} className="shrink-0 fill-sky-500 text-white" aria-label="Người bán đã xác minh" />}
+          </button>
         </div>
 
         <div className="mt-auto grid grid-cols-2 gap-2 pt-4">

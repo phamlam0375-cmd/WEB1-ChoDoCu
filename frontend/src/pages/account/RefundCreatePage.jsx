@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { Card, Field, PageHeader } from '../../components/admin/AdminUi'
 import { btn, input } from '../../components/admin/styles'
@@ -57,6 +57,7 @@ export default function RefundCreatePage() {
 
   return (
     <>
+      <Link to={`/orders/${orderId}/tracking`} className="mb-4 inline-block text-sm font-semibold text-emerald-700">Quay lại theo dõi đơn hàng</Link>
       <PageHeader
         title={`Yêu cầu hoàn tiền cho đơn #${orderId}`}
         description="Quản trị viên xem xét yêu cầu; nếu được chấp nhận, người bán chuyển trả trực tiếp vào tài khoản của bạn. Phí giao hàng đã trả cho tài xế không nằm trong khoản hoàn."

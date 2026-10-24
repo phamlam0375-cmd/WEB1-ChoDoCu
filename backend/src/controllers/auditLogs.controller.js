@@ -1,7 +1,7 @@
 "use strict";
 
 // B11 — Nhật ký thao tác quản trị. CHỈ ĐỌC: không có API sửa hoặc xóa.
-const { Op } = require("sequelize");
+const { Op, fn, col } = require("sequelize");
 const { AdminAuditLogs, Users, Roles } = require("../models");
 const { badRequest } = require("../utils/httpError");
 const { parsePagination, pagedResponse, optionalId, text, oneOf, parseDate } = require("../utils/request");
@@ -137,4 +137,32 @@ const exportAuditLogs = async (req, res) => {
   return res.status(200).send(`﻿${lines.join("\r\n")}\r\n`);
 };
 
-module.exports = { listAuditLogs, getAuditLogMeta, exportAuditLogs, EXPORT_LIMIT };
+// GET /admin/my-activity — tóm tắt thao tác của quản trị viên đang đăng nhập (trang Hồ sơ của tôi).
+const getMyActivity = async (req, res) => {
+  const adminId = req.user.UserId;
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const [total, last30Days, latest, byAction] = await Promise.all([
+    AdminAuditLogs.count({ where: { AdminId: adminId } }),
+    AdminAuditLogs.count({ where: { AdminId: adminId, CreatedAt: { [Op.gte]: since } } }),
+    AdminAuditLogs.findOne({ where: { AdminId: adminId }, attributes: ["CreatedAt"], order: [["CreatedAt", "DESC"]] }),
+    AdminAuditLogs.findAll({
+      where: { AdminId: adminId },
+      attributes: ["Action", [fn("COUNT", col("LogId")), "count"]],
+      group: ["Action"],
+      order: [[fn("COUNT", col("LogId")), "DESC"]],
+      limit: 6,
+      raw: true,
+    }),
+  ]);
+  return res.status(200).json({
+    success: true,
+    data: {
+      total,
+      last30Days,
+      lastActionAt: latest?.CreatedAt || null,
+      byAction: byAction.map((row) => ({ action: row.Action, label: AUDIT_ACTIONS[row.Action] || row.Action, count: Number(row.count) })),
+    },
+  });
+};
+
+module.exports = { listAuditLogs, getAuditLogMeta, exportAuditLogs, getMyActivity, EXPORT_LIMIT };

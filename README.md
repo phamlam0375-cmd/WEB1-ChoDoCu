@@ -44,7 +44,7 @@ Theo dõi quá trình khởi động nếu cần: `docker compose logs -f api`.
 
 ### Tài khoản thử nghiệm
 
-Đăng nhập thật chưa hoàn thiện, nên các trang quản trị và tài khoản dùng ô **"Tài khoản thử nghiệm"** ở góc phải: nhập mã tài khoản rồi bấm **Đổi**.
+Đăng nhập, đăng ký và xác thực email dùng tài khoản thật. Bộ chọn **"Tài khoản thử nghiệm"** vẫn có thể dùng để kiểm tra riêng các trang quản trị và tài khoản demo: nhập mã tài khoản rồi bấm **Đổi**.
 
 | Mã | Dùng để thử |
 |---|---|
@@ -52,6 +52,10 @@ Theo dõi quá trình khởi động nếu cần: `docker compose logs -f api`.
 | 1 | Người mua: báo cáo vi phạm, yêu cầu hoàn tiền đơn `/orders/9001/refund` |
 | 3 | Người bán: phí và hoa hồng `/seller/fees` (khoản HH009001, HH009002) |
 | 4, 8 | Hồ sơ đối tác đã xác thực ở tab Chờ duyệt (demo bấm Duyệt) |
+
+## Tìm kiếm sản phẩm
+
+Trang chủ tải tin đăng từ API; `frontend/src/data/mockProducts.js` cung cấp danh mục và catalog dự phòng. Tìm kiếm chạy cục bộ bằng JavaScript, không gọi dịch vụ tìm kiếm bên thứ ba và không cần cài thêm package. Từ khóa được chuẩn hóa tiếng Việt (có/không dấu), hỗ trợ một số viết tắt phổ biến như `dt`, `ip`, `mt`, `xm`, từ khóa tiếng Anh tương ứng như `phone`, `laptop`, `chair`, và dung sai lỗi gõ gần đúng. Tìm kiếm xét tên sản phẩm và tên danh mục, đồng thời yêu cầu mọi phần của truy vấn đều khớp để hạn chế kết quả không liên quan. Tối đa 8 từ khóa gần đây được lưu trong local storage của trình duyệt; có thể xóa ngay tại danh sách lịch sử. Lịch sử không đồng bộ giữa các máy hoặc trình duyệt.
 
 ## Chia sẻ dữ liệu giữa các máy
 
@@ -80,9 +84,18 @@ docker compose up -d --build
 
 Ảnh người dùng tải lên (thư mục `backend/uploads/`) không nằm trong file dữ liệu; cần thì chép thư mục này sang máy kia.
 
-## Cấu hình (không bắt buộc)
+## Cấu hình môi trường
 
-Docker chạy được ngay không cần file cấu hình. Muốn đổi giá trị mặc định thì tạo `backend/.env` từ file mẫu:
+Docker Compose development có sẵn giá trị mặc định cho database và JWT; không cần tạo file `.env` để chạy đăng ký, đăng nhập email/mật khẩu, xác thực OTP hoặc quên mật khẩu. OTP mặc định chỉ được in trong log API (development), không gửi email. Chạy:
+
+```powershell
+docker compose up -d --build
+docker compose logs -f api
+```
+
+Tìm dòng `[OTP][development]` trong log rồi nhập mã trên trang xác thực. Không dùng chế độ ghi OTP vào log trong production. Muốn gửi email khi development, đặt `OTP_DELIVERY_MODE=email` và cấu hình SMTP; production luôn yêu cầu SMTP.
+
+Muốn thay đổi cấu hình thì tạo `backend/.env` từ file mẫu:
 
 ```bash
 # Windows
@@ -93,7 +106,48 @@ cp backend/.env.example backend/.env
 
 - Khi chạy trong Docker, API luôn kết nối MySQL qua `mysql:3306`, không cần sửa `DB_HOST`/`DB_PORT`.
 - Đặt `AUTO_SEED=false` trong `backend/.env` nếu không muốn tự nạp dữ liệu mẫu.
+- Muốn gửi mã OTP thật qua email, điền `MAIL_USER` và `MAIL_PASS` trong `backend/.env` (Gmail cần App Password), rồi khởi động lại API.
 - Không commit file `.env`.
+
+### Đăng nhập bằng Google (tùy chọn)
+
+Đăng nhập Google thật cần OAuth Client ID dạng Web application. Khi chưa cấu hình, Docker Compose development hiển thị nút **Đăng nhập Google thử nghiệm**; chức năng này chỉ tạo tài khoản giả với email kết thúc bằng `@example.test`, không xác minh hay đăng nhập thay cho Gmail thật. Tài khoản dùng chung database không thể bị chiếm qua nút thử nghiệm. Không dùng chức năng mock trong production.
+
+Để thấy nút thử nghiệm sau khi lấy code mới, chạy lại `docker compose up -d --build nginx api` rồi mở http://localhost:8081. Nếu chạy Vite bằng `pnpm dev`, nút thử nghiệm tự hiện khi chưa đặt `VITE_GOOGLE_CLIENT_ID`. Nếu máy đã cấu hình Client ID, giao diện ưu tiên nút Google thật.
+
+1. Trong Google Cloud Console, tạo OAuth Client ID cho ứng dụng web.
+2. Thêm Authorized JavaScript origins `http://localhost:8081` và `http://localhost:5173`.
+3. Tạo file `.env` ở thư mục gốc repo với nội dung:
+
+   ```dotenv
+   GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+   ```
+
+4. Build lại API và website để áp dụng cấu hình:
+
+   ```bash
+   docker compose up -d --build api nginx
+   ```
+
+Khi chạy frontend bằng `pnpm dev` thay vì Docker, đặt cùng Client ID trong `frontend/.env.local` dưới tên `VITE_GOOGLE_CLIENT_ID`. Với Docker Compose, bước build website lấy `GOOGLE_CLIENT_ID` từ `.env` ở thư mục gốc; API lấy giá trị từ `.env` gốc hoặc `backend/.env` (nếu cả hai có thì `.env` gốc được ưu tiên). Cả frontend lẫn API phải dùng cùng Client ID, nếu không Google có thể cho chọn tài khoản nhưng API sẽ báo chưa cấu hình hoặc từ chối token. Nếu chạy backend ngoài Docker, đặt `GOOGLE_CLIENT_ID` trong `backend/.env`. Client ID là cấu hình công khai, không phải client secret. Ứng dụng chỉ nhận email/name/avatar và mã định danh đã được Google xác minh, không nhận mật khẩu Google.
+
+Trước khi chuyển OAuth app sang chế độ production, cần triển khai website lên HTTPS domain do bạn sở hữu, xác minh domain trong Google Search Console, rồi khai báo URL trang chủ và đường dẫn `/privacy` trong Google Auth Platform → Branding. Trang chính sách này không thể thay thế việc triển khai domain công khai hoặc quy trình xác minh mà Google yêu cầu.
+
+### Triển khai production trên VPS
+
+Repo có cấu hình Docker Compose production cho VPS Linux. Cấu hình này chỉ công khai Caddy trên cổng 80/443; MySQL và API chỉ nằm trong mạng nội bộ Docker. Caddy tự cấp và gia hạn HTTPS sau khi domain trỏ tới VPS.
+
+1. Tạo bản ghi DNS `A` cho domain trỏ tới IPv4 của VPS. Mở cổng TCP 80/443 trên firewall; giữ SSH được giới hạn theo nhu cầu.
+2. Trên VPS, clone repo rồi sao chép `.env.production.example` thành `.env`. Điền domain, OAuth Client ID, mật khẩu cơ sở dữ liệu mạnh và riêng biệt, JWT secret ngẫu nhiên, cùng SMTP credentials. Với Gmail SMTP, dùng Google App Password, không dùng mật khẩu đăng nhập Gmail. Không commit hoặc gửi file `.env`.
+3. Khởi động các dịch vụ:
+
+   ```bash
+   docker compose --env-file .env -f docker-compose.prod.yml config
+   docker compose --env-file .env -f docker-compose.prod.yml up -d --build
+   ```
+
+   Lần đầu API chạy migration và không nạp dữ liệu mẫu. Dữ liệu MySQL và ảnh tải lên được giữ trong Docker volumes; cần thiết lập sao lưu các volume này trước khi dùng dữ liệu thật.
+4. Kiểm tra `https://your-domain.com/` và `https://your-domain.com/privacy`. Trong Google Auth Platform, xác minh domain, thêm domain gốc vào Authorized domains, đặt URL trang chủ và trang quyền riêng tư ở Branding, thêm HTTPS origin vào OAuth client, rồi hoàn tất bước Publish/verification của Google.
 
 ## Phát triển giao diện (tự cập nhật khi sửa code)
 
@@ -106,6 +160,10 @@ pnpm dev
 ```
 
 Mở http://localhost:5173. Vite tự chuyển `/api` sang backend ở cổng 3000. Sau khi sửa xong, build lại bản 8081 bằng `docker compose up -d --build nginx`.
+
+### Tùy chỉnh màu giao diện bằng Sass
+
+Khách truy cập có thể chọn màu chủ đạo từ nút **Màu giao diện** trên thanh đầu trang (cả desktop và mobile). Lựa chọn được lưu trên trình duyệt hiện tại. Mặc định là xanh lá; ngoài ra có xanh dương, tím, hồng đỏ và cam. Các palette được khai báo trong `frontend/src/styles/_palette.scss`; Sass xuất CSS custom properties để đồng bộ màu với giao diện Tailwind. Khi chạy `pnpm dev`, Vite cập nhật thay đổi trực tiếp; để áp dụng cho bản build, chạy `pnpm build`.
 
 Backend trong Docker tự khởi động lại khi sửa file trong `backend/` (nodemon).
 

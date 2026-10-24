@@ -1,0 +1,60 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Backend: Attach Docker (9229)",
+      "type": "node",
+      "request": "attach",
+      "address": "127.0.0.1",
+      "port": 9229,
+      "localRoot": "${workspaceFolder}/backend",
+      "remoteRoot": "/app",
+      "restart": true,
+      "timeout": 120000,
+      "skipFiles": [
+        "<node_internals>/**",
+        "**/node_modules/**"
+      ]
+    },
+    {
+      "name": "Frontend: Chrome (Vite 5173)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}/frontend",
+      "skipFiles": [
+        "**/node_modules/**"
+      ]
+    },
+    {
+      "name": "Frontend: Edge (Vite 5173)",
+      "type": "msedge",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}/frontend",
+      "skipFiles": [
+        "**/node_modules/**"
+      ]
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Full stack: Docker + Chrome",
+      "preLaunchTask": "Docker: Start debug API",
+      "configurations": [
+        "Backend: Attach Docker (9229)",
+        "Frontend: Chrome (Vite 5173)"
+      ],
+      "stopAll": true
+    },
+    {
+      "name": "Full stack: Docker + Edge",
+      "preLaunchTask": "Docker: Start debug API",
+      "configurations": [
+        "Backend: Attach Docker (9229)",
+        "Frontend: Edge (Vite 5173)"
+      ],
+      "stopAll": true
+    }
+  ]
+}

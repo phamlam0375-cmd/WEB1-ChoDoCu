@@ -3,7 +3,7 @@
 const { Notifications } = require("../models");
 
 // Tạo thông báo trong website cho người liên quan (bảng Notifications).
-const notify = (userId, { type, title, message, referenceType = null, referenceId = null }, { transaction } = {}) => {
+const notify = (userId, { type, title, message, referenceType = null, referenceId = null, createdAt }, { transaction } = {}) => {
   if (!userId) return null;
   return Notifications.create(
     {
@@ -13,6 +13,7 @@ const notify = (userId, { type, title, message, referenceType = null, referenceI
       Message: message.slice(0, 500),
       ReferenceType: referenceType,
       ReferenceId: referenceId,
+      ...(createdAt ? { CreatedAt: createdAt } : {}),
     },
     { transaction }
   );

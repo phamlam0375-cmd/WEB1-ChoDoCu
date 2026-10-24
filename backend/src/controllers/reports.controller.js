@@ -23,6 +23,8 @@ const REPORT_REASONS = [
   "Sản phẩm cấm",
   "Nghi ngờ lừa đảo",
   "Spam hoặc tin trùng lặp",
+  "Tin đã bán nhưng chưa gỡ",
+  "Không liên hệ được người bán",
   "Nội dung không phù hợp",
   "Khác",
 ];
@@ -227,7 +229,7 @@ const handleReport = async (req, res) => {
       if (!item.ListingId) throw badRequest("Báo cáo này không gắn với tin đăng");
       const listing = await Listings.findByPk(item.ListingId, { transaction, lock: transaction.LOCK.UPDATE });
       if (!listing) throw notFound("Tin đăng không còn tồn tại");
-      const alreadyDone = effectiveListingAction === "HIDE" ? ["HIDDEN", "REMOVED"] : ["REMOVED"];
+      const alreadyDone = effectiveListingAction === "HIDE" ? ["SUSPENDED", "REMOVED"] : ["REMOVED"];
       if (!alreadyDone.includes(listing.Status)) {
         await moderateListing(req, listing, effectiveListingAction, resolution, { transaction, source });
         actions.push(LISTING_EFFECTS[effectiveListingAction]);

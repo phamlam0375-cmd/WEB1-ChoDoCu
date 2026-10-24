@@ -1,4 +1,5 @@
 import { Armchair, Bike, BookOpen, CookingPot, Headphones, Laptop, Shirt, Smartphone } from 'lucide-react'
+import { matchesProductCategory } from '../utils/productFilters'
 
 const iconMap = {
   Armchair,
@@ -30,7 +31,7 @@ function CategorySection({ categories, products, selectedCategory, onSelect }) {
         <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
           {categories.map((category) => {
             const Icon = iconMap[category.icon]
-            const count = products.filter((product) => product.category === category.id).length
+            const count = products.filter((product) => matchesProductCategory(product, category.id, categories)).length
             const isActive = selectedCategory === category.id
 
             return (

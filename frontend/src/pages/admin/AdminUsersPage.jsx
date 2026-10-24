@@ -1,21 +1,8 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { Eye, Lock, Unlock } from 'lucide-react'
-import {
-  Badge,
-  Card,
-  ConfirmDialog,
-  DataTable,
-  Field,
-  FilterBar,
-  InfoRow,
-  Loading,
-  Modal,
-  PageHeader,
-  Pagination,
-  SearchInput,
-  StatusBadge,
-} from '../../components/admin/AdminUi'
+import { Badge, ConfirmDialog, DataTable, Field, FilterBar, InfoRow, Loading, Modal, PageHeader, Pagination, SearchInput, Section, StatusBadge } from '../../components/admin/AdminUi'
 import { btn, input } from '../../components/admin/styles'
 import { useApi, useMutation } from '../../hooks/useApi'
 import { errorMessage } from '../../lib/api'
@@ -73,7 +60,7 @@ function UserDetail({ userId, onClose, onSaved }) {
         <p className="text-sm text-red-600">{error}</p>
       ) : (
         <div className="space-y-5">
-          <dl className="divide-y divide-slate-100">
+          <dl className="divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200">
             <InfoRow label="Email">{user.Email} {user.EmailVerified ? <Badge tone="green">Đã xác thực</Badge> : <Badge tone="amber">Chưa xác thực</Badge>}</InfoRow>
             <InfoRow label="Số điện thoại">{user.Phone || '—'} {user.Phone && (user.PhoneVerified ? <Badge tone="green">OTP</Badge> : <Badge tone="amber">Chưa OTP</Badge>)}</InfoRow>
             <InfoRow label="Trạng thái"><StatusBadge map={USER_STATUS} value={user.Status} /></InfoRow>
@@ -166,15 +153,18 @@ function UserDetail({ userId, onClose, onSaved }) {
 }
 
 export default function AdminUsersPage() {
-  const [filters, setFilters] = useState({ q: '', role: '', status: '', page: 1 })
+  const [searchParams] = useSearchParams()
+  const initialQuery = searchParams.get('q') || ''
+  const [filters, setFilters] = useState({ q: initialQuery, role: '', status: '', page: 1 })
   const [selected, setSelected] = useState(null)
   const { response, loading, error, reload } = useApi('/admin/users', filters)
   const update = (patch) => setFilters((current) => ({ ...current, page: 1, ...patch }))
 
   const columns = [
-    { key: 'UserId', title: 'Mã', render: (row) => <span className="font-mono text-xs text-slate-500">#{row.UserId}</span> },
+    { key: 'UserId', sortable: true, title: 'Mã', render: (row) => <span className="font-mono text-xs text-slate-500">#{row.UserId}</span> },
     {
       key: 'FullName',
+      sortable: true,
       title: 'Tài khoản',
       render: (row) => (
         <div>
@@ -185,8 +175,8 @@ export default function AdminUsersPage() {
     },
     { key: 'Phone', title: 'Điện thoại', render: (row) => row.Phone || '—' },
     { key: 'Roles', title: 'Vai trò', render: (row) => <RoleBadges roles={row.Roles} /> },
-    { key: 'Status', title: 'Trạng thái', render: (row) => <StatusBadge map={USER_STATUS} value={row.Status} /> },
-    { key: 'CreatedAt', title: 'Ngày tạo', render: (row) => formatDateTime(row.CreatedAt), className: 'whitespace-nowrap' },
+    { key: 'Status', sortable: true, title: 'Trạng thái', render: (row) => <StatusBadge map={USER_STATUS} value={row.Status} /> },
+    { key: 'CreatedAt', sortable: true, title: 'Ngày tạo', render: (row) => formatDateTime(row.CreatedAt), className: 'whitespace-nowrap' },
     {
       key: 'actions',
       title: '',
@@ -201,8 +191,7 @@ export default function AdminUsersPage() {
   return (
     <>
       <PageHeader title="Quản lý tài khoản và phân quyền" description="Tra cứu tài khoản, khóa hoặc mở khóa, cấp hoặc thu hồi vai trò. Mọi thay đổi đều được ghi nhật ký thao tác." />
-      <Card>
-        <div className="p-4 pb-0">
+      <Section title="Tìm kiếm và lọc" bodyClassName="px-4 pt-4">
           <FilterBar onReset={() => setFilters({ q: '', role: '', status: '', page: 1 })}>
             <SearchInput value={filters.q} onChange={(q) => update({ q })} placeholder="Email, số điện thoại hoặc mã người dùng" />
             <Field className="w-40">
@@ -221,7 +210,8 @@ export default function AdminUsersPage() {
               </select>
             </Field>
           </FilterBar>
-        </div>
+      </Section>
+      <Section title="Danh sách tài khoản" meta={response?.pagination ? `${response.pagination.total} kết quả` : null} flush>
         <DataTable
           columns={columns}
           rows={response?.data}
@@ -233,7 +223,7 @@ export default function AdminUsersPage() {
           empty="Không tìm thấy tài khoản phù hợp"
         />
         <Pagination pagination={response?.pagination} onPage={(page) => setFilters((current) => ({ ...current, page }))} />
-      </Card>
+      </Section>
       {selected && <UserDetail userId={selected} onClose={() => setSelected(null)} onSaved={reload} />}
     </>
   )

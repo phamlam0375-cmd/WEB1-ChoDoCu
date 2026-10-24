@@ -1,13 +1,74 @@
-import { useState } from 'react'
-import { KeyRound } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
+import { KeyRound, LogIn, LogOut, UserCircle2 } from 'lucide-react'
+import { rememberPostLoginUrl } from '../lib/auth'
 import { useDevAccount } from '../hooks/useDevAccount'
 import { ROLE_LABELS } from '../lib/labels'
 import { btn, input } from './admin/styles'
 
-// Ô chọn tài khoản thử nghiệm (tạm thay đăng nhập). compact = dạng gọn trên thanh tiêu đề.
+// Ô "Tài khoản thử nghiệm" (đổi tài khoản bằng mã, header x-user-id) chỉ hiện khi bật cờ này lúc build;
+// mặc định người dùng đăng nhập thật bằng tài khoản (A02).
+const DEV_SWITCHER_ENABLED = import.meta.env?.VITE_DEV_ACCOUNT_SWITCHER === 'true'
+
+// Đã đăng nhập thật: hiện người đang đăng nhập và nút Đăng xuất (không còn ô tài khoản thử nghiệm).
+// Bộ chọn dev không thay danh tính JWT của phiên thật.
+function SessionAccount({ compact, me, error, logout }) {
+  return (
+    <div className={`flex flex-wrap items-center gap-2 ${compact ? '' : 'rounded-xl border border-emerald-200 bg-emerald-50 p-3'}`}>
+      <UserCircle2 size={18} className="shrink-0 text-emerald-600" aria-hidden="true" />
+      <span className="text-xs text-slate-600">
+        {me ? (
+          <>
+            <b className="text-slate-900">{me.FullName}</b> · {me.roles.map((role) => ROLE_LABELS[role] || role).join(', ')}
+          </>
+        ) : error ? (
+          <span className="text-red-600">{error}</span>
+        ) : (
+          'Đang tải tài khoản...'
+        )}
+      </span>
+      <button type="button" className={`${btn.ghost} py-1.5`} onClick={logout}>
+        <LogOut size={15} /> Đăng xuất
+      </button>
+    </div>
+  )
+}
+
+// Nút sang trang Đăng nhập (A02); đăng nhập xong quay lại đúng trang đang xem.
+function LoginLink() {
+  const location = useLocation()
+  const returnTo = `${location.pathname}${location.search}`
+  return (
+    <Link
+      to={`/login?returnTo=${encodeURIComponent(returnTo)}`}
+      onClick={() => rememberPostLoginUrl(returnTo)}
+      className={`${btn.primary} py-1.5`}
+    >
+      <LogIn size={15} /> Đăng nhập
+    </Link>
+  )
+}
+
+// Ô chọn tài khoản thử nghiệm khi chưa đăng nhập, kèm nút Đăng nhập thật. compact = dạng gọn trên thanh tiêu đề.
 export default function DevAccountSwitcher({ compact = false }) {
-  const { userId, me, error, switchUser } = useDevAccount()
-  const [draft, setDraft] = useState(userId)
+  const { userId, loggedIn, me, error, switchUser, logout } = useDevAccount()
+  const [draft, setDraft] = useState(loggedIn ? '' : userId)
+
+  // Tắt ô thử nghiệm: bỏ mã tài khoản thử còn lưu từ trước để không vô tình dùng danh tính đó.
+  useEffect(() => {
+    if (!DEV_SWITCHER_ENABLED && !loggedIn && userId) switchUser('')
+  }, [loggedIn, userId, switchUser])
+
+  if (loggedIn) return <SessionAccount compact={compact} me={me} error={error} logout={logout} />
+
+  if (!DEV_SWITCHER_ENABLED) {
+    return (
+      <div className={`flex flex-wrap items-center gap-2 ${compact ? '' : 'rounded-xl border border-slate-200 bg-slate-50 p-3'}`}>
+        <span className="text-xs text-slate-600">Bạn chưa đăng nhập</span>
+        <LoginLink />
+      </div>
+    )
+  }
 
   const submit = (event) => {
     event.preventDefault()
@@ -46,6 +107,7 @@ export default function DevAccountSwitcher({ compact = false }) {
           Thoát
         </button>
       )}
+      <LoginLink />
     </form>
   )
 }

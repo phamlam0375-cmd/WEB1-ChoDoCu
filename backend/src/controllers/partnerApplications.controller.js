@@ -127,7 +127,11 @@ const createPartnerApplication = async (req, res) => {
         message: result.error.issues[0].message
       })
     }
-    const { UserId, PartnerType, IdentityNumberMasked } = result.data;
+    const { PartnerType, IdentityNumberMasked } = result.data;
+    const UserId = req.user.UserId;
+    if (result.data.UserId !== undefined && result.data.UserId !== UserId) {
+      return res.status(403).json({ success: false, message: 'Không được đăng ký thay tài khoản khác.' });
+    }
 
     const IdentityImageUrl = req.file
       ? `/upload/partnerApplication/${req.file.filename}`
@@ -202,8 +206,6 @@ const createPartnerApplication = async (req, res) => {
       data: application,
     });
   } catch (error) {
-    console.error("Create partner application error:", error);
-
     return res.status(500).json({
       message: error.message || "Lỗi tạo không thành công",
     });

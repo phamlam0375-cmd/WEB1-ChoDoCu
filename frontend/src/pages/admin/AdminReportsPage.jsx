@@ -1,22 +1,8 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { ArrowRightCircle, Eye } from 'lucide-react'
-import {
-  Badge,
-  Card,
-  ConfirmDialog,
-  DataTable,
-  Field,
-  FilterBar,
-  Loading,
-  Modal,
-  PageHeader,
-  Pagination,
-  SearchInput,
-  StatusBadge,
-  StatusTabs,
-} from '../../components/admin/AdminUi'
+import { Badge, ConfirmDialog, DataTable, Field, FilterBar, Loading, Modal, PageHeader, Pagination, SearchInput, Section, StatusBadge, StatusTabs } from '../../components/admin/AdminUi'
 import { btn, input } from '../../components/admin/styles'
 import ReportInfo from '../../components/report/ReportInfo'
 import { useApi, useMutation } from '../../hooks/useApi'
@@ -85,14 +71,16 @@ function ReportDetail({ id, onClose, onSaved }) {
 }
 
 export default function AdminReportsPage() {
-  const [filters, setFilters] = useState({ status: 'PENDING', targetType: '', reason: '', q: '', from: '', to: '', page: 1 })
+  const [searchParams] = useSearchParams()
+  const initialQuery = searchParams.get('q') || ''
+  const [filters, setFilters] = useState({ status: initialQuery ? '' : 'PENDING', targetType: '', reason: '', q: initialQuery, from: '', to: '', page: 1 })
   const [selected, setSelected] = useState(null)
   const { response, loading, error, reload } = useApi('/admin/reports', filters)
   const { data: reasons } = useApi('/reports/reasons')
   const update = (patch) => setFilters((current) => ({ ...current, page: 1, ...patch }))
 
   const columns = [
-    { key: 'ReportId', title: 'Mã', render: (row) => <span className="font-mono text-xs text-slate-500">#{row.ReportId}</span> },
+    { key: 'ReportId', sortable: true, title: 'Mã', render: (row) => <span className="font-mono text-xs text-slate-500">#{row.ReportId}</span> },
     { key: 'TargetType', title: 'Đối tượng', render: (row) => <Badge tone="blue">{REPORT_TARGET[row.TargetType]}</Badge> },
     {
       key: 'target',
@@ -106,10 +94,10 @@ export default function AdminReportsPage() {
         </div>
       ),
     },
-    { key: 'Reason', title: 'Lý do' },
-    { key: 'Reporter', title: 'Người gửi', render: (row) => row.Reporter?.FullName },
-    { key: 'Status', title: 'Trạng thái', render: (row) => <StatusBadge map={REPORT_STATUS} value={row.Status} /> },
-    { key: 'CreatedAt', title: 'Thời gian', render: (row) => formatDateTime(row.CreatedAt), className: 'whitespace-nowrap' },
+    { key: 'Reason', sortable: true, title: 'Lý do' },
+    { key: 'Reporter', sortValue: (row) => row.Reporter?.FullName, title: 'Người gửi', render: (row) => row.Reporter?.FullName },
+    { key: 'Status', sortable: true, title: 'Trạng thái', render: (row) => <StatusBadge map={REPORT_STATUS} value={row.Status} /> },
+    { key: 'CreatedAt', sortable: true, title: 'Thời gian', render: (row) => formatDateTime(row.CreatedAt), className: 'whitespace-nowrap' },
     {
       key: 'actions',
       title: '',
@@ -124,8 +112,7 @@ export default function AdminReportsPage() {
   return (
     <>
       <PageHeader title="Tiếp nhận báo cáo vi phạm" description="Báo cáo mới nhất hiện trước. Xem chi tiết và bấm Chuyển xử lý để chuyển báo cáo sang trang kiểm duyệt tin." />
-      <Card>
-        <div className="p-4 pb-0">
+      <Section title="Tìm kiếm và lọc" bodyClassName="px-4 pt-4">
           <StatusTabs map={REPORT_STATUS} value={filters.status} onChange={(status) => update({ status })} counts={response?.counts} />
           <FilterBar onReset={() => setFilters({ status: '', targetType: '', reason: '', q: '', from: '', to: '', page: 1 })}>
             <SearchInput value={filters.q} onChange={(q) => update({ q })} placeholder="Tiêu đề tin, tên hoặc mã" />
@@ -148,7 +135,8 @@ export default function AdminReportsPage() {
               <input type="date" value={filters.to} onChange={(event) => update({ to: event.target.value })} className={input} />
             </Field>
           </FilterBar>
-        </div>
+      </Section>
+      <Section title="Danh sách báo cáo" meta={response?.pagination ? `${response.pagination.total} kết quả` : null} flush>
         <DataTable
           columns={columns}
           rows={response?.data}
@@ -159,7 +147,7 @@ export default function AdminReportsPage() {
           onRetry={reload}
         />
         <Pagination pagination={response?.pagination} onPage={(page) => setFilters((current) => ({ ...current, page }))} />
-      </Card>
+      </Section>
       {selected && <ReportDetail id={selected} onClose={() => setSelected(null)} onSaved={reload} />}
     </>
   )

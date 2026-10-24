@@ -29,6 +29,7 @@ const AUDIT_ACTIONS = {
   REFUND_REJECT: "Từ chối hoàn tiền",
   REFUND_COMPLETE: "Xác nhận hoàn tiền xong",
   COMMISSION_SYNC: "Tạo hoa hồng cho đơn hoàn tất",
+  COMMISSION_REMIND: "Nhắc nợ phí quá hạn",
   FEE_CONFIRM: "Xác nhận đã thu phí",
   FEE_REJECT: "Từ chối báo nộp phí",
   FEE_WAIVE: "Miễn phí hoa hồng",

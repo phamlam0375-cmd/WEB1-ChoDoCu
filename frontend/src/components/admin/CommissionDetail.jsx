@@ -1,18 +1,17 @@
 import { InfoRow, Modal, StatusBadge } from './AdminUi'
 import QrPaymentPanel from '../QrPaymentPanel'
-import { useApi } from '../../hooks/useApi'
 import { formatDate, formatDateTime, formatMoney } from '../../lib/format'
 import { COMMISSION_STATUS } from '../../lib/labels'
 
 // Chi tiết một khoản hoa hồng: cách tính và số tiền trước/sau điều chỉnh do hoàn tiền.
-export default function CommissionDetail({ commission, statusMap = COMMISSION_STATUS, onClose, footer }) {
+// canPay: chỉ người bán (chủ khoản phí) mới thấy nút Thanh toán.
+export default function CommissionDetail({ commission, statusMap = COMMISSION_STATUS, onClose, footer, canPay = false }) {
   const orderValue = Number(commission.Order?.ProductAmount || 0)
   const rate = Number(commission.Rate)
   const adjusted = Number(commission.AdjustmentAmount) !== 0
   const amountDue = Math.round(Number(commission.AmountDue))
   // Chưa thanh toán (Chưa nộp / Đã điều chỉnh) thì mới có nút Thanh toán.
   const payable = ['UNPAID', 'ADJUSTED'].includes(commission.Status)
-  const { data: account } = useApi(payable && amountDue > 0 ? '/fee-account' : null)
 
   return (
     <Modal open title={`Hoa hồng đơn #${commission.OrderId}`} onClose={onClose} footer={footer}>
@@ -35,14 +34,14 @@ export default function CommissionDetail({ commission, statusMap = COMMISSION_ST
           </div>
         )}
 
-        {payable && amountDue > 0 && account && (
-          <QrPaymentPanel account={account} amount={amountDue} reference={commission.PaymentReference} title={`Quét mã để nộp ${formatMoney(amountDue)}`} />
+        {canPay && payable && amountDue > 0 && (
+          <QrPaymentPanel payment={{ type: 'fee', commissionIds: [commission.CommissionId] }} amount={amountDue} reference={commission.PaymentReference} title={`Nộp hoa hồng đơn #${commission.OrderId}`} />
         )}
         {payable && amountDue === 0 && (
           <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">Số tiền phải nộp là 0đ nên khoản này không cần chuyển khoản.</p>
         )}
 
-        <dl className="divide-y divide-slate-100">
+        <dl className="divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200">
           <InfoRow label="Trạng thái"><StatusBadge map={statusMap} value={commission.Status} /></InfoRow>
           <InfoRow label="Sản phẩm">{commission.Order?.Listing?.Title}</InfoRow>
           {commission.Seller && <InfoRow label="Người bán">{commission.Seller.FullName}</InfoRow>}

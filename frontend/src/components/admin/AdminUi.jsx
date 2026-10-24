@@ -1,17 +1,35 @@
 import { useEffect, useId, useState } from 'react'
-import { AlertCircle, ChevronLeft, ChevronRight, Inbox, Loader2, Search, X } from 'lucide-react'
+import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Inbox, Loader2, Search, X } from 'lucide-react'
 import { btn, card, input, label as labelClass, tones } from './styles'
 
 export function PageHeader({ code, title, description, actions }) {
   return (
-    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-      <div>
+    <div className={`${card} mb-5 flex flex-col gap-3 p-5 sm:flex-row sm:items-end sm:justify-between`}>
+      <div className="min-w-0">
         {code && <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">{code}</p>}
         <h1 className="mt-0.5 text-2xl font-bold text-slate-900">{title}</h1>
         {description && <p className="mt-1 max-w-3xl text-sm text-slate-500">{description}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
     </div>
+  )
+}
+
+// Một phần của trang trong khung riêng, có thanh tiêu đề. flush: nội dung sát viền (bảng).
+export function Section({ title, meta, actions, children, flush = false, bodyClassName = 'p-4', className = '' }) {
+  return (
+    <section className={`${card} mb-5 overflow-hidden ${className}`}>
+      {(title || actions) && (
+        <header className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-4 py-2.5">
+          <h2 className="text-sm font-semibold text-slate-800">
+            {title}
+            {meta && <span className="ml-2 font-normal text-slate-500">{meta}</span>}
+          </h2>
+          {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+        </header>
+      )}
+      <div className={flush ? '' : bodyClassName}>{children}</div>
+    </section>
   )
 }
 
@@ -157,35 +175,83 @@ export function EmptyState({ text = 'Không có dữ liệu phù hợp' }) {
 }
 
 // Bảng dữ liệu: columns = [{ key, title, render(row), className }]
+// Giá trị dùng để sắp xếp một ô: sortValue(row) nếu có, không thì row[key]; chuỗi số được so như số.
+const sortValueOf = (column, row) => {
+  const value = column.sortValue ? column.sortValue(row) : row[column.key]
+  if (value === null || value === undefined || value === '') return null
+  if (typeof value === 'number') return value
+  const number = Number(value)
+  if (typeof value === 'string' && value.trim() !== '' && Number.isFinite(number)) return number
+  const time = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value) ? Date.parse(value) : NaN
+  return Number.isFinite(time) ? time : String(value).toLocaleLowerCase('vi')
+}
+
+// Bảng danh sách. Cột có sortable (hoặc sortValue) bấm tiêu đề để sắp tăng → giảm → bỏ sắp xếp;
+// sắp xếp trên các dòng đang hiển thị (trang hiện tại).
 export function DataTable({ columns, rows, rowKey, onRowClick, loading, error, onRetry, empty }) {
+  const [sort, setSort] = useState(null) // { key, dir: 'asc' | 'desc' }
   if (loading && !rows?.length) return <Loading />
   if (error) return <ErrorState message={error} onRetry={onRetry} />
   if (!rows?.length) return <EmptyState text={empty} />
+
+  const sortColumn = sort && columns.find((column) => column.key === sort.key)
+  const shownRows = sortColumn
+    ? [...rows].sort((a, b) => {
+        const left = sortValueOf(sortColumn, a)
+        const right = sortValueOf(sortColumn, b)
+        if (left === right) return 0
+        if (left === null) return 1
+        if (right === null) return -1
+        const order = left < right ? -1 : 1
+        return sort.dir === 'asc' ? order : -order
+      })
+    : rows
+  const nextSort = (key) =>
+    setSort((current) => (current?.key !== key ? { key, dir: 'asc' } : current.dir === 'asc' ? { key, dir: 'desc' } : null))
   return (
     <div className={`overflow-x-auto ${loading ? 'opacity-60' : ''}`}>
-      <table className="min-w-full divide-y divide-slate-200 text-sm">
-        <thead className="bg-slate-50">
+      <table className="min-w-full border-collapse text-sm">
+        <thead className="bg-emerald-50/70">
           <tr>
             {columns.map((column) => (
               <th
                 key={column.key}
                 scope="col"
-                className={`whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 ${column.className || ''}`}
+                aria-sort={sort?.key === column.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : undefined}
+                className={`whitespace-nowrap border-b-2 border-r border-emerald-100 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-emerald-900 last:border-r-0 ${column.className || ''}`}
               >
-                {column.title}
+                {column.sortable || column.sortValue ? (
+                  <button
+                    type="button"
+                    onClick={() => nextSort(column.key)}
+                    className="inline-flex items-center gap-1 uppercase tracking-wide hover:text-emerald-700"
+                    title="Bấm để sắp xếp"
+                  >
+                    {column.title}
+                    {sort?.key !== column.key ? (
+                      <ArrowUpDown size={13} className="text-emerald-400" />
+                    ) : sort.dir === 'asc' ? (
+                      <ArrowUp size={13} />
+                    ) : (
+                      <ArrowDown size={13} />
+                    )}
+                  </button>
+                ) : (
+                  column.title
+                )}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100 bg-white">
-          {rows.map((row) => (
+        <tbody className="bg-white">
+          {shownRows.map((row) => (
             <tr
               key={rowKey(row)}
               onClick={onRowClick ? () => onRowClick(row) : undefined}
-              className={onRowClick ? 'cursor-pointer transition hover:bg-emerald-50/40' : ''}
+              className={`even:bg-slate-50/70 ${onRowClick ? 'cursor-pointer transition hover:bg-emerald-50/60' : ''}`}
             >
               {columns.map((column) => (
-                <td key={column.key} className={`px-4 py-3 align-top text-slate-700 ${column.className || ''}`}>
+                <td key={column.key} className={`border-b border-r border-slate-200 px-4 py-3 align-top text-slate-700 last:border-r-0 ${column.className || ''}`}>
                   {column.render ? column.render(row) : row[column.key]}
                 </td>
               ))}
@@ -270,6 +336,7 @@ function ConfirmDialogBody({
   reasonRequired = false,
   reasonMin = 1,
   reasonEmptyMessage = 'Vui lòng nhập lý do',
+  reasonPresets = [],
   busy = false,
   onConfirm,
   onClose,
@@ -283,6 +350,12 @@ function ConfirmDialogBody({
   const submit = () => {
     setTouched(true)
     if (!invalid) onConfirm(trimmed)
+  }
+  // Bấm một lý do soạn sẵn: thêm vào ô lý do (bấm lại thì bỏ ra).
+  const togglePreset = (text) => {
+    const lines = reason.split('\n').map((line) => line.trim()).filter(Boolean)
+    const next = lines.includes(text) ? lines.filter((line) => line !== text) : [...lines, text]
+    setReason(next.join('\n').slice(0, 500))
   }
 
   return (
@@ -309,7 +382,25 @@ function ConfirmDialogBody({
           label={`${reasonLabel}${reasonRequired ? ' *' : ''}`}
           error={touched && invalid ? (trimmed ? `Vui lòng nhập ít nhất ${reasonMin} ký tự` : reasonEmptyMessage) : null}
         >
-          <textarea rows={3} value={reason} onChange={(event) => setReason(event.target.value)} className={input} maxLength={500} />
+          {reasonPresets.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {reasonPresets.map((preset) => {
+                const active = reason.split('\n').map((line) => line.trim()).includes(preset.text)
+                return (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    title={preset.text}
+                    onClick={() => togglePreset(preset.text)}
+                    className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${active ? 'border-emerald-600 bg-emerald-50 text-emerald-800' : 'border-slate-300 text-slate-600 hover:border-slate-400 hover:bg-slate-50'}`}
+                  >
+                    {preset.label}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          <textarea rows={reasonPresets.length ? 4 : 3} value={reason} onChange={(event) => setReason(event.target.value)} className={input} maxLength={500} />
         </Field>
       )}
     </Modal>
@@ -319,14 +410,42 @@ function ConfirmDialogBody({
 // Cặp nhãn - giá trị trong trang chi tiết.
 export function InfoRow({ label, children }) {
   return (
-    <div className="grid grid-cols-3 gap-3 py-2 text-sm">
-      <dt className="text-slate-500">{label}</dt>
-      <dd className="col-span-2 break-words text-slate-900">{children ?? '—'}</dd>
+    <div className="grid grid-cols-3 text-sm">
+      <dt className="border-r border-slate-200 bg-slate-50 px-3 py-2 font-medium text-slate-600">{label}</dt>
+      <dd className="col-span-2 break-words px-3 py-2 text-slate-900">{children ?? '—'}</dd>
     </div>
   )
 }
 
-export function StatCard({ label, value, hint, tone = 'slate', icon: Icon }) {
+// So sánh với kỳ liền trước: ▲/▼ phần trăm. goodWhenUp = false khi tăng là xấu (ví dụ hoàn tiền).
+function ChangeLine({ current, previous, goodWhenUp, compareLabel }) {
+  const now = Number(current || 0)
+  const before = Number(previous || 0)
+  let text
+  let tone = 'text-slate-500'
+  if (before === 0 && now === 0) text = 'Không đổi'
+  else if (before === 0) {
+    text = 'Mới phát sinh'
+    tone = goodWhenUp ? 'text-emerald-700' : 'text-red-600'
+  } else {
+    const percent = ((now - before) / before) * 100
+    const rounded = Math.round(Math.abs(percent) * 10) / 10
+    if (rounded === 0) text = 'Không đổi'
+    else {
+      const up = percent > 0
+      text = `${up ? '▲' : '▼'} ${rounded.toLocaleString('vi-VN')}%`
+      tone = up === goodWhenUp ? 'text-emerald-700' : 'text-red-600'
+    }
+  }
+  return (
+    <p className="mt-1 text-xs">
+      <span className={`font-semibold ${tone}`}>{text}</span>
+      <span className="text-slate-500"> so với {compareLabel || 'kỳ trước'}</span>
+    </p>
+  )
+}
+
+export function StatCard({ label, value, hint, tone = 'slate', icon: Icon, compare }) {
   const iconTone = {
     green: 'bg-emerald-100 text-emerald-700',
     amber: 'bg-amber-100 text-amber-700',
@@ -341,6 +460,7 @@ export function StatCard({ label, value, hint, tone = 'slate', icon: Icon }) {
           <p className="text-sm text-slate-500">{label}</p>
           <p className="mt-1 truncate text-2xl font-bold tabular-nums text-slate-900">{value}</p>
           {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
+          {compare && <ChangeLine goodWhenUp {...compare} />}
         </div>
         {Icon && (
           <span className={`grid size-9 shrink-0 place-items-center rounded-xl ${iconTone}`}>

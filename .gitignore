@@ -5,7 +5,14 @@ coverage/
 .DS_Store
 *.log
 .idea/
-.vscode/
+# Chia se cau hinh debug; van bo qua thiet lap VS Code ca nhan.
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
 
 # Ảnh người dùng tải lên (phân hệ B)
 backend/uploads/
+backend/upload/
+
+# Ảnh kiểm chứng production headless (sinh tự động, không phải source).
+frontend/test-results/

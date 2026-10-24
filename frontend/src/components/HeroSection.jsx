@@ -1,4 +1,5 @@
-import { ArrowRight, CheckCircle2, PackageCheck, ShieldCheck, Sparkles, UsersRound } from 'lucide-react'
+import { ArrowRight, CheckCircle2, PackageCheck, ShieldCheck, Sparkles, UsersRound } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const stats = [
   { value: '1.000+', label: 'Sản phẩm', icon: PackageCheck },
@@ -6,7 +7,9 @@ const stats = [
   { value: 'An tâm', label: 'Giao dịch an toàn', icon: ShieldCheck },
 ]
 
-function HeroSection({ onExplore, onSell }) {
+function HeroSection({ onExplore }) {
+  const navigate = useNavigate();
+
   return (
     <section id="top" className="relative overflow-hidden bg-gradient-to-b from-emerald-50 via-white to-white">
       <div className="pointer-events-none absolute -left-24 top-10 size-72 rounded-full bg-emerald-200/30 blur-3xl" />
@@ -43,7 +46,7 @@ function HeroSection({ onExplore, onSell }) {
             </button>
             <button
               type="button"
-              onClick={onSell}
+              onClick={() => navigate('/seller/listings/create')}
               className="inline-flex h-12 items-center justify-center rounded-xl border border-slate-200 bg-white px-6 text-sm font-bold text-slate-700 shadow-sm transition hover:border-emerald-300 hover:text-emerald-700"
             >
               Đăng bán ngay
@@ -85,11 +88,15 @@ function HeroSection({ onExplore, onSell }) {
                 <p className="mt-1 text-lg font-bold">Giá tốt mỗi ngày</p>
               </div>
               <div className="flex flex-col gap-4">
-                <div className="rounded-2xl bg-amber-50 p-4">
+                <div className="rounded-2xl bg-amber-50 p-4 cursor-pointer"
+                  onClick={() => navigate("/partner-application")}
+                >
                   <span className="grid size-9 place-items-center rounded-xl bg-amber-100 text-amber-700">
                     <CheckCircle2 size={20} />
                   </span>
-                  <p className="mt-5 text-sm font-bold text-slate-800">Người bán xác minh</p>
+                  <p className="mt-5 text-sm font-bold text-slate-800">
+                    Người bán xác minh
+                  </p>
                 </div>
                 <div className="rounded-2xl bg-emerald-50 p-4">
                   <span className="grid size-9 place-items-center rounded-xl bg-emerald-100 text-emerald-700">

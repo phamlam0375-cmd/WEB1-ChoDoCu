@@ -2,12 +2,21 @@ FROM node:20-alpine AS frontend-build
 
 WORKDIR /app
 
+ARG VITE_GOOGLE_CLIENT_ID
+ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
+
+ARG VITE_ENABLE_GOOGLE_MOCK=false
+ENV VITE_ENABLE_GOOGLE_MOCK=$VITE_ENABLE_GOOGLE_MOCK
+
 RUN npm install --global pnpm@10
 
 COPY frontend/package.json frontend/pnpm-lock.yaml ./
+ENV PNPM_ONLY_BUILT_DEPENDENCIES=@parcel/watcher
 RUN pnpm install --frozen-lockfile
 
 COPY frontend/ ./
+ARG VITE_D01_DEMO_MODE=false
+ENV VITE_D01_DEMO_MODE=${VITE_D01_DEMO_MODE}
 RUN pnpm run build
 
 FROM nginx:alpine

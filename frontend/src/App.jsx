@@ -1,20 +1,32 @@
 import 'react-toastify/dist/ReactToastify.css'
-import './App.css'
+import './App.scss'
 
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { Suspense, lazy } from 'react'
 
+import CreateListing from './pages/listing/CreateListing'
+import CrudListing from './pages/listing/CrudListing'
 import DevAccountProvider from './context/DevAccountProvider'
+import ForgotPassword from './pages/ForgotPassword'
 import HomePage from './pages/HomePage'
 import { Loading } from './components/admin/AdminUi'
 import Login from './pages/Login'
+import OrderCancelPage from './pages/D02_HuyDonHang/OrderCancelPage'
 import OrderCreatePage from './pages/OrderCreatePage'
+import OrderPaymentPage from './pages/D03_ThanhToan/OrderPaymentPage'
+import OrderRejectPage from './pages/OrderRejectPage'
+import PrivacyPolicy from './pages/PrivacyPolicy'
+import PublicStore from './pages/Store/PublicStore'
+import Register from './pages/Register'
 import RegisterApplication from './components/PartnerApplication/RegisterApplication'
+import ResetPassword from './pages/ResetPassword'
+import SellerOrders from './pages/SellerOrders/SellerOrders'
+import SellerStore from './pages/Store/SellerStore'
 import { ToastContainer } from 'react-toastify'
+import VerifyEmail from './pages/VerifyEmail'
+import AvailableDeliveriesPage from './pages/D07_TaiXeNhanChuyen/AvailableDeliveriesPage'
 
 // Phân hệ B: quản trị và doanh thu (tải khi cần để không làm nặng trang chủ)
-
-
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'))
 const AdminDashboardPage = lazy(() => import('./pages/admin/AdminDashboardPage'))
 const AdminUsersPage = lazy(() => import('./pages/admin/AdminUsersPage'))
@@ -27,12 +39,20 @@ const AdminCommissionsPage = lazy(() => import('./pages/admin/AdminCommissionsPa
 const AdminFeePaymentsPage = lazy(() => import('./pages/admin/AdminFeePaymentsPage'))
 const AdminAuditLogsPage = lazy(() => import('./pages/admin/AdminAuditLogsPage'))
 const AdminSettingsPage = lazy(() => import('./pages/admin/AdminSettingsPage'))
+const AdminProfilePage = lazy(() => import('./pages/admin/AdminProfilePage'))
 const AccountShell = lazy(() => import('./pages/account/AccountShell'))
 const ReportCreatePage = lazy(() => import('./pages/account/ReportCreatePage'))
 const MyReportsPage = lazy(() => import('./pages/account/MyReportsPage'))
 const RefundCreatePage = lazy(() => import('./pages/account/RefundCreatePage'))
 const MyRefundsPage = lazy(() => import('./pages/account/MyRefundsPage'))
 const SellerFeesPage = lazy(() => import('./pages/account/SellerFeesPage'))
+const MomoPaymentPage = lazy(() => import('./pages/account/MomoPaymentPage'))
+const SellerPaymentsPage = lazy(() => import('./pages/D04_XacNhanNhanTien/SellerPaymentsPage'))
+const SellerPaymentPage = lazy(() => import('./pages/D04_XacNhanNhanTien/SellerPaymentPage'))
+const TrackingLayout = lazy(() => import('./components/D05_TheoDoiDonHang/TrackingLayout'))
+const BuyerOrdersPage = lazy(() => import('./pages/D05_TheoDoiDonHang/BuyerOrdersPage'))
+const OrderTrackingPage = lazy(() => import('./pages/D05_TheoDoiDonHang/OrderTrackingPage'))
+
 
 function App() {
   return (
@@ -40,9 +60,24 @@ function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/verify-email" element={<VerifyEmail />} /> {/* <-- Route cho trang nhập OTP */}
         <Route path="/orders/create/:listingId" element={<OrderCreatePage />} />
+        <Route path="/orders/:orderId/cancel" element={<OrderCancelPage />} />
+        <Route path="/orders/:orderId/payment" element={<OrderPaymentPage />} />
+        <Route path="/seller/orders/:orderId/reject" element={<OrderRejectPage />} />
 
         <Route path="/partner-application" element={<RegisterApplication />} />
+        <Route path="/driver/deliveries" element={<AvailableDeliveriesPage />} />
+        <Route path="store/:ownerId" element={<PublicStore />} />
+        <Route path="/seller/store" element={<SellerStore />} />
+        <Route path="/seller/listings" element={<CrudListing />} />
+        <Route path="/seller/listings/create" element={<CreateListing />} />
+        
+        <Route path="/seller/orders" element={<SellerOrders/>}/>
 
         <Route
           element={
@@ -65,13 +100,21 @@ function App() {
             <Route path="fee-payments" element={<AdminFeePaymentsPage />} />
             <Route path="audit-logs" element={<AdminAuditLogsPage />} />
             <Route path="settings" element={<AdminSettingsPage />} />
+            <Route path="profile" element={<AdminProfilePage />} />
+          </Route>
+          <Route element={<TrackingLayout />}>
+            <Route path="/orders" element={<BuyerOrdersPage />} />
+            <Route path="/orders/:orderId/tracking" element={<OrderTrackingPage />} />
           </Route>
           <Route element={<AccountShell />}>
+            <Route path="/seller/payments" element={<SellerPaymentsPage />} />
+            <Route path="/seller/orders/:orderId/payment" element={<SellerPaymentPage />} />
             <Route path="/reports" element={<MyReportsPage />} />
             <Route path="/reports/new" element={<ReportCreatePage />} />
             <Route path="/orders/:orderId/refund" element={<RefundCreatePage />} />
             <Route path="/refunds" element={<MyRefundsPage />} />
             <Route path="/seller/fees" element={<SellerFeesPage />} />
+            <Route path="/payment" element={<MomoPaymentPage />} />
           </Route>
         </Route>
 
@@ -80,7 +123,7 @@ function App() {
 
       <ToastContainer
         position="top-right"
-        autoClose={10000}
+        autoClose={3000}
         closeOnClick={false}
         pauseOnHover
         pauseOnFocusLoss={false}

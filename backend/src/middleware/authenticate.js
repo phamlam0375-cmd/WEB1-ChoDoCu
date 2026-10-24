@@ -2,6 +2,7 @@
 
 const crypto = require('crypto');
 const AppError = require('../errors/AppError');
+const { getJwtSecret } = require('../utils/jwtSecret');
 
 function decodePart(part) {
   try {
@@ -12,8 +13,10 @@ function decodePart(part) {
 }
 
 function verifyToken(token) {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
+  let secret;
+  try {
+    secret = getJwtSecret();
+  } catch (_error) {
     throw new AppError(500, 'AUTH_NOT_CONFIGURED', 'Dịch vụ xác thực chưa được cấu hình.');
   }
 
@@ -58,19 +61,9 @@ function verifyToken(token) {
   return { ...payload, userId };
 }
 
-function authenticate(request, _response, next) {
-  try {
-    const authorization = request.get('authorization') || '';
-    const match = authorization.match(/^Bearer\s+(.+)$/i);
-    if (!match) {
-      throw new AppError(401, 'UNAUTHORIZED', 'Vui lòng đăng nhập để tiếp tục.');
-    }
-
-    request.user = verifyToken(match[1]);
-    next();
-  } catch (error) {
-    next(error);
-  }
+function authenticate(request, response, next) {
+  // Require trễ để verifyToken và middleware dùng chung không tạo vòng khởi tạo.
+  return require('../middlewares/auth.middleware').requireTokenAuth(request, response, next);
 }
 
 module.exports = { authenticate, verifyToken };

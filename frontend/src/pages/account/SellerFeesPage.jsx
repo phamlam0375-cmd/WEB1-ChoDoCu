@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { toast } from 'react-toastify'
-import { AlertTriangle, Copy, Eye, QrCode } from 'lucide-react'
+import { AlertTriangle, Copy, Eye, Wallet } from 'lucide-react'
 import { Badge, Card, DataTable, ErrorState, Field, Loading, Modal, PageHeader, Pagination, StatusBadge } from '../../components/admin/AdminUi'
 import { btn, input } from '../../components/admin/styles'
 import CommissionDetail from '../../components/admin/CommissionDetail'
@@ -10,7 +10,8 @@ import { errorMessage } from '../../lib/api'
 import { formatDate, formatMoney } from '../../lib/format'
 import { COMMISSION_STATUS, FEE_STATUS } from '../../lib/labels'
 import { copyText } from '../../lib/vietqr'
-import VietQrCode from '../../components/VietQrCode'
+import QrPaymentPanel from '../../components/QrPaymentPanel'
+import { usePaymentDone } from '../../lib/paymentChannel'
 
 function CopyButton({ text, label }) {
   return (
@@ -20,8 +21,8 @@ function CopyButton({ text, label }) {
   )
 }
 
-// Nộp phí: mã QR VietQR + form báo đã nộp (mã giao dịch, số tiền, ảnh chuyển khoản).
-function PayDialog({ bankAccount, items, reference, onClose, onDone }) {
+// Nộp phí: mở trang thanh toán MoMo + form báo đã nộp (mã giao dịch, số tiền, ảnh chuyển khoản).
+function PayDialog({ items, reference, onClose, onDone }) {
   const total = items.reduce((sum, item) => sum + Math.round(Number(item.AmountDue)), 0)
   const [form, setForm] = useState({ amount: String(total), transactionCode: '', proofUrl: '' })
   const [errors, setErrors] = useState({})
@@ -61,18 +62,12 @@ function PayDialog({ bankAccount, items, reference, onClose, onDone }) {
         </>
       }
     >
-      <div className="grid gap-5 sm:grid-cols-[200px_1fr]">
-        <div className="text-center">
-          <VietQrCode bankCode={bankAccount.bankCode} accountNumber={bankAccount.accountNumber} amount={total} content={reference} size={192} className="mx-auto" />
-          <p className="mt-1 text-xs text-slate-500">Quét bằng ứng dụng ngân hàng</p>
-        </div>
+      <div className="space-y-3">
         <div className="space-y-2 text-sm">
-          <p>Ngân hàng: <b>{bankAccount.bankName}</b></p>
-          <p className="flex flex-wrap items-center gap-2">Số tài khoản: <b className="font-mono">{bankAccount.accountNumber}</b> <CopyButton text={bankAccount.accountNumber} label="số tài khoản" /></p>
-          <p>Chủ tài khoản: <b>{bankAccount.accountHolder}</b></p>
           <p>Số tiền: <b className="text-emerald-700">{formatMoney(total)}</b> ({items.length} khoản)</p>
           <p className="flex flex-wrap items-center gap-2">Nội dung (mã đối soát): <b className="font-mono">{reference}</b> <CopyButton text={reference} label="mã đối soát" /></p>
         </div>
+        <QrPaymentPanel payment={{ type: 'fee', commissionIds: items.map((item) => item.CommissionId) }} amount={total} reference={reference} title={`Nộp phí website (${items.length} khoản)`} />
       </div>
 
       <form id="fee-pay-form" onSubmit={submit} className="mt-5 grid gap-4 border-t border-slate-100 pt-4 sm:grid-cols-2" noValidate>
@@ -98,6 +93,16 @@ export default function SellerFeesPage() {
   const [selected, setSelected] = useState([])
   const [paying, setPaying] = useState(false)
   const [detail, setDetail] = useState(null)
+  // Nộp phí xong ở tab thanh toán: đóng hộp thoại và tải lại trạng thái các khoản.
+  usePaymentDone((done) => {
+    if (done?.type !== 'fee') return
+    toast.success('Đã báo nộp phí, chờ quản trị đối soát')
+    setPaying(false)
+    setDetail(null)
+    setSelected([])
+    reload()
+    history.reload()
+  })
 
   if (error) return <ErrorState message={error} onRetry={reload} />
   if (!data) return <Loading />
@@ -149,10 +154,9 @@ export default function SellerFeesPage() {
           <p className="mt-1 text-2xl font-bold tabular-nums">{formatMoney(data.summary.reported)}</p>
         </Card>
         <Card className="space-y-1 p-4 text-sm">
-          <p className="text-slate-500">Tài khoản nhận phí của website</p>
-          <p className="font-semibold text-slate-900">{data.bankAccount.bankName}</p>
-          <p className="flex items-center gap-2 font-mono text-base">{data.bankAccount.accountNumber} <CopyButton text={data.bankAccount.accountNumber} label="số tài khoản" /></p>
-          <p className="text-slate-600">{data.bankAccount.accountHolder}</p>
+          <p className="text-slate-500">Nộp phí cho website</p>
+          <p className="font-semibold text-slate-900">Qua ví MoMo</p>
+          <p className="text-slate-600">Chọn khoản cần nộp rồi bấm Nộp phí để mở trang quét mã MoMo.</p>
           <p className="flex items-center gap-2 text-slate-600">Mã đối soát: <b className="font-mono">{data.sellerReference}</b> <CopyButton text={data.sellerReference} label="mã đối soát" /></p>
         </Card>
       </div>
@@ -189,7 +193,7 @@ export default function SellerFeesPage() {
               Đã chọn {chosen.length} khoản · <b className="tabular-nums text-slate-900">{formatMoney(total)}</b>
             </p>
             <button type="button" className={btn.primary} disabled={!chosen.length} onClick={() => setPaying(true)}>
-              <QrCode size={16} /> Nộp phí
+              <Wallet size={16} /> Nộp phí
             </button>
           </div>
         )}
@@ -203,7 +207,6 @@ export default function SellerFeesPage() {
 
       {paying && (
         <PayDialog
-          bankAccount={data.bankAccount}
           items={chosen}
           reference={reference}
           onClose={() => setPaying(false)}
@@ -215,7 +218,7 @@ export default function SellerFeesPage() {
           }}
         />
       )}
-      {detail && <CommissionDetail commission={detail} onClose={() => setDetail(null)} />}
+      {detail && <CommissionDetail commission={detail} canPay onClose={() => setDetail(null)} />}
     </>
   )
 }

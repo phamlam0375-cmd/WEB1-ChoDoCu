@@ -1,25 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
-import { Check, Eye, EyeOff, ImageOff, RotateCcw, Trash2, X } from 'lucide-react'
-import {
-  Badge,
-  Card,
-  ConfirmDialog,
-  DataTable,
-  Field,
-  FilterBar,
-  InfoRow,
-  Loading,
-  Modal,
-  PageHeader,
-  Pagination,
-  SearchInput,
-  StatusBadge,
-  StatusTabs,
-} from '../../components/admin/AdminUi'
+import { AlertTriangle, Bot, Check, Eye, EyeOff, ImageOff, Loader2, RotateCcw, ShieldCheck, Trash2, X } from 'lucide-react'
+import { Badge, ConfirmDialog, DataTable, Field, FilterBar, InfoRow, Loading, Modal, PageHeader, Pagination, SearchInput, Section, StatusBadge, StatusTabs } from '../../components/admin/AdminUi'
 import { btn, input } from '../../components/admin/styles'
 import ReportInfo from '../../components/report/ReportInfo'
+import { AiBadge, AiReviewPanel } from '../../components/admin/AiReview'
 import { useApi, useMutation } from '../../hooks/useApi'
 import { errorMessage } from '../../lib/api'
 import { formatDateTime, formatMoney } from '../../lib/format'
@@ -28,9 +14,70 @@ import { CONDITION_LABELS, LISTING_STATUS, REPORT_STATUS } from '../../lib/label
 const ACTIONS = {
   APPROVE: { label: 'Duyệt tin', icon: Check, style: btn.primary, tone: 'primary', noteRequired: false, from: ['PENDING'] },
   REJECT: { label: 'Từ chối tin', icon: X, style: btn.danger, tone: 'danger', noteRequired: true, empty: 'Vui lòng nhập lý do từ chối', from: ['PENDING'] },
-  HIDE: { label: 'Ẩn tin', icon: EyeOff, style: btn.secondary, tone: 'danger', noteRequired: true, from: ['ACTIVE', 'RESERVED'] },
-  REMOVE: { label: 'Gỡ tin', icon: Trash2, style: btn.danger, tone: 'danger', noteRequired: true, from: ['ACTIVE', 'RESERVED', 'HIDDEN'] },
-  RESTORE: { label: 'Khôi phục', icon: RotateCcw, style: btn.secondary, tone: 'primary', noteRequired: false, from: ['HIDDEN'] },
+  HIDE: { label: 'Ẩn tin', icon: EyeOff, style: btn.secondary, tone: 'danger', noteRequired: true, from: ['ACTIVE', 'RESERVED', 'HIDDEN'] },
+  REMOVE: { label: 'Gỡ tin', icon: Trash2, style: btn.danger, tone: 'danger', noteRequired: true, from: ['ACTIVE', 'RESERVED', 'HIDDEN', 'SUSPENDED'] },
+  RESTORE: { label: 'Khôi phục', icon: RotateCcw, style: btn.secondary, tone: 'primary', noteRequired: false, from: ['SUSPENDED'] },
+}
+
+// Lý do soạn sẵn kèm hướng dẫn sửa, bấm để điền vào ô lý do (vẫn sửa hoặc gõ thêm được).
+const VIOLATION_REASONS = [
+  { label: 'Hàng cấm', text: 'Sản phẩm thuộc nhóm hàng cấm mua bán, không được phép đăng trên website.' },
+  { label: 'Hàng giả, hàng nhái', text: 'Sản phẩm có dấu hiệu là hàng giả, hàng nhái thương hiệu.' },
+  { label: 'Dấu hiệu lừa đảo', text: 'Tin có dấu hiệu lừa đảo (giá quá rẻ, yêu cầu chuyển tiền trước ngoài quy trình của website).' },
+  { label: 'Sai mô tả', text: 'Nội dung, ảnh hoặc tình trạng sản phẩm không đúng với thực tế.' },
+  { label: 'Có thông tin liên hệ', text: 'Tiêu đề hoặc mô tả có số điện thoại, đường link, email hoặc mạng xã hội. Vui lòng trao đổi qua tính năng nhắn tin của website.' },
+  { label: 'Tin trùng lặp', text: 'Tin trùng với tin khác đã đăng (kể cả tin đã ẩn). Muốn bán lại món đã ẩn, hãy hiện lại tin cũ thay vì đăng tin mới.' },
+]
+const REJECT_REASONS = [
+  VIOLATION_REASONS[5],
+  { label: 'Ảnh lấy trên mạng', text: 'Ảnh lấy từ mạng, không phải ảnh tự chụp. Vui lòng đăng ảnh thật của chính món hàng.' },
+  { label: 'Ảnh không đạt', text: 'Thiếu ảnh, hoặc ảnh mờ, nghiêng, ghép, chỉnh sửa quá mức, có chữ/logo/số điện thoại. Vui lòng chụp lại ảnh rõ, đủ các góc.' },
+  { label: 'Thiếu thông tin', text: 'Mô tả thiếu thông tin: hãng, model, kích cỡ, thời gian sử dụng, tình trạng hiện tại, lý do bán, phụ kiện kèm theo.' },
+  VIOLATION_REASONS[4],
+  { label: 'Sai danh mục / tình trạng', text: 'Danh mục hoặc tình trạng đã chọn không khớp với sản phẩm. Vui lòng chọn lại cho đúng.' },
+  { label: 'Viết không dấu', text: 'Tiêu đề và mô tả cần viết tiếng Việt có dấu để người mua dễ tìm.' },
+  { label: 'Giá không hợp lý', text: 'Giá quá cao hoặc quá thấp bất thường so với sản phẩm cùng loại. Vui lòng kiểm tra lại giá.' },
+  ...VIOLATION_REASONS.slice(0, 3),
+]
+const PRESETS_BY_ACTION = { REJECT: REJECT_REASONS, HIDE: VIOLATION_REASONS, REMOVE: VIOLATION_REASONS }
+
+// Kết quả kiểm tra tự động (không cần AI): tin trùng lặp và các lỗi hay gặp.
+function ListingChecks({ checks, onOpenListing }) {
+  if (!checks) return null
+  const { warnings = [], duplicates = [] } = checks
+  if (!warnings.length) {
+    return (
+      <p className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+        <ShieldCheck size={16} /> Kiểm tra tự động: không phát hiện tin trùng hay lỗi thường gặp.
+      </p>
+    )
+  }
+  return (
+    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">
+      <p className="mb-2 flex items-center gap-2 font-semibold text-amber-900">
+        <AlertTriangle size={16} /> Kiểm tra tự động ({warnings.length} cảnh báo)
+      </p>
+      <ul className="list-disc space-y-1 pl-5 text-amber-900">
+        {warnings.map((warning) => <li key={`${warning.code}-${warning.message}`}>{warning.message}</li>)}
+      </ul>
+      {duplicates.length > 0 && (
+        <ul className="mt-3 divide-y divide-amber-100 overflow-hidden rounded-md border border-amber-200 bg-white">
+          {duplicates.map((item) => (
+            <li key={item.ListingId}>
+              <button type="button" onClick={() => onOpenListing(item.ListingId)} className="flex w-full flex-wrap items-center gap-2 px-3 py-2 text-left hover:bg-slate-50">
+                <span className="font-mono text-xs text-slate-500">#{item.ListingId}</span>
+                <span className="min-w-0 flex-1 truncate font-medium text-slate-900">{item.Title}</span>
+                <StatusBadge map={LISTING_STATUS} value={item.Status} />
+                <span className="text-xs text-slate-500">
+                  {formatMoney(item.Price)} · giống {item.similarity}% · {item.sameSeller ? 'cùng người bán' : `người bán khác: ${item.Seller?.FullName}`}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
 }
 
 function MediaThumb({ media }) {
@@ -49,6 +96,7 @@ function ListingDetail({ id, onClose, onSaved }) {
   const { data: listing, loading, error, reload } = useApi(`/admin/listings/${id}`)
   const { busy, run } = useMutation()
   const [action, setAction] = useState(null)
+  const [duplicateId, setDuplicateId] = useState(null)
 
   const submit = async (note) => {
     try {
@@ -88,7 +136,19 @@ function ListingDetail({ id, onClose, onSaved }) {
             </div>
           )}
 
-          <dl className="divide-y divide-slate-100">
+          <ListingChecks checks={listing.checks} onOpenListing={setDuplicateId} />
+
+          <AiReviewPanel
+            listingId={id}
+            review={listing.aiReview}
+            configured={listing.aiConfigured}
+            onDone={() => {
+              reload()
+              onSaved()
+            }}
+          />
+
+          <dl className="divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200">
             <InfoRow label="Người bán">{listing.Seller?.FullName} (#{listing.SellerId}) · {listing.Seller?.Email}</InfoRow>
             <InfoRow label="Mô tả"><span className="whitespace-pre-line">{listing.Description}</span></InfoRow>
             <InfoRow label="Lỗi đã biết">{listing.KnownDefects}</InfoRow>
@@ -139,10 +199,12 @@ function ListingDetail({ id, onClose, onSaved }) {
         reasonLabel={ACTIONS[action]?.noteRequired ? 'Lý do' : 'Ghi chú (không bắt buộc)'}
         reasonRequired={ACTIONS[action]?.noteRequired}
         reasonEmptyMessage={ACTIONS[action]?.empty}
+        reasonPresets={PRESETS_BY_ACTION[action]}
         busy={busy}
         onConfirm={submit}
         onClose={() => setAction(null)}
       />
+      {duplicateId && <ListingDetail id={duplicateId} onClose={() => setDuplicateId(null)} onSaved={onSaved} />}
     </Modal>
   )
 }
@@ -167,7 +229,7 @@ function ReportHandleDetail({ id, onClose, onSaved }) {
   const choices = !report
     ? []
     : report.Listing && report.Listing.Status !== 'REMOVED'
-      ? ['HIDE', 'REMOVE', 'DISMISS'].filter((key) => key !== 'HIDE' || report.Listing.Status !== 'HIDDEN')
+      ? ['HIDE', 'REMOVE', 'DISMISS'].filter((key) => key !== 'HIDE' || report.Listing.Status !== 'SUSPENDED')
       : ['RESOLVE', 'DISMISS']
   const rule = REPORT_DECISIONS[decision]
   const resolving = rule?.body.status === 'RESOLVED'
@@ -268,6 +330,7 @@ function ReportHandleDetail({ id, onClose, onSaved }) {
         tone={rule?.tone}
         reasonLabel={resolving ? 'Lý do' : 'Ghi chú (không bắt buộc)'}
         reasonRequired={resolving}
+        reasonPresets={resolving ? VIOLATION_REASONS : []}
         busy={busy}
         onConfirm={submit}
         onClose={() => setDecision(null)}
@@ -289,7 +352,7 @@ function ProcessingReports({ initialReportId }) {
   const { response, loading, error, reload } = useApi('/admin/reports', { status: 'PROCESSING', page })
 
   const columns = [
-    { key: 'ReportId', title: 'Mã', render: (row) => <span className="font-mono text-xs text-slate-500">#{row.ReportId}</span> },
+    { key: 'ReportId', sortable: true, title: 'Mã', render: (row) => <span className="font-mono text-xs text-slate-500">#{row.ReportId}</span> },
     {
       key: 'target',
       title: 'Tin / đối tượng bị báo cáo',
@@ -301,7 +364,7 @@ function ProcessingReports({ initialReportId }) {
     },
     { key: 'Reason', title: 'Lý do' },
     { key: 'Reporter', title: 'Người gửi', render: (row) => row.Reporter?.FullName },
-    { key: 'CreatedAt', title: 'Thời gian', render: (row) => formatDateTime(row.CreatedAt), className: 'whitespace-nowrap' },
+    { key: 'CreatedAt', sortable: true, title: 'Thời gian', render: (row) => formatDateTime(row.CreatedAt), className: 'whitespace-nowrap' },
     {
       key: 'actions',
       title: '',
@@ -315,6 +378,7 @@ function ProcessingReports({ initialReportId }) {
 
   return (
     <>
+      <Section title="Báo cáo đang xử lý" meta={response?.pagination ? `${response.pagination.total} kết quả` : null} flush>
       <DataTable
         columns={columns}
         rows={response?.data}
@@ -326,22 +390,89 @@ function ProcessingReports({ initialReportId }) {
         empty="Không có báo cáo nào đang xử lý"
       />
       <Pagination pagination={response?.pagination} onPage={setPage} />
+      </Section>
       {selected && <ReportHandleDetail id={selected} onClose={() => setSelected(null)} onSaved={reload} />}
     </>
   )
 }
 
 function ListingQueue() {
-  const [filters, setFilters] = useState({ status: 'PENDING', q: '', categoryId: '', page: 1 })
+  const [searchParams] = useSearchParams()
+  const initialQuery = searchParams.get('q') || ''
+  const [filters, setFilters] = useState({ status: initialQuery ? '' : 'PENDING', q: initialQuery, categoryId: '', page: 1 })
   const [selected, setSelected] = useState(null)
   const { response, loading, error, reload } = useApi('/admin/listings', filters)
   const { data: categories } = useApi('/categories')
   const { data: conditions } = useApi('/categories/conditions')
   const update = (patch) => setFilters((current) => ({ ...current, page: 1, ...patch }))
   const conditionLabel = (code) => conditions?.find((item) => item.value === code)?.label || CONDITION_LABELS[code] || code
+  const { busy: aiBusy, run } = useMutation()
+  const { busy: bulkBusy, run: runBulk } = useMutation()
+  const [checked, setChecked] = useState([])
+  const [bulkAction, setBulkAction] = useState(null)
+  const selectable = filters.status === 'PENDING'
+  const pageIds = (response?.data || []).map((row) => row.ListingId)
+  const allChecked = pageIds.length > 0 && pageIds.every((id) => checked.includes(id))
+  const toggle = (id) => setChecked((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]))
+  const toggleAll = () => setChecked(allChecked ? [] : pageIds)
+
+  // Duyệt / từ chối hàng loạt các tin đã chọn.
+  const submitBulk = async (note) => {
+    try {
+      const result = await runBulk('post', '/admin/listings/bulk-review', { ids: checked, action: bulkAction, note })
+      if (result.data.failed.length) toast.warn(result.message)
+      else toast.success(result.message)
+      setBulkAction(null)
+      setChecked([])
+      reload()
+    } catch (err) {
+      toast.error(errorMessage(err))
+    }
+  }
+  const aiConfigured = Boolean(response?.ai?.configured)
+  const autoRan = useRef(false)
+
+  // AI phân tích các tin chờ duyệt chưa có kết quả (tối đa 5 tin mỗi lần).
+  const analyzePending = async ({ silent = false } = {}) => {
+    try {
+      const result = await run('post', '/admin/listings/ai-review-pending')
+      const { reviewed, failed } = result.data
+      if (!silent || reviewed > 0) toast.info(reviewed ? `AI đã phân tích ${reviewed} tin chờ duyệt` : 'Các tin chờ duyệt đều đã được AI phân tích')
+      if (failed > 0) toast.warn(`Có ${failed} tin AI chưa phân tích được, thử lại sau`)
+      if (reviewed > 0) reload()
+    } catch (err) {
+      if (!silent) toast.error(errorMessage(err))
+    }
+  }
+
+  // Mở tab "Chờ duyệt" lần đầu: tự cho AI phân tích các tin chưa có kết quả.
+  useEffect(() => {
+    if (autoRan.current || !aiConfigured || filters.status !== 'PENDING') return
+    if (!response?.data?.some((row) => !row.aiReview)) return
+    autoRan.current = true
+    analyzePending({ silent: true })
+  })
 
   const columns = [
-    { key: 'ListingId', title: 'Mã', render: (row) => <span className="font-mono text-xs text-slate-500">#{row.ListingId}</span> },
+    ...(selectable
+      ? [
+          {
+            key: 'select',
+            title: <input type="checkbox" className="size-4 accent-emerald-600" checked={allChecked} onChange={toggleAll} aria-label="Chọn tất cả tin trên trang" />,
+            render: (row) => (
+              <input
+                type="checkbox"
+                className="size-4 accent-emerald-600"
+                checked={checked.includes(row.ListingId)}
+                onChange={() => toggle(row.ListingId)}
+                onClick={(event) => event.stopPropagation()}
+                aria-label={`Chọn tin #${row.ListingId}`}
+              />
+            ),
+          },
+        ]
+      : []),
+    { key: 'ListingId', sortable: true, title: 'Mã', render: (row) => <span className="font-mono text-xs text-slate-500">#{row.ListingId}</span> },
     {
       key: 'Title',
       title: 'Tin đăng',
@@ -352,15 +483,17 @@ function ListingQueue() {
         </div>
       ),
     },
-    { key: 'Price', title: 'Giá', render: (row) => formatMoney(row.Price), className: 'whitespace-nowrap text-right tabular-nums' },
+    { key: 'Price', sortable: true, title: 'Giá', render: (row) => formatMoney(row.Price), className: 'whitespace-nowrap text-right tabular-nums' },
     { key: 'ConditionLevel', title: 'Tình trạng', render: (row) => conditionLabel(row.ConditionLevel) },
-    { key: 'Status', title: 'Trạng thái', render: (row) => <StatusBadge map={LISTING_STATUS} value={row.Status} /> },
+    { key: 'Status', sortable: true, title: 'Trạng thái', render: (row) => <StatusBadge map={LISTING_STATUS} value={row.Status} /> },
+    { key: 'aiReview', sortValue: (row) => ({ REJECT: 3, REVIEW: 2, APPROVE: 1 })[row.aiReview?.recommendation] ?? 0, title: 'AI gợi ý', render: (row) => <AiBadge review={row.aiReview} />, className: 'whitespace-nowrap' },
     {
       key: 'OpenReportCount',
+      sortable: true,
       title: 'Báo cáo mở',
       render: (row) => (Number(row.OpenReportCount) > 0 ? <Badge tone="red">{row.OpenReportCount}</Badge> : <span className="text-slate-400">0</span>),
     },
-    { key: 'CreatedAt', title: 'Đăng lúc', render: (row) => formatDateTime(row.CreatedAt), className: 'whitespace-nowrap' },
+    { key: 'CreatedAt', sortable: true, title: 'Đăng lúc', render: (row) => formatDateTime(row.CreatedAt), className: 'whitespace-nowrap' },
     {
       key: 'actions',
       title: '',
@@ -374,8 +507,8 @@ function ListingQueue() {
 
   return (
     <>
-      <div className="p-4 pb-0">
-        <StatusTabs map={LISTING_STATUS} value={filters.status} onChange={(status) => update({ status })} counts={response?.counts} />
+      <Section title="Tìm kiếm và lọc" bodyClassName="px-4 pt-4">
+        <StatusTabs map={LISTING_STATUS} value={filters.status} onChange={(status) => { setChecked([]); update({ status }) }} counts={response?.counts} />
         <FilterBar onReset={() => setFilters({ status: 'PENDING', q: '', categoryId: '', page: 1 })}>
           <SearchInput value={filters.q} onChange={(q) => update({ q })} placeholder="Tiêu đề, người bán hoặc mã tin" />
           <Field className="w-52">
@@ -387,7 +520,33 @@ function ListingQueue() {
             </select>
           </Field>
         </FilterBar>
-      </div>
+      </Section>
+      <Section
+        title="Danh sách tin"
+        meta={response?.pagination ? `${response.pagination.total} kết quả` : null}
+        actions={
+          aiConfigured && filters.status === 'PENDING' ? (
+            <button type="button" className={`${btn.ghost} py-1`} onClick={() => analyzePending()} disabled={aiBusy}>
+              {aiBusy ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />} {aiBusy ? 'AI đang phân tích...' : 'AI phân tích tin chờ duyệt'}
+            </button>
+          ) : null
+        }
+        flush
+      >
+      {selectable && checked.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-emerald-100 bg-emerald-50 px-4 py-2 text-sm">
+          <span className="font-medium text-emerald-900">Đã chọn {checked.length} tin</span>
+          <button type="button" className={`${btn.primary} py-1.5`} onClick={() => setBulkAction('APPROVE')}>
+            <Check size={15} /> Duyệt {checked.length} tin
+          </button>
+          <button type="button" className={`${btn.danger} py-1.5`} onClick={() => setBulkAction('REJECT')}>
+            <X size={15} /> Từ chối {checked.length} tin
+          </button>
+          <button type="button" className={`${btn.ghost} py-1.5`} onClick={() => setChecked([])}>
+            Bỏ chọn
+          </button>
+        </div>
+      )}
       <DataTable
         columns={columns}
         rows={response?.data}
@@ -399,7 +558,22 @@ function ListingQueue() {
         empty={filters.status === 'PENDING' ? 'Không có tin nào chờ duyệt' : undefined}
       />
       <Pagination pagination={response?.pagination} onPage={(page) => setFilters((current) => ({ ...current, page }))} />
+      </Section>
       {selected && <ListingDetail id={selected} onClose={() => setSelected(null)} onSaved={reload} />}
+      <ConfirmDialog
+        open={Boolean(bulkAction)}
+        title={bulkAction === 'APPROVE' ? `Duyệt ${checked.length} tin đã chọn?` : `Từ chối ${checked.length} tin đã chọn`}
+        message="Người bán của từng tin sẽ nhận thông báo. Thao tác được ghi vào nhật ký quản trị."
+        confirmText={bulkAction === 'APPROVE' ? 'Duyệt tất cả' : 'Từ chối tất cả'}
+        tone={bulkAction === 'APPROVE' ? 'primary' : 'danger'}
+        reasonLabel={bulkAction === 'REJECT' ? 'Lý do từ chối (áp dụng cho mọi tin)' : 'Ghi chú (không bắt buộc)'}
+        reasonRequired={bulkAction === 'REJECT'}
+        reasonEmptyMessage="Vui lòng nhập lý do từ chối"
+        reasonPresets={bulkAction === 'REJECT' ? REJECT_REASONS : []}
+        busy={bulkBusy}
+        onConfirm={submitBulk}
+        onClose={() => setBulkAction(null)}
+      />
     </>
   )
 }
@@ -412,8 +586,8 @@ export default function AdminListingsPage() {
   return (
     <>
       <PageHeader title="Kiểm duyệt tin và xử lý báo cáo" description="Duyệt tin mới hoặc từ chối kèm lý do; xem báo cáo đang xử lý cạnh tin bị báo cáo, ẩn hoặc gỡ nội dung vi phạm. Người liên quan được thông báo kết quả." />
-      <Card>
-        <div className="flex gap-1 border-b border-slate-200 px-4 pt-2" role="tablist">
+      <Section title="Mục kiểm duyệt" flush>
+        <div className="flex gap-1 px-4 pt-2" role="tablist">
           {[
             ['listings', 'Tin chờ duyệt'],
             ['reports', 'Báo cáo đang xử lý'],
@@ -430,8 +604,8 @@ export default function AdminListingsPage() {
             </button>
           ))}
         </div>
-        {tab === 'reports' ? <ProcessingReports key={reportId || 'all'} initialReportId={reportId} /> : <ListingQueue />}
-      </Card>
+      </Section>
+      {tab === 'reports' ? <ProcessingReports key={reportId || 'all'} initialReportId={reportId} /> : <ListingQueue />}
     </>
   )
 }

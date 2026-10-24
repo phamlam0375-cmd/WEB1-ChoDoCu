@@ -1,17 +1,28 @@
+'use strict';
+
 const cors = require('cors');
 const express = require('express');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const healthRouter = require('./routes/health');
 const orderRoutes = require('./routes/order.route');
+const cancellationRoutes = require('./routes/D02_HuyDonHang/cancellation.route');
+const paymentRoutes = require('./routes/D03_ThanhToan/payment.route');
+const confirmationRoutes = require('./routes/D04_XacNhanNhanTien/confirmation.route');
+const trackingRoutes = require('./routes/D05_TheoDoiDonHang/tracking.route');
+const driverAssignmentRoutes = require('./routes/D07_TaiXeNhanChuyen/assignment.route');
+const { requireAuth } = require('./middlewares/auth.middleware');
 const AppError = require('./errors/AppError');
-
 const partnerApplicationRoutes = require('./routes/partnerApplication.route');
 const adminRoutes = require('./routes/admin.route');
 const memberBRoutes = require('./routes/memberB.route');
 const errorHandler = require('./middlewares/errorHandler');
 const { UPLOAD_DIR } = require('./controllers/uploads.controller');
 const storeRoutes = require('./routes/store.route');
+const listingRoutes = require('./routes/listing.route');
+const authRoutes = require('./routes/register.route');
+const passwordResetRoutes = require('./routes/passwordReset.route');
+const sellerOrder = require('./routes/sellerOrder.route');
 
 const app = express();
 
@@ -35,20 +46,31 @@ app.get('/api/test', (_request, response) => {
 });
 
 app.use('/api/health', healthRouter);
+app.use('/api/auth', authRoutes);
+app.use('/api/auth', passwordResetRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/v1/orders', orderRoutes.createOrderRouter(requireAuth));
+app.use('/api/v1/orders', cancellationRoutes);
+app.use('/api/orders', require('./routes/C06_TuChoiDonHang/rejection.route'));
+app.use('/api/v1/orders', paymentRoutes);
+app.use('/api/v1/orders', trackingRoutes);
+app.use('/api/v1/seller/orders', confirmationRoutes);
+app.use('/api/v1/driver', driverAssignmentRoutes);
 
 
 //PARTNER APPLICATION
 app.use("/api/partner-applications", partnerApplicationRoutes);
 //Store
 app.use("/api/stores", storeRoutes);
+//listing
+app.use("/api/seller/listing", listingRoutes);
+//seller order
+app.use('/api/seller/store/order', sellerOrder)
 
 // PHÂN HỆ B: QUẢN TRỊ VÀ DOANH THU
 app.use('/api/v1/uploads', express.static(UPLOAD_DIR, { index: false, maxAge: '7d' }));
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1', memberBRoutes);
-
-
 
 app.use((_request, _response, next) => {
   next(new AppError(404, 'ROUTE_NOT_FOUND', 'Không tìm thấy đường dẫn API.'));

@@ -16,12 +16,15 @@ const Payments = require("./Payments.model");
 const RefundRequests = require("./RefundRequests.model");
 const Commissions = require("./Commissions.model");
 const Reports = require("./Reports.model");
+const ListingAiReviews = require("./ListingAiReviews.model");
 const Notifications = require("./Notifications.model");
 const StatusHistories = require("./StatusHistories.model");
 const AdminAuditLogs = require("./AdminAuditLogs.model");
 const SystemSettings = require("./SystemSettings.model");
 const VerificationCodes = require("./VerificationCodes.model");
 const Store = require("./Store.model");
+const DriverProfiles = require("./DriverProfiles.model");
+const Deliveries = require("./Deliveries.model");
 
 Users.belongsToMany(Roles, { through: UserRoles, foreignKey: "UserId", otherKey: "RoleId", as: "Roles" });
 Roles.belongsToMany(Users, { through: UserRoles, foreignKey: "RoleId", otherKey: "UserId", as: "Users" });
@@ -35,6 +38,7 @@ Listings.belongsTo(Users, { foreignKey: "SellerId", as: "Seller" });
 Listings.belongsTo(Categories, { foreignKey: "CategoryId", as: "Category" });
 Categories.hasMany(Listings, { foreignKey: "CategoryId", as: "Listings" });
 Listings.hasMany(ListingMedia, { foreignKey: "ListingId", as: "Media" });
+Listings.hasOne(ListingAiReviews, { foreignKey: "ListingId", as: "AiReview" });
 
 ListingPromotions.belongsTo(Listings, { foreignKey: "ListingId", as: "Listing" });
 ListingPromotions.belongsTo(Users, { foreignKey: "SellerId", as: "Seller" });
@@ -80,10 +84,13 @@ module.exports = {
   RefundRequests,
   Commissions,
   Reports,
+  ListingAiReviews,
   Notifications,
   StatusHistories,
   AdminAuditLogs,
   SystemSettings,
   VerificationCodes,
   Store,
+  DriverProfiles,
+  Deliveries,
 };

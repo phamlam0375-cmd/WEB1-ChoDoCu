@@ -1,11 +1,13 @@
 import { getStoreListing, hideListing, updateListing } from "../../services/listingApi";
+import { getStoreByOwnerId } from "../../services/storeApi";
 import { useEffect, useState } from "react";
 
 import Header from "../../components/Header";
 import UpdateListingModal from "./UpdateListingModal";
 import { toast } from "react-toastify";
 import { useListingStore } from "../../store/useListing";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useDevAccount } from "../../hooks/useDevAccount";
 
 export default function CrudListing() {
     const listing = useListingStore((state) => state.listing);
@@ -17,6 +19,9 @@ export default function CrudListing() {
     const [totalPages, setTotalPages] = useState(1);
 
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const storeId = Number(searchParams.get("storeId"));
+    const { userId, loading: accountLoading } = useDevAccount();
     const conditionLabels = {
         LIKE_NEW: "Như mới",
         GOOD: "Tốt",
@@ -46,7 +51,21 @@ export default function CrudListing() {
     useEffect(() => {
         const fetchSellerListing = async () => {
             try {
-                const res = await getStoreListing(6, page, 10);
+                if (accountLoading) return;
+                const ownerId = Number(userId);
+                if (!Number.isSafeInteger(ownerId) || ownerId <= 0 || !Number.isSafeInteger(storeId) || storeId <= 0) {
+                    navigate("/seller/store", { replace: true });
+                    return;
+                }
+
+                const storeResponse = await getStoreByOwnerId(ownerId);
+                const ownedStore = storeResponse.data?.data || storeResponse.data;
+                if (Number(ownedStore?.StoreId) !== storeId) {
+                    navigate("/seller/store", { replace: true });
+                    return;
+                }
+
+                const res = await getStoreListing(storeId, page, 10);
                 setListing(res.data);
                 setTotalPages(res.pagination.totalPages);
             } catch (error) {
@@ -55,7 +74,7 @@ export default function CrudListing() {
         };
 
         fetchSellerListing();
-    }, [page,setListing]);
+    }, [accountLoading, page, setListing, storeId, navigate, userId]);
 
     const handleUpdate = async (data) => {
         try {
@@ -63,7 +82,7 @@ export default function CrudListing() {
             setOpenUpdate(false);
             setSelectedListing(null);
 
-            const res = await getStoreListing(6);
+            const res = await getStoreListing(storeId, page, 10);
             setListing(res.data)
         }
         catch (error) {
@@ -82,7 +101,7 @@ export default function CrudListing() {
 
         try {
             await hideListing(item.ListingId);
-            const res = await getStoreListing(6, page, 10);
+            const res = await getStoreListing(storeId, page, 10);
             setListing(res.data);
             setTotalPages(res.pagination.totalPages);
         }
@@ -105,7 +124,7 @@ export default function CrudListing() {
                         </div>
 
                         <button className=" inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm shadow-emerald-200 transition duration-150 ease-in-out hover:bg-emerald-700 hover:shadow-md hover:shadow-emerald-200  active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
-                            onClick={() => navigate("/seller/listings/create")}
+                            onClick={() => navigate(`/seller/listings/create?storeId=${storeId}`)}
                         >
                             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />

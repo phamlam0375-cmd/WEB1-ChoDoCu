@@ -19,6 +19,7 @@ import PrivacyPolicy from './pages/PrivacyPolicy'
 import PublicStore from './pages/Store/PublicStore'
 import Register from './pages/Register'
 import RegisterApplication from './components/PartnerApplication/RegisterApplication'
+import RequireSession from './components/RequireSession'
 import ResetPassword from './pages/ResetPassword'
 import SellerOrders from './pages/SellerOrders/SellerOrders'
 import SellerStore from './pages/Store/SellerStore'
@@ -74,8 +75,6 @@ function App() {
         <Route path="/driver/deliveries" element={<AvailableDeliveriesPage />} />
         <Route path="store/:ownerId" element={<PublicStore />} />
         <Route path="/seller/store" element={<SellerStore />} />
-        <Route path="/seller/listings" element={<CrudListing />} />
-        <Route path="/seller/listings/create" element={<CreateListing />} />
         
         <Route path="/seller/orders" element={<SellerOrders/>}/>
 
@@ -88,6 +87,10 @@ function App() {
             </DevAccountProvider>
           }
         >
+          <Route element={<RequireSession />}>
+            <Route path="/seller/listings" element={<CrudListing />} />
+            <Route path="/seller/listings/create" element={<CreateListing />} />
+          </Route>
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboardPage />} />
             <Route path="users" element={<AdminUsersPage />} />

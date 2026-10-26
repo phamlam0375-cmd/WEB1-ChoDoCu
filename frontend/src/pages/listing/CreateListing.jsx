@@ -1,13 +1,15 @@
-import {ArrowLeft,Camera,PackagePlus,X} from "lucide-react";
+import {ArrowLeft, Camera, PackagePlus, X} from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import Header from "../../components/Header";
-import { useNavigate } from "react-router-dom";
-import { useState } from "react";
 import { createListing } from "../../services/listingApi";
 import { toast } from "react-toastify";
+import { useState } from "react";
 
 const CreateListing = () => {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const storeId = Number(searchParams.get("storeId"));
 
     const [images, setImages] = useState([]);
     const [formData, setFormData] = useState({
@@ -54,14 +56,21 @@ const CreateListing = () => {
     const handleSubmit = async(e) => {
         e.preventDefault();
         try{
+            const user = JSON.parse(window.localStorage.getItem("user") || "null");
+            const sellerId = Number(user?.UserId);
+            if (!Number.isSafeInteger(sellerId) || sellerId <= 0 || !Number.isSafeInteger(storeId) || storeId <= 0) {
+                toast.error("Không xác định được cửa hàng của bạn");
+                return;
+            }
             await createListing({
                 ...formData,
                 Price:Number(formData.Price),
                 CategoryId:Number(formData.CategoryId),
-                SellerId:6,
-                StoreId:6,
-            });
+                SellerId: sellerId,
+                StoreId: storeId,
+            }, images);
             toast.success("Tạo sản phẩm thành công");
+            navigate(-1);
         }
         catch(error){
             toast.error("Lỗi không thể tạo sản phẩm: ",error)

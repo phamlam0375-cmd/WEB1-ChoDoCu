@@ -8,5 +8,6 @@ test('demo D01 la opt-in ro rang, hoat dong trong production build khong phu thu
   for (const value of [undefined, '', 'false', 'TRUE', '1', true]) {
     assert.equal(isD01DemoEnabled({ DEV: true, VITE_D01_DEMO_MODE: value }), false)
   }
-  assert.equal(isD01DemoEnabled(), false) // Node test không có cấu hình build Vite.
+  // Node test không có cấu hình build Vite.
+  assert.equal(isD01DemoEnabled(), false) 
 })

@@ -25,6 +25,8 @@ import SellerStore from './pages/Store/SellerStore'
 import { ToastContainer } from 'react-toastify'
 import VerifyEmail from './pages/VerifyEmail'
 import AvailableDeliveriesPage from './pages/D07_TaiXeNhanChuyen/AvailableDeliveriesPage'
+import PickupPage from './pages/D08_XacNhanLayHang/PickupPage'
+import DeliveryProgressPage from './pages/D09_CapNhatTienDoGiaoHang/DeliveryProgressPage'
 
 // Phân hệ B: quản trị và doanh thu (tải khi cần để không làm nặng trang chủ)
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'))
@@ -72,6 +74,9 @@ function App() {
 
         <Route path="/partner-application" element={<RegisterApplication />} />
         <Route path="/driver/deliveries" element={<AvailableDeliveriesPage />} />
+        <Route path="/driver/deliveries/:deliveryId/pickup" element={<PickupPage />} />
+        <Route path="/driver/deliveries/:deliveryId/progress" element={<DeliveryProgressPage />} />
+        <Route path="/seller/orders/:orderId/pickup-code" element={<PickupPage seller />} />
         <Route path="store/:ownerId" element={<PublicStore />} />
         <Route path="/seller/store" element={<SellerStore />} />
         <Route path="/seller/listings" element={<CrudListing />} />

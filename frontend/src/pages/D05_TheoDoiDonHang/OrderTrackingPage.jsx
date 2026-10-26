@@ -9,9 +9,10 @@ import { useTrackingResource } from '../../components/D05_TheoDoiDonHang/useTrac
 import { getOrderTracking } from '../../services/D05_TheoDoiDonHang/trackingApi'
 import { formatDateTime, formatDecimalMoney } from '../../lib/format'
 import { ORDER_STATUS, PAYMENT_STATUS, DELIVERY_STATUS, REFUND_STATUS } from '../../lib/labels'
+import PickupProof from '../../components/D08_XacNhanLayHang/PickupProof'
 
 const load = ({ orderId, historyPage }, signal) => getOrderTracking(orderId, { historyPage, historyLimit: 20 }, { signal })
-const actionLabels = { cancel: 'Hủy đơn', payment: 'Thanh toán / Báo chuyển tiền', confirmPayment: 'Xác nhận nhận tiền', rejectOrder: 'Từ chối đơn hàng', refund: 'Yêu cầu hoàn tiền', receive: 'Xác nhận nhận hàng', chat: 'Liên hệ tài xế' }
+const actionLabels = { cancel: 'Hủy đơn', payment: 'Thanh toán / Báo chuyển tiền', confirmPayment: 'Xác nhận nhận tiền', rejectOrder: 'Từ chối đơn hàng', refund: 'Yêu cầu hoàn tiền', receive: 'Xác nhận nhận hàng', chat: 'Liên hệ tài xế', pickup: 'Xác nhận đã lấy hàng', pickupCode: 'Bàn giao và cấp mã lấy hàng', deliveryProgress: 'Cập nhật tiến độ giao hàng' }
 function TrackingDetail({ orderId }) {
   const [historyPage, setHistoryPage] = useState(1)
   const { data, loading, error, notice, refresh } = useTrackingResource(load, JSON.stringify({ orderId, historyPage }), true)
@@ -67,6 +68,7 @@ function TrackingDetail({ orderId }) {
               <p>Phí chuyến đã lưu: {formatDecimalMoney(d.driverFee)}</p>
               {[[d.acceptedAt, 'Nhận chuyến'], [d.pickedUpAt, 'Lấy hàng'], [d.deliveredAt, 'Giao thành công'], [d.returnedAt, 'Trả hàng']].filter(([at]) => at).map(([at, label]) => <p key={label}>{label}: {formatDateTime(at)}</p>)}
               {d.failureReason && <p className="whitespace-pre-wrap text-rose-700">Lý do giao chưa thành công: {d.failureReason}</p>}
+              {d.pickupProofUrl && <PickupProof orderId={data.orderId} deliveryId={d.deliveryId} />}
             </section>)}
           </>}
           {data.buyerNote && <p className="mt-4 whitespace-pre-wrap break-words text-sm text-slate-600">Ghi chú đặt hàng: {data.buyerNote}</p>}

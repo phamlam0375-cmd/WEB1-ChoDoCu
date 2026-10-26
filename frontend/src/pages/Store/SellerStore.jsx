@@ -8,7 +8,7 @@ import {
     AlertCircle
 } from "lucide-react";
 import Header from "../../components/Header";
-import RightSummary from "./SellerStore/RightSummary";
+import RightSummary from "../../components/Store/RightSummary";
 import StoreInformation from "../../components/Store/StoreInformation";
 import StoreLoadingSkeleton from "../../components/Store/StoreLoadingSkeleton";
 import StoreMap from "../../components/Store/StoreMap";

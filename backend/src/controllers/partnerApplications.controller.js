@@ -2,6 +2,7 @@ const PartnerApplications = require("../models/PartnerApplications.model");
 const UserRoles = require("../models/UserRoles.model");
 const Roles = require("../models/Roles.model");
 const { sendOTPEmail } = require("../services/email.service");
+const { Op } = require("sequelize");
 const crypto = require("crypto");
 const VerificationCodes = require("../models/VerificationCodes.model");
 const {
@@ -16,6 +17,8 @@ const hashOtp = (otp) => {
     .digest("hex")
 }
 
+const PARTNER_OTP_RESEND_COOLDOWN_MS = 5 * 60 * 1000;
+
 const sendPartnerOtp = async (req, res) => {
   try {
     const result = sendPartnerOtpSchema.safeParse(req.body);
@@ -26,7 +29,32 @@ const sendPartnerOtp = async (req, res) => {
         message: result.error.issues[0].message,
       });
     }
-    const { email } = result.data;
+    const email = result.data.email.toLowerCase();
+    const recentCode = await VerificationCodes.findOne({
+      where: {
+        Recipient: email,
+        Channel: "EMAIL",
+        Purpose: "PARTNER_APPLICATION",
+        CreatedAt: {
+          [Op.gte]: new Date(Date.now() - PARTNER_OTP_RESEND_COOLDOWN_MS),
+        },
+      },
+      order: [["CreatedAt", "DESC"]],
+    });
+
+    if (recentCode) {
+      const retryAfterSeconds = Math.max(
+        1,
+        Math.ceil(
+          (PARTNER_OTP_RESEND_COOLDOWN_MS - (Date.now() - new Date(recentCode.CreatedAt).getTime())) / 1000
+        )
+      );
+      return res.status(429).json({
+        success: false,
+        message: `Vui lòng chờ ${retryAfterSeconds} giây trước khi gửi lại OTP.`,
+        retryAfterSeconds,
+      });
+    }
 
     const otp = String(Math.floor(100000 + Math.random() * 900000));
     const codeHash = hashOtp(otp);

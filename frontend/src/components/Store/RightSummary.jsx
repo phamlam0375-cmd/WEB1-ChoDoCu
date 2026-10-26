@@ -30,13 +30,13 @@ export default function RightSummary({ store, onStoreUpdated }) {
                             Chỉnh sửa thông tin
                         </button>
 
-                        <button
-                            type="button"
+                        <Link
+                            to={`/seller/listings?storeId=${store?.StoreId || ""}`}
                             className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 font-medium text-white transition hover:bg-emerald-700"
                         >
                             <Package className="h-4 w-4" />
                             Quản lý sản phẩm
-                        </button>
+                        </Link>
 
                     </div>
                 </div>

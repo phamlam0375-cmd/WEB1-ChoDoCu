@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useListingStore } from "../../../store/useListing";
+import { useListingStore } from "../../store/useListing";
 
 export default function DetailListing({ product, listingId, onClose }) {
     const listing = useListingStore((state) => state.listing);

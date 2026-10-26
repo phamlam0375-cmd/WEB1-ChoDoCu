@@ -21,10 +21,17 @@ export default function RegisterApplication() {
     const [email, setEmail] = useState("");
     const [otp, setOtp] = useState("");
     const [sendingOtp, setSendingOtp] = useState(false);
+    const [otpCooldown, setOtpCooldown] = useState(0);
 
     const [errors, setErrors] = useState({});
 
     const fileInputRef = useRef(null);
+
+    useEffect(() => {
+        if (otpCooldown <= 0) return undefined;
+        const timer = setTimeout(() => setOtpCooldown((remaining) => remaining - 1), 1000);
+        return () => clearTimeout(timer);
+    }, [otpCooldown]);
 
     useEffect(() => {
         if (!hasSession) return;
@@ -40,6 +47,8 @@ export default function RegisterApplication() {
 
     const handleResendOtp = async () => {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+        if (otpCooldown > 0) return;
 
         if (!email) {
             setErrors((prev) => ({
@@ -67,6 +76,7 @@ export default function RegisterApplication() {
 
             await sendPartnerOtp(email);
 
+            setOtpCooldown(5 * 60);
             toast.success("Đã gửi OTP");
         } catch (error) {
             console.error("Gửi OTP thất bại:", error);
@@ -392,12 +402,14 @@ export default function RegisterApplication() {
                                     onClick={
                                         handleResendOtp
                                     }
-                                    disabled={sendingOtp}
+                                    disabled={sendingOtp || otpCooldown > 0}
                                     className="shrink-0 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                     {sendingOtp
                                         ? "Đang gửi..."
-                                        : "Gửi OTP"}
+                                        : otpCooldown > 0
+                                            ? `Gửi lại OTP (${Math.floor(otpCooldown / 60)}:${String(otpCooldown % 60).padStart(2, "0")})`
+                                            : "Gửi OTP"}
                                 </button>
                             </div>
 

@@ -1,6 +1,6 @@
 import { Eye, Package } from "lucide-react";
 
-import DetailListing from "../../pages/Store/SellerStore/DetailListing";
+import DetailListing from "./DetailListing";
 import { useState } from "react";
 
 const formatPrice = (price) => {

@@ -7,7 +7,7 @@ const {
   sendPartnerOtp,
   verifyPartnerOtp
 } = require("../controllers/partnerApplications.controller.js");
-const uploadPartner = require("../../middleware/upload/partnerApplicationUpload.js");
+const uploadPartner = require("../middlewares/upload/partnerApplicationUpload.js");
 const { requireTokenAuth } = require('../middlewares/auth.middleware');
 
 const router = express.Router();

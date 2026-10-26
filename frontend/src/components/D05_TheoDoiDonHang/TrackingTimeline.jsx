@@ -15,6 +15,7 @@ export default function TrackingTimeline({ histories, pagination, onPage }) {
           <p className="text-xs font-semibold text-slate-500">{groups[item.group] || 'Cập nhật'} · {formatDateTime(item.at)}</p>
           <p className="mt-1 text-sm font-bold">{typeof label === 'string' ? label : label?.label || 'Trạng thái khác'}</p>
           {item.note && <p className="mt-1 whitespace-pre-wrap text-sm text-slate-600">{item.note}</p>}
+          {item.actor && <p className="mt-1 text-xs text-slate-500">Thực hiện: {item.actor.name || `Tài khoản #${item.actor.userId}`}</p>}
         </li>
       })}
     </ol>

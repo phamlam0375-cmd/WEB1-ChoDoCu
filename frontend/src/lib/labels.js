@@ -102,6 +102,8 @@ export const PAYMENT_STATUS = {
 export const DELIVERY_STATUS = {
   AVAILABLE: 'Chờ tài xế nhận chuyến', ACCEPTED: 'Tài xế đã nhận chuyến',
   PICKED_UP: 'Tài xế đã lấy hàng', DELIVERING: 'Đang giao hàng',
+  HANDOVER_CONFIRMED: 'Người bán xác nhận bàn giao',
+  PROGRESS_NOTE: 'Ghi chú tiến độ giao hàng',
   DELIVERED: 'Đã giao thành công', FAILED: 'Giao chưa thành công',
   RETURNING: 'Đang chuyển hoàn', RETURNED: 'Đã trả hàng cho người bán',
 }

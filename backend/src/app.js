@@ -11,6 +11,8 @@ const paymentRoutes = require('./routes/D03_ThanhToan/payment.route');
 const confirmationRoutes = require('./routes/D04_XacNhanNhanTien/confirmation.route');
 const trackingRoutes = require('./routes/D05_TheoDoiDonHang/tracking.route');
 const driverAssignmentRoutes = require('./routes/D07_TaiXeNhanChuyen/assignment.route');
+const pickupRoutes = require('./routes/D08_XacNhanLayHang/pickup.route');
+const progressRoutes = require('./routes/D09_CapNhatTienDoGiaoHang/progress.route');
 const { requireAuth } = require('./middlewares/auth.middleware');
 const AppError = require('./errors/AppError');
 const partnerApplicationRoutes = require('./routes/partnerApplication.route');
@@ -56,6 +58,8 @@ app.use('/api/v1/orders', paymentRoutes);
 app.use('/api/v1/orders', trackingRoutes);
 app.use('/api/v1/seller/orders', confirmationRoutes);
 app.use('/api/v1/driver', driverAssignmentRoutes);
+app.use('/api/v1', pickupRoutes);
+app.use('/api/v1/driver', progressRoutes);
 
 
 //PARTNER APPLICATION
@@ -68,7 +72,7 @@ app.use("/api/seller/listing", listingRoutes);
 app.use('/api/seller/store/order', sellerOrder)
 
 // PHÂN HỆ B: QUẢN TRỊ VÀ DOANH THU
-app.use('/api/v1/uploads', express.static(UPLOAD_DIR, { index: false, maxAge: '7d' }));
+app.use('/api/v1/uploads', express.static(UPLOAD_DIR, { index: false, maxAge: '7d', dotfiles: 'ignore' }));
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1', memberBRoutes);
 

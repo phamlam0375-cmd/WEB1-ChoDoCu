@@ -50,13 +50,15 @@ function createAssignmentService({ repository = defaultRepository, clock = () =>
       } : null, activeDelivery: state.active && state.hasRole && state.application?.Status === 'APPROVED' ? {
         deliveryId: state.active.DeliveryId, orderId: state.active.OrderId, status: state.active.Status,
         acceptedAt: state.active.AcceptedAt, trackingUrl: `/orders/${state.active.OrderId}/tracking`,
+        pickupUrl: state.active.Status === 'ACCEPTED' && state.active.OrderStatus === 'PAID' ? `/driver/deliveries/${state.active.DeliveryId}/pickup` : null,
+        progressUrl: ['PICKED_UP', 'DELIVERING'].includes(state.active.Status) && ['PAID', 'IN_DELIVERY'].includes(state.active.OrderStatus) ? `/driver/deliveries/${state.active.DeliveryId}/progress` : null,
         orderStatus: state.active.OrderStatus,
         blocked: !['PAID', 'IN_DELIVERY'].includes(state.active.OrderStatus),
       } : null, dependencies: {
         preparation: 'C07 chưa có thao tác xác nhận sẵn sàng lấy hàng; chuyến thiếu dấu xác nhận thật không xuất hiện.',
         routing: 'D12 chưa có báo giá/tuyến tin cậy. Không tự tạo khu vực, khoảng cách hoặc phí.',
         profile: 'D11 chưa có giao diện cập nhật hồ sơ/trạng thái. D07 không tự tạo hồ sơ hoặc bật AVAILABLE.',
-        nextStep: 'D08 chưa triển khai; nhận chuyến không đồng nghĩa đã lấy hàng.',
+        nextStep: 'D08 xác nhận lấy hàng sau bàn giao; D09 bắt đầu giao và ghi chú tiến độ. D13 chưa triển khai; không tự xác thực giao thành công.',
       } };
     });
   }
@@ -82,7 +84,8 @@ function createAssignmentService({ repository = defaultRepository, clock = () =>
       const approval = approvalPolicy(state);
       if (!approval.allowed) throw fail(403, approval.code, approval.message);
       const result = alreadyApplied => ({ deliveryId: id, orderId: order.OrderId, status: delivery.Status, acceptedAt: delivery.AcceptedAt,
-        driverId: userId, alreadyApplied, trackingUrl: `/orders/${order.OrderId}/tracking` });
+        driverId: userId, alreadyApplied, trackingUrl: `/orders/${order.OrderId}/tracking`,
+        pickupUrl: delivery.Status === 'ACCEPTED' && order.Status === 'PAID' ? `/driver/deliveries/${id}/pickup` : null });
       if (replay) return result(true);
       if (delivery.DriverId !== null) throw fail(409, 'DELIVERY_TAKEN', 'Chuyến vừa được tài xế khác nhận.');
       const policy = driverPolicy(state);

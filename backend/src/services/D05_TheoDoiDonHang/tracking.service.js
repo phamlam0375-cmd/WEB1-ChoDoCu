@@ -29,13 +29,15 @@ function progress(state) {
   }
   if (d && ['FAILED', 'RETURNING', 'RETURNED'].includes(d.Status)) return { label: { FAILED: 'Giao chưa thành công', RETURNING: 'Đang chuyển hoàn', RETURNED: 'Đã trả hàng cho người bán' }[d.Status], description: d.FailureReason || 'Xem lịch sử giao nhận và quy trình hoàn tiền liên quan.', branch: 'DELIVERY_EXCEPTION' };
   if (o.Status === 'DELIVERED' || d?.Status === 'DELIVERED') return { label: 'Đã giao, chưa hoàn tất đơn', description: 'Giao thành công không đồng nghĩa người mua đã xác nhận hoàn tất.', branch: 'DELIVERY' };
+  if (d?.Status === 'PICKED_UP') return { label: 'Tài xế đã lấy hàng · chờ bắt đầu giao', description: 'D08 đã xác nhận lấy kiện; chưa ghi nhận DELIVERING, giao thành công hoặc hoàn tất đơn.', branch: 'DELIVERY' };
+  if (d?.Status === 'DELIVERING') return { label: 'Đang giao hàng', description: 'D09 đã ghi nhận tiến độ. Chưa xác thực giao thành công qua D13 hoặc hoàn tất đơn.', branch: 'DELIVERY' };
   if (o.Status === 'PAID' || o.Status === 'IN_DELIVERY') return { label: o.DeliveryMethod === 'PICKUP' ? 'Đã thanh toán · tự đến lấy' : o.Status === 'PAID' ? 'Đã thanh toán · chờ giao nhận' : 'Đang giao hàng', description: o.DeliveryMethod === 'PICKUP' ? 'Chờ người bán chuẩn bị và ghi nhận bàn giao. Không có chuyến tài xế.' : d?.DriverId ? 'Tài xế đã được phân công. Theo dõi dữ liệu giao nhận bên dưới.' : 'Chưa có tài xế nhận chuyến.', branch: o.DeliveryMethod === 'PICKUP' ? 'PICKUP' : 'DELIVERY' };
   return { label: 'Trạng thái khác', description: 'Đọc trạng thái và lịch sử mới nhất; không tự suy ra đã hoàn tất.', branch: 'OTHER' };
 }
 function safeNote(row, driverOnly) {
   if (driverOnly && row.StatusType !== 'DELIVERY') return null;
   let note = row.Note || null;
-  if (note?.startsWith('D04 ')) { try { note = JSON.parse(note.slice(4)).note || null; } catch { return null; } }
+  if (row.StatusType !== 'DELIVERY' && note?.startsWith('D04 ')) { try { note = JSON.parse(note.slice(4)).note || null; } catch { return null; } }
   if (typeof note !== 'string') return null;
   if (row.StatusType === 'PAYMENT' && row.StatusValue === 'REPORTED' && note?.startsWith('Biên lai:')) return 'Người mua đã gửi biên lai chuyển khoản.';
   if (/PasswordHash|CodeHash|Bearer\s|\btoken\b|\bOTP\b|mã (?:lấy hàng|giao hàng|xác thực)|\b[a-f0-9]{64}\b|\beyJ[A-Za-z0-9_-]+\./i.test(note)) return 'Đã ẩn nội dung bảo mật.';
@@ -51,7 +53,11 @@ function capabilities(state, role, user, now) {
   const id = state.order.OrderId, buyer = role === 'BUYER', seller = role === 'SELLER';
   const c = cancellationPolicy(state), p = paymentPolicy(state), f = confirmationPolicy(state);
   const r = refundEligibility({ ...state, now, windowDays: state.refundWindowDays });
+  const accepted = state.order.DeliveryMethod === 'DELIVERY' && state.order.Status === 'PAID' && !state.refund
+    ? state.deliveries.find(d => d.Status === 'ACCEPTED' && d.DriverId && d.ReadyForPickupAt && Number(d.PreparedBy) === Number(state.order.SellerId)) : null;
   const action = (enabled, href, reason) => ({ enabled, href: enabled ? href : null, reason: enabled ? null : reason });
+  const progressing = state.order.DeliveryMethod === 'DELIVERY' && !state.refund ? state.deliveries.find(d => Number(d.DriverId) === Number(user.UserId ?? user.userId)
+    && (d.Status === 'PICKED_UP' && state.order.Status === 'PAID' || d.Status === 'DELIVERING' && state.order.Status === 'IN_DELIVERY')) : null;
   // Marker buyer chỉ được đọc tracking; không mở quyền B06 cho demo production.
   return {
     cancel: action(buyer && c.action === 'CANCEL', `/orders/${id}/cancel`, c.detail || c.message || 'Chỉ người mua được hủy khi đơn còn phù hợp.'),
@@ -60,6 +66,9 @@ function capabilities(state, role, user, now) {
     rejectOrder: action(seller && state.order.Status === 'RESERVED' && !state.payment && !state.deliveries.length, `/seller/orders/${id}/reject`, seller ? 'Từ chối đơn hàng đang chờ người bán chấp nhận.' : 'Chỉ người bán của đơn được từ chối đơn.'),
     refund: action(buyer && !user.d01Demo && r.enabled, `/orders/${id}/refund`, user.d01Demo ? 'Yêu cầu hoàn tiền cần phiên tài khoản hiện có, không dùng chế độ thử mua hàng.' : r.reason || 'Chỉ người mua được yêu cầu hoàn tiền.'),
     receive: action(false, null, 'Chức năng xác nhận nhận hàng chưa sẵn sàng.'),
+    pickup: action(role === 'DRIVER' && Boolean(accepted), `/driver/deliveries/${accepted?.DeliveryId}/pickup`, 'Chỉ đúng tài xế đã nhận chuyến được xác nhận lấy hàng sau bàn giao.'),
+    pickupCode: action(seller && Boolean(accepted), `/seller/orders/${id}/pickup-code`, 'Cần đơn giao hàng đã PAID, chuẩn bị và có tài xế nhận chuyến.'),
+    deliveryProgress: action(role === 'DRIVER' && !user.d01Demo && Boolean(progressing), `/driver/deliveries/${progressing?.DeliveryId}/progress`, 'Chỉ tài xế được phân công cập nhật tiến độ sau D08.'),
     chat: action(false, null, state.order.DeliveryMethod === 'PICKUP' ? 'Đơn tự đến lấy không có tài xế.' : state.deliveries.some(d => d.DriverId) ? 'Trò chuyện theo đơn chưa sẵn sàng.' : 'Chưa thể mở trò chuyện với tài xế khi chưa được phân công.'),
   };
 }
@@ -84,9 +93,10 @@ function createTrackingService({ repository = defaultRepository, clock = () => n
         buyerNote: driverOnly ? null : o.BuyerNote, cancelReason: driverOnly ? null : o.CancelReason,
         reservedUntil: o.Status === 'RESERVED' ? o.ReservedUntil : null,
         payment: state.payment ? { status: state.payment.Status, reportedAt: state.payment.ReportedAt, confirmedAt: state.payment.ConfirmedAt, ...(driverOnly ? {} : { amount: state.payment.Amount }) } : null,
-        deliveries: o.DeliveryMethod === 'DELIVERY' ? state.deliveries.map(d => ({ deliveryId: d.DeliveryId, status: d.Status, driver: d.DriverId ? { userId: d.DriverId, name: d.DriverName, phone: d.DriverPhone } : null, pickupAddress: d.PickupAddress, deliveryAddress: d.DeliveryAddress, driverFee: d.DriverFee, retryCount: d.RetryCount, failureReason: d.FailureReason, acceptedAt: d.AcceptedAt, pickedUpAt: d.PickedUpAt, deliveredAt: d.DeliveredAt, returnedAt: d.ReturnedAt })) : [],
+        deliveries: o.DeliveryMethod === 'DELIVERY' ? state.deliveries.map(d => ({ deliveryId: d.DeliveryId, status: d.Status, driver: d.DriverId ? { userId: d.DriverId, name: d.DriverName, phone: d.DriverPhone } : null, pickupAddress: d.PickupAddress, deliveryAddress: d.DeliveryAddress, driverFee: d.DriverFee, retryCount: d.RetryCount, failureReason: d.FailureReason, acceptedAt: d.AcceptedAt, pickedUpAt: d.PickedUpAt, deliveredAt: d.DeliveredAt, returnedAt: d.ReturnedAt,
+          pickupProofUrl: d.HasPickupProof ? `/api/v1/orders/${o.OrderId}/deliveries/${d.DeliveryId}/pickup-proof` : null })) : [],
         refunds: state.refunds.map(r => ({ refundId: r.RefundRequestId, status: r.Status, reason: r.Reason, amount: r.Amount, requestedAt: r.RequestedAt, completedAt: r.CompletedAt })),
-        histories: state.histories.map(h => ({ historyId: h.HistoryId, deliveryId: h.DeliveryId, group: h.StatusType, status: h.StatusValue, at: h.CreatedAt, note: safeNote(h, driverOnly) })), historyPagination: state.historyPagination,
+        histories: state.histories.map(h => ({ historyId: h.HistoryId, deliveryId: h.DeliveryId, group: h.StatusType, status: h.StatusValue, at: h.CreatedAt, note: safeNote(h, driverOnly), actor: h.ChangedBy ? { userId: h.ChangedBy, name: h.ChangedByName || null } : null })), historyPagination: state.historyPagination,
         capabilities: capabilities(state, role, user, now), serverNow: now.toISOString() };
       if (driverOnly) { delete data.productAmount; delete data.totalAmount; }
       // Không đưa serverNow vào version: không lặp thông báo thay đổi khi

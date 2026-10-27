@@ -25,6 +25,7 @@ const listingRoutes = require('./routes/listing.route');
 const authRoutes = require('./routes/register.route');
 const passwordResetRoutes = require('./routes/passwordReset.route');
 const sellerOrder = require('./routes/sellerOrder.route');
+const preparation = require('./routes/preparation.route');
 
 const app = express();
 
@@ -70,6 +71,8 @@ app.use("/api/stores", storeRoutes);
 app.use("/api/seller/listing", listingRoutes);
 //seller order
 app.use('/api/seller/store/order', sellerOrder)
+//preparation
+app.use('/api/seller/orders', preparation)
 
 // PHÂN HỆ B: QUẢN TRỊ VÀ DOANH THU
 app.use('/api/v1/uploads', express.static(UPLOAD_DIR, { index: false, maxAge: '7d', dotfiles: 'ignore' }));

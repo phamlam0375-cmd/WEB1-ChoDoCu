@@ -166,7 +166,7 @@ const TABLES = [
         SellerId: sellerId,
         StoreId: sellerId,
         CategoryId: i,
-        Title: `${product.title} (Like new #${i})`,
+        Title: `${product.title}`,
         Description: `${product.desc} Mã sản phẩm: SP-${pad(i)}.`,
         Price: product.price + ((i * 1000) % 500000),
         ConditionLevel: ['LIKE_NEW', 'GOOD', 'FAIR', 'POOR'][i % 4],
@@ -185,7 +185,7 @@ const TABLES = [
       MediaId: i,
       ListingId: i,
       MediaType: i % 10 === 0 ? 'VIDEO' : 'IMAGE',
-      MediaUrl: i <= 5 ? `/listings/real-product-${((i - 1) % REAL_PRODUCTS.length) + 1}.jpg` : `/listings/${pad(i)}.jpg`,
+      MediaUrl: `/listings/${pad(i)}.jpg`,
       SortOrder: 1,
       CreatedAt: demoDate(i)
     })

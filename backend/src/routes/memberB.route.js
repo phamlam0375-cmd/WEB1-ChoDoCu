@@ -1,6 +1,7 @@
 const express = require("express");
 
 const { requireAuth } = require("../middlewares/auth.middleware");
+const { ensureBody } = require("../middlewares/ensureBody");
 const uploads = require("../controllers/uploads.controller");
 const banks = require("../controllers/banks.controller");
 const categories = require("../controllers/categories.controller");
@@ -18,6 +19,9 @@ router.post(
   express.raw({ type: ["image/jpeg", "image/png", "application/octet-stream"], limit: uploads.MAX_BYTES }),
   uploads.uploadImage
 );
+
+// Các API JSON bên dưới: request không có body thì coi như {} (trả 400 thay vì lỗi 500).
+router.use(ensureBody);
 
 // Thông tin tài khoản đang đăng nhập (vai trò) để giao diện hiển thị đúng menu.
 router.get("/me", requireAuth, (req, res) => res.status(200).json({ success: true, data: req.user }));

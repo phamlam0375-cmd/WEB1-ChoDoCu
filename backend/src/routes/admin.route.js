@@ -1,6 +1,7 @@
 const express = require("express");
 
 const { requireAuth, requireRole } = require("../middlewares/auth.middleware");
+const { ensureBody } = require("../middlewares/ensureBody");
 const users = require("../controllers/adminUsers.controller");
 const partners = require("../controllers/adminPartnerApplications.controller");
 const categories = require("../controllers/categories.controller");
@@ -15,7 +16,7 @@ const settings = require("../controllers/settings.controller");
 
 // Phân hệ B: mọi API /api/v1/admin/* yêu cầu đăng nhập và vai trò ADMIN.
 const router = express.Router();
-router.use(requireAuth, requireRole("ADMIN"));
+router.use(requireAuth, requireRole("ADMIN"), ensureBody);
 
 // B01 Quản lý tài khoản và phân quyền
 // Tìm kiếm nhanh trên thanh tiêu đề

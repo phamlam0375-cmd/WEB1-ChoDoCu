@@ -29,8 +29,15 @@ const preparation = require('./routes/preparation.route');
 
 const app = express();
 
+// Website gọi API cùng origin qua Nginx (/api), nên mặc định không mở CORS.
+// Cần gọi từ domain khác thì khai báo CORS_ORIGINS, ngăn cách bằng dấu phẩy.
+const corsOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 app.use(helmet());
-app.use(cors());
+app.use(cors({ origin: corsOrigins.length > 0 ? corsOrigins : false }));
 app.use(express.json({ limit: '2mb' }));
 app.use(morgan('dev'));
 

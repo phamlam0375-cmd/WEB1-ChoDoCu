@@ -39,7 +39,7 @@ const navItems = [
   { label: 'Hỗ trợ', href: '#ho-tro' },
 ]
 
-const utilityButtonClass = 'inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2'
+const utilityButtonClass = 'inline-flex  whitespace-nowrap h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2'
 
 function Header({
   savedCount = 0,
@@ -114,14 +114,14 @@ function Header({
 
         {/* DESKTOP MENU */}
         <nav
-          className="hidden items-center gap-0.5 xl:flex"
+          className="hidden shrink-0 items-center gap-0.5 xl:flex"
           aria-label="Điều hướng chính"
         >
           {navItems.map((item) => (
             <a
               key={item.label}
               href={item.href}
-              className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100/80 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+              className="whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100/80 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
             >
               {item.label}
             </a>
@@ -129,7 +129,7 @@ function Header({
         </nav>
 
         {/* DESKTOP ACTIONS */}
-        <div className="hidden items-center gap-1.5 lg:flex">
+        <div className="hidden shrink-0 items-center gap-1.5 lg:flex">
           <ColorThemePicker />
           {user && <Link to="/driver/deliveries" className={utilityButtonClass} title="Chuyến tài xế">
             <Truck size={17} /><span className="hidden 2xl:inline">Chuyến tài xế</span>

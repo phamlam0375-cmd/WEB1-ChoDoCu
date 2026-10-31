@@ -43,7 +43,7 @@ function authenticateUser({ allowDevHeader, allowD01Demo = false }) {
         identity = resolveIdentity(req, allowDevHeader);
       }
       const user = await Users.findByPk(identity.userId, {
-        attributes: ["UserId", "FullName", "Email", "Phone", "Address", "Status"],
+        attributes: ["UserId", "FullName", "Email", "Phone", "Address", "AvatarUrl", "Status"],
         include: [{ model: Roles, as: "Roles", attributes: ["RoleName"], through: { attributes: [] } }],
       });
       if (demo && (!user || user.Status !== "ACTIVE" || user.Roles.some(role => role.RoleName === "ADMIN"))) {
@@ -60,6 +60,7 @@ function authenticateUser({ allowDevHeader, allowD01Demo = false }) {
         Email: user.Email,
         Phone: user.Phone,
         Address: user.Address,
+        AvatarUrl: user.AvatarUrl,
         Status: user.Status,
         roles: user.Roles.map((role) => role.RoleName),
       };

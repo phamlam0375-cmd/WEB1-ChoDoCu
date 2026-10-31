@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getDevUserId, setDevUserId } from '../lib/api'
 import { getAccessToken } from '../lib/auth'
 import { useApi } from '../hooks/useApi'
@@ -14,9 +14,16 @@ const SESSION_KEYS = ['accessToken', 'token', 'user']
 export default function DevAccountProvider({ children }) {
   const [token, setToken] = useState(getAccessToken)
   const [devUserId, setDevUser] = useState(getDevUserId)
+  const [profileOverride, setProfileOverride] = useState(null)
   const loggedIn = Boolean(token)
   const identity = loggedIn ? 'session' : devUserId
   const { data: me, loading, error } = useApi(identity ? '/me' : null, { u: identity })
+
+  useEffect(() => {
+    const updateProfile = (event) => setProfileOverride(event.detail || null)
+    window.addEventListener('profile-updated', updateProfile)
+    return () => window.removeEventListener('profile-updated', updateProfile)
+  }, [])
 
   const switchUser = useCallback((id) => {
     setDevUserId(id)
@@ -37,7 +44,9 @@ export default function DevAccountProvider({ children }) {
 
   const value = useMemo(
     () => {
-      const currentUser = identity && !loading && !error ? me : null
+      const currentUser = identity && !loading && !error
+        ? profileOverride?.UserId === me?.UserId ? { ...me, ...profileOverride } : me
+        : null
       return {
         userId: currentUser?.UserId || identity,
         loggedIn,
@@ -48,7 +57,7 @@ export default function DevAccountProvider({ children }) {
         logout,
       }
     },
-    [identity, loggedIn, me, loading, error, switchUser, logout],
+    [identity, loggedIn, me, loading, error, profileOverride, switchUser, logout],
   )
 
   return (

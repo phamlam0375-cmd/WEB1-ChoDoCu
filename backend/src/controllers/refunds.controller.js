@@ -17,6 +17,7 @@ const {
   Roles,
   Listings,
   StatusHistories,
+  Deliveries,
 } = require("../models");
 const { badRequest, notFound, conflict, forbidden } = require("../utils/httpError");
 const {
@@ -183,6 +184,13 @@ const createRefundRequest = async (req, res) => {
       referenceId: created.RefundRequestId,
     };
     await notify(order.SellerId, payload, { transaction });
+    // D07 giữ mutex ORDER trước DELIVERY. B06 vẫn được tiếp nhận sau phân công;
+    // không tự xóa tài xế/chuyển AVAILABLE (quy trình kết thúc/chuyển hoàn thuộc D10).
+    const assigned = await Deliveries.findOne({ where: { OrderId: orderId, DriverId: { [Op.ne]: null }, Status: { [Op.notIn]: ['DELIVERED', 'RETURNED'] } },
+      attributes: ['DeliveryId', 'DriverId'], transaction, lock: transaction.LOCK.UPDATE });
+    if (assigned) await notify(assigned.DriverId, { type: 'DELIVERY', title: 'Đơn đang yêu cầu hoàn tiền',
+      message: `Chuyến #${assigned.DeliveryId}: đơn #${orderId} đang hoàn tiền. Tạm dừng thực hiện chuyến, theo dõi xử lý; không tự bàn giao hoặc chuyển sẵn sàng.`,
+      referenceType: 'ORDER', referenceId: orderId }, { transaction });
     await notifyAdmins(payload, transaction);
     return created;
   });

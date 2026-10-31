@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from 'react'
-import { AlertCircle, ChevronLeft, ChevronRight, Inbox, Loader2, Search, X } from 'lucide-react'
+import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Inbox, Loader2, Search, X } from 'lucide-react'
 import { btn, card, input, label as labelClass, tones } from './styles'
 
 export function PageHeader({ code, title, description, actions }) {
@@ -175,10 +175,39 @@ export function EmptyState({ text = 'Không có dữ liệu phù hợp' }) {
 }
 
 // Bảng dữ liệu: columns = [{ key, title, render(row), className }]
+// Giá trị dùng để sắp xếp một ô: sortValue(row) nếu có, không thì row[key]; chuỗi số được so như số.
+const sortValueOf = (column, row) => {
+  const value = column.sortValue ? column.sortValue(row) : row[column.key]
+  if (value === null || value === undefined || value === '') return null
+  if (typeof value === 'number') return value
+  const number = Number(value)
+  if (typeof value === 'string' && value.trim() !== '' && Number.isFinite(number)) return number
+  const time = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value) ? Date.parse(value) : NaN
+  return Number.isFinite(time) ? time : String(value).toLocaleLowerCase('vi')
+}
+
+// Bảng danh sách. Cột có sortable (hoặc sortValue) bấm tiêu đề để sắp tăng → giảm → bỏ sắp xếp;
+// sắp xếp trên các dòng đang hiển thị (trang hiện tại).
 export function DataTable({ columns, rows, rowKey, onRowClick, loading, error, onRetry, empty }) {
+  const [sort, setSort] = useState(null) // { key, dir: 'asc' | 'desc' }
   if (loading && !rows?.length) return <Loading />
   if (error) return <ErrorState message={error} onRetry={onRetry} />
   if (!rows?.length) return <EmptyState text={empty} />
+
+  const sortColumn = sort && columns.find((column) => column.key === sort.key)
+  const shownRows = sortColumn
+    ? [...rows].sort((a, b) => {
+        const left = sortValueOf(sortColumn, a)
+        const right = sortValueOf(sortColumn, b)
+        if (left === right) return 0
+        if (left === null) return 1
+        if (right === null) return -1
+        const order = left < right ? -1 : 1
+        return sort.dir === 'asc' ? order : -order
+      })
+    : rows
+  const nextSort = (key) =>
+    setSort((current) => (current?.key !== key ? { key, dir: 'asc' } : current.dir === 'asc' ? { key, dir: 'desc' } : null))
   return (
     <div className={`overflow-x-auto ${loading ? 'opacity-60' : ''}`}>
       <table className="min-w-full border-collapse text-sm">
@@ -188,15 +217,34 @@ export function DataTable({ columns, rows, rowKey, onRowClick, loading, error, o
               <th
                 key={column.key}
                 scope="col"
+                aria-sort={sort?.key === column.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : undefined}
                 className={`whitespace-nowrap border-b-2 border-r border-emerald-100 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-emerald-900 last:border-r-0 ${column.className || ''}`}
               >
-                {column.title}
+                {column.sortable || column.sortValue ? (
+                  <button
+                    type="button"
+                    onClick={() => nextSort(column.key)}
+                    className="inline-flex items-center gap-1 uppercase tracking-wide hover:text-emerald-700"
+                    title="Bấm để sắp xếp"
+                  >
+                    {column.title}
+                    {sort?.key !== column.key ? (
+                      <ArrowUpDown size={13} className="text-emerald-400" />
+                    ) : sort.dir === 'asc' ? (
+                      <ArrowUp size={13} />
+                    ) : (
+                      <ArrowDown size={13} />
+                    )}
+                  </button>
+                ) : (
+                  column.title
+                )}
               </th>
             ))}
           </tr>
         </thead>
         <tbody className="bg-white">
-          {rows.map((row) => (
+          {shownRows.map((row) => (
             <tr
               key={rowKey(row)}
               onClick={onRowClick ? () => onRowClick(row) : undefined}
@@ -288,6 +336,7 @@ function ConfirmDialogBody({
   reasonRequired = false,
   reasonMin = 1,
   reasonEmptyMessage = 'Vui lòng nhập lý do',
+  reasonPresets = [],
   busy = false,
   onConfirm,
   onClose,
@@ -301,6 +350,12 @@ function ConfirmDialogBody({
   const submit = () => {
     setTouched(true)
     if (!invalid) onConfirm(trimmed)
+  }
+  // Bấm một lý do soạn sẵn: thêm vào ô lý do (bấm lại thì bỏ ra).
+  const togglePreset = (text) => {
+    const lines = reason.split('\n').map((line) => line.trim()).filter(Boolean)
+    const next = lines.includes(text) ? lines.filter((line) => line !== text) : [...lines, text]
+    setReason(next.join('\n').slice(0, 500))
   }
 
   return (
@@ -327,7 +382,25 @@ function ConfirmDialogBody({
           label={`${reasonLabel}${reasonRequired ? ' *' : ''}`}
           error={touched && invalid ? (trimmed ? `Vui lòng nhập ít nhất ${reasonMin} ký tự` : reasonEmptyMessage) : null}
         >
-          <textarea rows={3} value={reason} onChange={(event) => setReason(event.target.value)} className={input} maxLength={500} />
+          {reasonPresets.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {reasonPresets.map((preset) => {
+                const active = reason.split('\n').map((line) => line.trim()).includes(preset.text)
+                return (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    title={preset.text}
+                    onClick={() => togglePreset(preset.text)}
+                    className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${active ? 'border-emerald-600 bg-emerald-50 text-emerald-800' : 'border-slate-300 text-slate-600 hover:border-slate-400 hover:bg-slate-50'}`}
+                  >
+                    {preset.label}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          <textarea rows={reasonPresets.length ? 4 : 3} value={reason} onChange={(event) => setReason(event.target.value)} className={input} maxLength={500} />
         </Field>
       )}
     </Modal>

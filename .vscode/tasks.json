@@ -1,0 +1,92 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Docker: Start debug API",
+      "type": "process",
+      "command": "docker",
+      "args": [
+        "compose",
+        "-p",
+        "web1-chodocu",
+        "-f",
+        "docker-compose.yml",
+        "-f",
+        "docker-compose.local-db.yml",
+        "-f",
+        "docker-compose.debug.yml",
+        "up",
+        "-d",
+        "--build",
+        "--wait",
+        "--wait-timeout",
+        "240",
+        "mysql",
+        "api"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Docker: Debug API logs",
+      "type": "process",
+      "command": "docker",
+      "args": [
+        "compose",
+        "-p",
+        "web1-chodocu",
+        "-f",
+        "docker-compose.yml",
+        "-f",
+        "docker-compose.local-db.yml",
+        "-f",
+        "docker-compose.debug.yml",
+        "logs",
+        "--tail",
+        "100",
+        "-f",
+        "api"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Docker: Stop debug API",
+      "type": "process",
+      "command": "docker",
+      "args": [
+        "compose",
+        "-p",
+        "web1-chodocu",
+        "-f",
+        "docker-compose.yml",
+        "-f",
+        "docker-compose.local-db.yml",
+        "-f",
+        "docker-compose.debug.yml",
+        "stop",
+        "api"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    }
+  ]
+}

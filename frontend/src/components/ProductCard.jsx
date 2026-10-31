@@ -1,4 +1,5 @@
 import { BadgeCheck, Clock3, Eye, Heart, MapPin, ShoppingBag, Store } from 'lucide-react'
+
 import { formatPrice } from '../data/mockProducts'
 import { useNavigate } from 'react-router-dom'
 
@@ -17,7 +18,7 @@ function ProductCard({ product, isSaved, onToggleSave, onView, onBuy }) {
 
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl hover:shadow-slate-900/8">
-      <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
+      <div className="relative aspect-4/3 overflow-hidden bg-slate-100">
         <img
           src={product.image}
           alt={product.name}
@@ -70,7 +71,7 @@ function ProductCard({ product, isSaved, onToggleSave, onView, onBuy }) {
             {product.sellerAvatar ? (
               <img src={product.sellerAvatar} alt="" className="size-7 shrink-0 rounded-full object-cover" />
             ) : (
-              <span className="grid size-7 shrink-0 place-items-center rounded-full bg-gradient-to-br from-emerald-100 to-teal-100 text-emerald-700">
+              <span className="grid size-7 shrink-0 place-items-center rounded-full bg-linear-to-br from-emerald-100 to-teal-100 text-emerald-700">
                 <Store size={14} />
               </span>
             )}

@@ -31,7 +31,8 @@ export const LISTING_STATUS = {
   ACTIVE: { label: 'Đang bán', tone: 'green' },
   RESERVED: { label: 'Đang giữ', tone: 'blue' },
   SOLD: { label: 'Đã bán', tone: 'slate' },
-  HIDDEN: { label: 'Đã ẩn', tone: 'slate' },
+  HIDDEN: { label: 'Người bán ẩn', tone: 'slate' },
+  SUSPENDED: { label: 'Bị ẩn do vi phạm', tone: 'red' },
   REMOVED: { label: 'Đã gỡ', tone: 'red' },
   REJECTED: { label: 'Bị từ chối', tone: 'red' },
 }
@@ -89,6 +90,7 @@ export const ORDER_STATUS = {
   DELIVERED: 'Đã giao',
   COMPLETED: 'Hoàn tất',
   CANCELLED: 'Đã hủy',
+  SELLER_REJECTED: 'Người bán từ chối',
   REFUND_PENDING: 'Đang hoàn tiền',
   REFUNDED: 'Đã hoàn tiền',
 }
@@ -100,6 +102,8 @@ export const PAYMENT_STATUS = {
 export const DELIVERY_STATUS = {
   AVAILABLE: 'Chờ tài xế nhận chuyến', ACCEPTED: 'Tài xế đã nhận chuyến',
   PICKED_UP: 'Tài xế đã lấy hàng', DELIVERING: 'Đang giao hàng',
+  HANDOVER_CONFIRMED: 'Người bán xác nhận bàn giao',
+  PROGRESS_NOTE: 'Ghi chú tiến độ giao hàng',
   DELIVERED: 'Đã giao thành công', FAILED: 'Giao chưa thành công',
   RETURNING: 'Đang chuyển hoàn', RETURNED: 'Đã trả hàng cho người bán',
 }

@@ -2,7 +2,6 @@
 **/dist
 .git
 .github
-backend/uploads
 backend/docs
 **/*.log
 **/.env

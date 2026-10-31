@@ -1,11 +1,11 @@
 'use strict';
 
-const { Listings, Store } = require("../models");
+const { Sequelize } = require("sequelize");
+const { Listings, ListingMedia, Store } = require("../models");
 
 const createListing = async (req, res) => {
     try {
         const {
-            SellerId,
             StoreId,
             CategoryId,
             Title,
@@ -15,8 +15,17 @@ const createListing = async (req, res) => {
             KnownDefects,
             Location
         } = req.body;
+        const store = await Store.findOne({
+            where: { StoreId, OwnerId: req.user.UserId },
+        });
+        if (!store) {
+            return res.status(403).json({
+                success: false,
+                message: "Bạn không có quyền đăng sản phẩm cho cửa hàng này",
+            });
+        }
         const listing = await Listings.create({
-            SellerId,
+            SellerId: req.user.UserId,
             StoreId,
             CategoryId,
             Title,
@@ -26,10 +35,34 @@ const createListing = async (req, res) => {
             KnownDefects,
             Location
         });
+
+        // Lưu ảnh vào ListingMedia nếu có
+        if (req.files && req.files.length > 0) {
+            const mediaRecords = req.files.map((file, index) => ({
+                ListingId: listing.ListingId,
+                MediaType: "IMAGE",
+                MediaUrl: `/api/v1/uploads/listings/${file.filename}`,
+                SortOrder: index + 1,
+            }));
+            await ListingMedia.bulkCreate(mediaRecords);
+        }
+
+        // Trả về listing kèm media
+        const result = await Listings.findOne({
+            where: { ListingId: listing.ListingId },
+            include: [{
+                model: ListingMedia,
+                as: "Media",
+                attributes: ["MediaId", "MediaUrl", "MediaType", "SortOrder"],
+                separate: true,
+                order: [["SortOrder", "ASC"]],
+            }],
+        });
+
         return res.status(201).json({
             success: true,
             message: "Tạo bài đăng thành công",
-            data: listing
+            data: result
         })
     }
     catch (error) {
@@ -64,6 +97,17 @@ const getAllListingStore = async (req, res) => {
 
         const { count, rows } = await Listings.findAndCountAll({
             where: { StoreId },
+            include: [{
+                model: ListingMedia,
+                as: "Media",
+                attributes: ["MediaId", "MediaUrl", "MediaType", "SortOrder"],
+                separate: true,
+                order: [["SortOrder", "ASC"]],
+            }],
+            order: [
+                [Sequelize.literal("CASE WHEN Status = 'SOLD' THEN 1 ELSE 0 END"), "ASC"],
+                ["createdAt", "ASC"],
+            ],
             limit,
             offset: (page - 1) * limit
         });
@@ -159,6 +203,15 @@ const updateListing = async (req, res) => {
                 message: "Lỗi không thấy sản phẩm",
             });
         }
+        const ownsStore = await Store.findOne({
+            where: { StoreId: listing.StoreId, OwnerId: req.user.UserId },
+        });
+        if (!ownsStore || Number(listing.SellerId) !== Number(req.user.UserId)) {
+            return res.status(403).json({
+                success: false,
+                message: "Bạn không có quyền sửa sản phẩm này",
+            });
+        }
 
 
         const { CategoryId, Title, Description, Price, ConditionLevel, KnownDefects, Location } = req.body;
@@ -187,6 +240,15 @@ const hiddenListing = async (req, res) => {
         if (!listing) {
             return res.status(500).json({
                 message: "Lỗi không thấy sản phẩm",
+            });
+        }
+        const ownsStore = await Store.findOne({
+            where: { StoreId: listing.StoreId, OwnerId: req.user.UserId },
+        });
+        if (!ownsStore || Number(listing.SellerId) !== Number(req.user.UserId)) {
+            return res.status(403).json({
+                success: false,
+                message: "Bạn không có quyền thay đổi sản phẩm này",
             });
         }
 

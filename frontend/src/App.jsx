@@ -4,8 +4,8 @@ import './App.scss'
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { Suspense, lazy } from 'react'
 
-import CreateListing from './components/listing/CreateListing'
-import CrudListing from './components/listing/CrudListing'
+import CreateListing from './pages/listing/CreateListing'
+import CrudListing from './pages/listing/CrudListing'
 import DevAccountProvider from './context/DevAccountProvider'
 import ForgotPassword from './pages/ForgotPassword'
 import HomePage from './pages/HomePage'
@@ -14,14 +14,20 @@ import Login from './pages/Login'
 import OrderCancelPage from './pages/D02_HuyDonHang/OrderCancelPage'
 import OrderCreatePage from './pages/OrderCreatePage'
 import OrderPaymentPage from './pages/D03_ThanhToan/OrderPaymentPage'
+import OrderRejectPage from './pages/OrderRejectPage'
 import PrivacyPolicy from './pages/PrivacyPolicy'
-import PublicStore from './components/Store/PublicStore/PublicStore'
+import PublicStore from './pages/Store/PublicStore'
 import Register from './pages/Register'
 import RegisterApplication from './components/PartnerApplication/RegisterApplication'
+import RequireSession from './components/RequireSession'
 import ResetPassword from './pages/ResetPassword'
-import SellerStore from './components/Store/SellerStore/SellerStore'
+import SellerOrders from './pages/SellerOrders/SellerOrders'
+import SellerStore from './pages/Store/SellerStore'
 import { ToastContainer } from 'react-toastify'
 import VerifyEmail from './pages/VerifyEmail'
+import AvailableDeliveriesPage from './pages/D07_TaiXeNhanChuyen/AvailableDeliveriesPage'
+import PickupPage from './pages/D08_XacNhanLayHang/PickupPage'
+import DeliveryProgressPage from './pages/D09_CapNhatTienDoGiaoHang/DeliveryProgressPage'
 
 // Phân hệ B: quản trị và doanh thu (tải khi cần để không làm nặng trang chủ)
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'))
@@ -36,6 +42,7 @@ const AdminCommissionsPage = lazy(() => import('./pages/admin/AdminCommissionsPa
 const AdminFeePaymentsPage = lazy(() => import('./pages/admin/AdminFeePaymentsPage'))
 const AdminAuditLogsPage = lazy(() => import('./pages/admin/AdminAuditLogsPage'))
 const AdminSettingsPage = lazy(() => import('./pages/admin/AdminSettingsPage'))
+const AdminProfilePage = lazy(() => import('./pages/admin/AdminProfilePage'))
 const AccountShell = lazy(() => import('./pages/account/AccountShell'))
 const ProfilePage = lazy(() => import('./pages/account/ProfilePage'))
 const ReportCreatePage = lazy(() => import('./pages/account/ReportCreatePage'))
@@ -65,12 +72,17 @@ function App() {
         <Route path="/orders/create/:listingId" element={<OrderCreatePage />} />
         <Route path="/orders/:orderId/cancel" element={<OrderCancelPage />} />
         <Route path="/orders/:orderId/payment" element={<OrderPaymentPage />} />
+        <Route path="/seller/orders/:orderId/reject" element={<OrderRejectPage />} />
 
         <Route path="/partner-application" element={<RegisterApplication />} />
+        <Route path="/driver/deliveries" element={<AvailableDeliveriesPage />} />
+        <Route path="/driver/deliveries/:deliveryId/pickup" element={<PickupPage />} />
+        <Route path="/driver/deliveries/:deliveryId/progress" element={<DeliveryProgressPage />} />
+        <Route path="/seller/orders/:orderId/pickup-code" element={<PickupPage seller />} />
         <Route path="store/:ownerId" element={<PublicStore />} />
         <Route path="/seller/store" element={<SellerStore />} />
-        <Route path="seller/listings" element={<CrudListing />} />
-        <Route path="seller/listings/create" element={<CreateListing />} />
+        
+        <Route path="/seller/orders" element={<SellerOrders/>}/>
 
         <Route
           element={
@@ -81,6 +93,10 @@ function App() {
             </DevAccountProvider>
           }
         >
+          <Route element={<RequireSession />}>
+            <Route path="/seller/listings" element={<CrudListing />} />
+            <Route path="/seller/listings/create" element={<CreateListing />} />
+          </Route>
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboardPage />} />
             <Route path="users" element={<AdminUsersPage />} />
@@ -93,6 +109,7 @@ function App() {
             <Route path="fee-payments" element={<AdminFeePaymentsPage />} />
             <Route path="audit-logs" element={<AdminAuditLogsPage />} />
             <Route path="settings" element={<AdminSettingsPage />} />
+            <Route path="profile" element={<AdminProfilePage />} />
           </Route>
           <Route element={<TrackingLayout />}>
             <Route path="/orders" element={<BuyerOrdersPage />} />

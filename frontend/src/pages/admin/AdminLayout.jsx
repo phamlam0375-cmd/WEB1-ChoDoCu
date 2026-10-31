@@ -14,12 +14,14 @@ import {
   Settings,
   ShieldCheck,
   Store,
+  UserCircle2,
   Users,
   X,
 } from 'lucide-react'
 import DevAccountSwitcher from '../../components/DevAccountSwitcher'
 import DevAccountError from '../../components/DevAccountError'
 import { Loading } from '../../components/admin/AdminUi'
+import QuickSearch from '../../components/admin/QuickSearch'
 import { useApi } from '../../hooks/useApi'
 import { useDevAccount } from '../../hooks/useDevAccount'
 
@@ -58,6 +60,7 @@ const NAV_GROUPS = [
     items: [
       { to: '/admin/audit-logs', label: 'Nhật ký thao tác', icon: FileClock },
       { to: '/admin/settings', label: 'Cấu hình quy tắc', icon: Settings },
+      { to: '/admin/profile', label: 'Hồ sơ của tôi', icon: UserCircle2 },
     ],
   },
 ]
@@ -126,8 +129,7 @@ function AccessGate({ children }) {
         <ShieldCheck className="mx-auto text-emerald-600" size={32} />
         <h1 className="mt-3 text-lg font-semibold text-slate-900">Khu vực dành cho quản trị viên</h1>
         <p className="mt-1 text-sm text-slate-500">
-          {me ? 'Bạn không có quyền truy cập chức năng này.' : 'Đăng nhập bằng tài khoản quản trị để tiếp tục.'} Khi demo có thể
-          nhập mã tài khoản thử nghiệm: tài khoản <b>#2</b> là quản trị viên.
+          {me ? 'Bạn không có quyền truy cập chức năng này. Hãy đăng xuất rồi đăng nhập bằng tài khoản quản trị.' : 'Đăng nhập bằng tài khoản quản trị để tiếp tục.'}
         </p>
         <div className="mt-4 flex justify-center">
           <DevAccountSwitcher />
@@ -142,6 +144,9 @@ function AccessGate({ children }) {
 export default function AdminLayout() {
   const [menuOpen, setMenuOpen] = useState(false)
   const counts = usePendingCounts()
+  const { me } = useDevAccount()
+  const isAdmin = Boolean(me?.roles?.includes('ADMIN'))
+  const location = useLocation()
 
   return (
     <div className="min-h-screen bg-green-100 text-slate-900">
@@ -165,6 +170,11 @@ export default function AdminLayout() {
           </Link>
           <span className="rounded-md bg-slate-900 px-2 py-0.5 text-[11px] font-semibold uppercase text-white">Quản trị</span>
         </div>
+        {isAdmin && (
+          <div className="hidden min-w-0 flex-1 justify-center sm:flex">
+            <QuickSearch />
+          </div>
+        )}
         <div className="hidden md:block">
           <DevAccountSwitcher compact />
         </div>
@@ -194,7 +204,8 @@ export default function AdminLayout() {
 
         <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
           <AccessGate>
-            <Outlet />
+            {/* Mở lại trang khi đổi từ khóa tìm nhanh (?q=) để bộ lọc nhận từ khóa mới. */}
+            <Outlet key={`${location.pathname}?${new URLSearchParams(location.search).get('q') || ''}`} />
           </AccessGate>
         </main>
       </div>

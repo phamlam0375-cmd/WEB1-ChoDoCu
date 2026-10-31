@@ -20,7 +20,7 @@ export async function loginWithPassword(email, password) {
   return {
     accessToken,
     user: { ...data.user, ...me.data.data },
-    message: data.message || 'Đăng nhập thành công!',
+    
   }
 }
 
@@ -41,6 +41,5 @@ export async function loginWithGoogle(credential) {
   return {
     accessToken,
     user: { ...data.user, ...me.data.data },
-    message: data.message || 'Đăng nhập Google thành công!',
   }
 }

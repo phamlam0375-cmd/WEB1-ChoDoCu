@@ -155,7 +155,7 @@ function Login() {
         clearDevIdentity: () => setDevUserId(''),
         navigate,
       })
-      alert(session.message)
+      
     } catch (error) {
       setLoginError(errorMessage(error, error.message || 'Gmail hoặc mật khẩu không chính xác!'))
     } finally {

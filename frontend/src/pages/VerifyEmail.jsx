@@ -194,7 +194,7 @@ const VerifyEmail = () => {
                 key={index}
                 type="text"
                 inputMode="numeric"
-                pattern="[0-9]*"
+                pattern="[0-9]"
                 autoComplete="one-time-code"
                 maxLength={1}
                 value={digit}

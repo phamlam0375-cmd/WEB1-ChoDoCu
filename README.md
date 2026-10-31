@@ -151,7 +151,7 @@ Repo có cấu hình Docker Compose production cho VPS Linux. Cấu hình này c
 
 ## Phát triển giao diện (tự cập nhật khi sửa code)
 
-Bản ở cổng 8081 là bản build sẵn. Khi sửa frontend, chạy thêm Vite (cần Node.js 20+ và pnpm):
+Bản ở cổng 8081 là bản build sẵn. Khi sửa frontend, chạy thêm Vite (cần Node.js 20+ và pnpm 10.34.5; pnpm được ghim phiên bản giống backend):
 
 ```bash
 cd frontend

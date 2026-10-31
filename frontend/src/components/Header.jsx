@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Heart,
   LogOut,
@@ -49,6 +49,12 @@ function Header({
   const [user, setUser] = useState(readStoredUser)
 
   const navigate = useNavigate()
+
+  useEffect(() => {
+    const syncUser = (event) => setUser(event.detail || readStoredUser())
+    window.addEventListener('profile-updated', syncUser)
+    return () => window.removeEventListener('profile-updated', syncUser)
+  }, [])
 
   const closeMenu = () => setMenuOpen(false)
 
@@ -169,11 +175,13 @@ function Header({
 
           {user ? (
             <div className="flex items-center gap-2">
-              {renderUserAvatar()}
-              <div className="max-w-40">
+              <Link to="/profile" aria-label="Mở hồ sơ cá nhân">
+                {renderUserAvatar()}
+              </Link>
+              <Link to="/profile" className="max-w-40 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500" aria-label="Mở hồ sơ cá nhân">
                 <p className="truncate text-sm font-semibold text-slate-800">{user.FullName}</p>
                 <p className="truncate text-xs text-slate-500">{user.Email}</p>
-              </div>
+              </Link>
               <button
                 type="button"
                 onClick={handleLogout}
@@ -279,11 +287,13 @@ function Header({
             {user ? (
               <>
                 <div className="col-span-2 flex items-center gap-3 rounded-xl bg-slate-50 p-3 sm:col-span-1">
-                  {renderUserAvatar('size-11')}
-                  <div className="min-w-0">
+                  <Link to="/profile" onClick={closeMenu} aria-label="Mở hồ sơ cá nhân">
+                    {renderUserAvatar('size-11')}
+                  </Link>
+                  <Link to="/profile" onClick={closeMenu} className="min-w-0" aria-label="Mở hồ sơ cá nhân">
                     <p className="truncate text-sm font-semibold text-slate-800">{user.FullName}</p>
                     <p className="truncate text-xs text-slate-500">{user.Email}</p>
-                  </div>
+                  </Link>
                 </div>
                 <button
                   type="button"

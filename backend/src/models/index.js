@@ -25,6 +25,9 @@ const VerificationCodes = require("./VerificationCodes.model");
 const Store = require("./Store.model");
 const DriverProfiles = require("./DriverProfiles.model");
 const Deliveries = require("./Deliveries.model");
+const Conversations = require("./Conversations.model");
+const ConversationParticipants = require("./ConversationParticipants.model");
+const Messages = require("./Messages.model");
 
 Users.belongsToMany(Roles, { through: UserRoles, foreignKey: "UserId", otherKey: "RoleId", as: "Roles" });
 Roles.belongsToMany(Users, { through: UserRoles, foreignKey: "RoleId", otherKey: "UserId", as: "Users" });
@@ -68,6 +71,20 @@ AdminAuditLogs.belongsTo(Users, { foreignKey: "AdminId", as: "Admin" });
 SystemSettings.belongsTo(Users, { foreignKey: "UpdatedBy", as: "Updater" });
 VerificationCodes.belongsTo(Users, { foreignKey: "UserId", as: "User" });
 
+Conversations.belongsTo(Listings, { foreignKey: "ListingId", as: "Listing" });
+Conversations.belongsTo(Orders, { foreignKey: "OrderId", as: "Order" });
+Conversations.belongsTo(Users, { foreignKey: "BuyerId", as: "Buyer" });
+Conversations.belongsTo(Users, { foreignKey: "CreatedBy", as: "Creator" });
+Conversations.hasMany(Messages, { foreignKey: "ConversationId", as: "Messages" });
+Conversations.hasMany(ConversationParticipants, { foreignKey: "ConversationId", as: "Participants" });
+
+ConversationParticipants.belongsTo(Conversations, { foreignKey: "ConversationId", as: "Conversation" });
+ConversationParticipants.belongsTo(Users, { foreignKey: "UserId", as: "User" });
+ConversationParticipants.belongsTo(Messages, { foreignKey: "LastReadMessageId", as: "LastReadMessage" });
+
+Messages.belongsTo(Conversations, { foreignKey: "ConversationId", as: "Conversation" });
+Messages.belongsTo(Users, { foreignKey: "SenderId", as: "Sender" });
+
 module.exports = {
   sequelize,
   Users,
@@ -93,4 +110,7 @@ module.exports = {
   Store,
   DriverProfiles,
   Deliveries,
+  Conversations,
+  ConversationParticipants,
+  Messages,
 };

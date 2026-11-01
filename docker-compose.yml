@@ -47,7 +47,8 @@ services:
 
     environment:
       NODE_ENV: development
-      OTP_DELIVERY_MODE: email
+      OTP_DELIVERY_MODE: ${OTP_DELIVERY_MODE:-development-log}
+      AUTH_DEV_HEADER: "false"
 
       DB_HOST: mysql
       DB_PORT: 3306
@@ -82,6 +83,7 @@ services:
         VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
         VITE_ENABLE_GOOGLE_MOCK: "false"
         VITE_D01_DEMO_MODE: "false"
+        VITE_DEV_ACCOUNT_SWITCHER: "false"
 
     restart: unless-stopped
 

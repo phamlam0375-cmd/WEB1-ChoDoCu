@@ -7,6 +7,7 @@ import {
   Truck,
   PlusCircle,
   Store,
+  ShieldCheck,
   UserPlus,
   UserRound,
   X,
@@ -48,9 +49,11 @@ function Header({
   onUnavailable = () => {},
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false)
   const [user, setUser] = useState(readStoredUser)
 
   const navigate = useNavigate()
+  const isAdmin = user?.roles?.includes('ADMIN') || user?.Roles?.includes('ADMIN')
 
   useEffect(() => {
     const syncUser = (event) => setUser(event.detail || readStoredUser())
@@ -58,7 +61,10 @@ function Header({
     return () => window.removeEventListener('profile-updated', syncUser)
   }, [])
 
-  const closeMenu = () => setMenuOpen(false)
+  const closeMenu = () => {
+    setMenuOpen(false)
+    setAccountMenuOpen(false)
+  }
 
   const handleLogin = () => {
     closeMenu()
@@ -91,6 +97,36 @@ function Header({
         />
       )}
     </span>
+  )
+
+  const renderAccountMenu = (positionClass) => (
+    accountMenuOpen && (
+      <div
+        role="menu"
+        className={`absolute ${positionClass} z-50 w-52 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg`}
+      >
+        <Link
+          to="/profile"
+          onClick={closeMenu}
+          role="menuitem"
+          className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-800"
+        >
+          <UserRound size={17} />
+          Hồ sơ cá nhân
+        </Link>
+        {isAdmin && (
+          <Link
+            to="/admin"
+            onClick={closeMenu}
+            role="menuitem"
+            className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-50"
+          >
+            <ShieldCheck size={17} />
+            Trang quản trị
+          </Link>
+        )}
+      </div>
+    )
   )
 
   return (
@@ -179,9 +215,19 @@ function Header({
 
           {user ? (
             <div className="flex items-center gap-2">
-              <Link to="/profile" aria-label="Mở hồ sơ cá nhân">
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setAccountMenuOpen((open) => !open)}
+                  aria-label="Mở menu tài khoản"
+                  aria-expanded={accountMenuOpen}
+                  aria-haspopup="menu"
+                  className="block rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                >
                 {renderUserAvatar()}
-              </Link>
+                </button>
+                {renderAccountMenu('right-0 top-full mt-2')}
+              </div>
               <Link to="/profile" className="max-w-40 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500" aria-label="Mở hồ sơ cá nhân">
                 <p className="truncate text-sm font-semibold text-slate-800">{user.FullName}</p>
                 <p className="truncate text-xs text-slate-500">{user.Email}</p>
@@ -294,9 +340,19 @@ function Header({
             {user ? (
               <>
                 <div className="col-span-2 flex items-center gap-3 rounded-xl bg-slate-50 p-3 sm:col-span-1">
-                  <Link to="/profile" onClick={closeMenu} aria-label="Mở hồ sơ cá nhân">
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setAccountMenuOpen((open) => !open)}
+                      aria-label="Mở menu tài khoản"
+                      aria-expanded={accountMenuOpen}
+                      aria-haspopup="menu"
+                      className="block rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                    >
                     {renderUserAvatar('size-11')}
-                  </Link>
+                    </button>
+                    {renderAccountMenu('left-0 top-full mt-2')}
+                  </div>
                   <Link to="/profile" onClick={closeMenu} className="min-w-0" aria-label="Mở hồ sơ cá nhân">
                     <p className="truncate text-sm font-semibold text-slate-800">{user.FullName}</p>
                     <p className="truncate text-xs text-slate-500">{user.Email}</p>

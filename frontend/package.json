@@ -9,7 +9,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "test:auth:integration": "node --test tests/auth.integration.test.js"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",

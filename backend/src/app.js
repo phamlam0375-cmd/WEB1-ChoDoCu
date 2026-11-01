@@ -26,6 +26,7 @@ const authRoutes = require('./routes/register.route');
 const passwordResetRoutes = require('./routes/passwordReset.route');
 const sellerOrder = require('./routes/sellerOrder.route');
 const preparation = require('./routes/preparation.route');
+const conversations = require('./routes/conversations.route')
 
 const app = express();
 
@@ -70,16 +71,13 @@ app.use('/api/v1', pickupRoutes);
 app.use('/api/v1/driver', progressRoutes);
 
 
-//PARTNER APPLICATION
 app.use("/api/partner-applications", partnerApplicationRoutes);
-//Store
 app.use("/api/stores", storeRoutes);
-//listing
 app.use("/api/seller/listing", listingRoutes);
-//seller order
 app.use('/api/seller/store/order', sellerOrder)
-//preparation
 app.use('/api/seller/orders', preparation)
+app.use('/api/conversations', conversations)
+
 
 // PHÂN HỆ B: QUẢN TRỊ VÀ DOANH THU
 app.use('/api/v1/uploads', express.static(UPLOAD_DIR, { index: false, maxAge: '7d', dotfiles: 'ignore' }));

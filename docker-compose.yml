@@ -1,19 +1,25 @@
+
 services:
   mysql:
     image: mysql:8.4
     restart: unless-stopped
+
     command:
       - --max_allowed_packet=128M
       - --innodb_buffer_pool_size=512M
+
     environment:
       MYSQL_DATABASE: cho_do_cu
       MYSQL_USER: cho_do_cu
       MYSQL_PASSWORD: cho_do_cu_password
       MYSQL_ROOT_PASSWORD: root_password_change_me
+
     ports:
       - "3306:3306"
+
     volumes:
       - mysql_data:/var/lib/mysql
+
     healthcheck:
       test:
         [
@@ -32,45 +38,56 @@ services:
   api:
     build: ./backend
     restart: unless-stopped
+
     env_file:
       - path: ./backend/.env
         required: false
       - path: ./.env
         required: false
-    # backend/.env (nếu có) được backend tự đọc qua thư mục mount ./backend;
-    # các file này cũng đưa cấu hình vào container. .env gốc có ưu tiên cao hơn.
-    # Trong Docker, API luôn kết nối MySQL qua tên dịch vụ "mysql", cổng 3306.
+
     environment:
       NODE_ENV: development
-      OTP_DELIVERY_MODE: development-log
+      OTP_DELIVERY_MODE: email
+
       DB_HOST: mysql
       DB_PORT: 3306
-      # Cùng một cờ cấp cho backend runtime và frontend build; mặc định an toàn.
+      DB_NAME: cho_do_cu
+      DB_USER: cho_do_cu
+      DB_PASSWORD: cho_do_cu_password
+
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+
       D01_DEMO_MODE: ${D01_DEMO_MODE:-false}
       D01_DEMO_USER_ID: ${D01_DEMO_USER_ID:-}
+
     ports:
       - "3000:3000"
+
     volumes:
       - ./backend:/app
       - /app/node_modules
-    # Tự chạy migration và nạp dữ liệu mẫu (nếu database trống) rồi mới khởi động API.
+
     command: npx pnpm run docker:dev
+
     depends_on:
       mysql:
         condition: service_healthy
 
-  # Nginx phục vụ website React đã build và chuyển /api sang backend.
   nginx:
     build:
       context: .
       dockerfile: nginx/Dockerfile
+
       args:
         VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-        VITE_ENABLE_GOOGLE_MOCK: "true"
-        VITE_D01_DEMO_MODE: ${D01_DEMO_MODE:-false}
+        VITE_ENABLE_GOOGLE_MOCK: "false"
+        VITE_D01_DEMO_MODE: "false"
+
     restart: unless-stopped
+
     ports:
       - "8081:80"
+
     depends_on:
       - api
 

@@ -106,7 +106,7 @@ router.post('/login', async (req, res) => {
 
   return res.status(200).json({
     success: true,
-    message: 'Đăng nhập thành công!',
+    
     token: createToken(user.UserId),
     user: {
       UserId: user.UserId,

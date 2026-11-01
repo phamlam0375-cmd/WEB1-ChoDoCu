@@ -1,55 +1,37 @@
 'use strict';
 
-const { sequelize, Listings, Conversations, ConversationParticipants, Messages } = require('../models');
-const {
-    notFound,
-    badRequest,
-    forbidden,
-    conflict
-} = require("../utils/httpError");
+const conversationService = require('../services/conversations.service');
+const { badRequest, forbidden } = require('../utils/httpError');
 
-//check user co thuoc trong chat khong
-const assertPaticipant = async (conversionId, userId) => {
-    const participant = await ConversationParticipants.findOne({
-        where: {
-            ConversationsId: conversionId,
-            UserId: userId
-        }
-    })
-    if (!participant) {
-        throw forbidden("Bạn không thuộc hội thoại này");
+const sendMessage = async (req, res, next) => {
+    try {
+        const message = await conversationService.sendMessage({
+            conversationId: Number(req.params.id),
+            senderId: req.user.UserId,
+            content: req.body.content,
+            messageType: req.body.messageType,
+            attachmentUrl: req.body.attachmentUrl
+        });
+        res.status(201).json(message);
+    } catch (err) {
+        next(err)
+    }
+};
+
+const getMessage = async (req, res, next) => {
+    try {
+        const conversationId = Number(req.params.id)
+        const result = await conversationService.getMessages({
+            conversationId,
+            userId: req.user.UserId,
+            limit: req.query.limit,
+            before: req.query.before
+        });
+        res.json(result)
+    }
+    catch (err) {
+        next(err);
     }
 }
 
-const sendMessage = async ({ conversionId, senderId, content, messageType = 'TEXT', attachmentUrl = null }) => {
-    await assertPaticipant(conversionId, senderId);
-
-    const text = (content || '').trim();
-    if (messageType === 'TEXT' && !text) throw badRequest('Nội dung tin nhắn trống');
-    if (messageType === 'IMAGE' && !attachmentUrl) throw badRequest('Thiếu ảnh đính kèm');
-    if (text.length > 2000) throw badRequest('Tin nhắn quá dài');
-
-    return sequelize.transaction(async (transaction) => {
-        const message = await Messages.create({
-            ConversationsId: conversionId,
-            SenderId: senderId,
-            Content: content,
-            Context: text || null,
-            MessageType: messageType,
-            AttachmentUrl: attachmentUrl
-        }, { transaction })
-
-        await Conversations.update(
-            { LastMessageAt: message.SendAt },
-            { where: { ConversationsId: conversionId }, transaction },
-        )
-
-        await ConversationParticipants.update(
-            { LastMessageId: message.MessagesId },
-            { where: { ConversationsId: conversionId, UserId: userId }, transaction }
-        )
-        return message;
-    })
-}
-
-module.exportss = { sendMessage }
+module.exports = { sendMessage, getMessage };

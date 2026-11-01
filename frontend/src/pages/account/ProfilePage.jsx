@@ -1,338 +1,356 @@
 
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { Camera, LoaderCircle, Save, UserRound } from 'lucide-react'
 import { toast } from 'react-toastify'
 import { errorMessage } from '../../lib/api'
 import { useDevAccount } from '../../hooks/useDevAccount'
+import './ProfilePage.scss'
 import {
   updateProfile,
   uploadProfileAvatar,
 } from '../../services/profileApi'
 
-const inputClass =
-  'mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10'
+// Regex kiểm tra họ tên tiếng Việt
+// Cho phép chữ có dấu, khoảng trắng, dấu nháy và dấu gạch nối
+const nameRegex =
+  /^[\p{L}\p{M}]+(?:[ '\u2019-][\p{L}\p{M}]+)*$/u
 
-export default function ProfilePage() {
+// Số điện thoại: đúng 10 chữ số, bắt đầu bằng 0
+const phoneRegex = /^0\d{9}$/
+
+// Địa chỉ: chữ, số và ký tự địa chỉ thông thường
+const addressRegex =
+  /^[\p{L}\p{M}\d\s,./#'-]+$/u
+
+function ProfilePage() {
   const { me } = useDevAccount()
 
-  // Khi thông tin tài khoản chưa tải xong,
-  // hiển thị trạng thái chờ.
   if (!me) {
     return (
-      <section className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-8 text-center">
-        <LoaderCircle
-          size={24}
-          className="mx-auto animate-spin text-emerald-600"
-        />
-        <p className="mt-3 text-sm text-slate-500">
-          Đang tải thông tin tài khoản...
-        </p>
-      </section>
+      <div className="profile-page profile-page--loading">
+        <LoaderCircle className="profile-page__spinner" />
+        <p className="profile-page__loading-text">Đang tải hồ sơ...</p>
+      </div>
     )
   }
 
-  // Dùng ID tài khoản để khởi tạo lại form
-  // khi chuyển sang tài khoản khác.
-  const accountKey =
-    me.ID ?? me.Id ?? me.UserID ?? me.Email ?? 'profile'
-
   return (
     <ProfileForm
-      key={accountKey}
+      key={me.UserId || me.userId || me.id || me._id || me.Email || me.email}
       me={me}
     />
   )
 }
 
 function ProfileForm({ me }) {
-  const fileInput = useRef(null)
+  const fileInputRef = useRef(null)
 
-  const [form, setForm] = useState(() => ({
-    fullName: me.FullName || '',
-    email: me.Email || '',
-    phone: me.Phone || '',
-    address: me.Address || '',
-  }))
+  const [form, setForm] = useState({
+    fullName: me.FullName || me.fullName || me.name || '',
+    phone: me.Phone || me.phone || '',
+    address: me.Address || me.address || '',
+  })
 
-  const [avatarUrl, setAvatarUrl] = useState(
-    me.AvatarUrl || '',
+  const [avatar, setAvatar] = useState(
+    me.AvatarUrl || me.avatarUrl || me.avatar || '',
   )
-
-  const [avatarFile, setAvatarFile] = useState(null)
-  const [avatarPreview, setAvatarPreview] = useState('')
+  const [errors, setErrors] = useState({})
   const [saving, setSaving] = useState(false)
-
-  // Thu hồi URL ảnh khi ảnh preview thay đổi
-  // hoặc component bị unmount.
-  useEffect(() => {
-    return () => {
-      if (avatarPreview) {
-        URL.revokeObjectURL(avatarPreview)
-      }
-    }
-  }, [avatarPreview])
+  const [uploading, setUploading] = useState(false)
 
   const handleFieldChange = (event) => {
     const { name, value } = event.target
 
-    setForm((current) => ({
-      ...current,
-      [name]: value,
+    setForm((prev) => {
+      return {
+        ...prev,
+        [name]: value,
+      }
+    })
+
+    setErrors((prev) => ({
+      ...prev,
+      [name]: '',
     }))
   }
 
-  const handleAvatarChange = (event) => {
-    const file = event.target.files?.[0]
+  const validateForm = () => {
+    const newErrors = {}
 
-    // Cho phép chọn lại cùng một file.
-    event.target.value = ''
+    const trimmedName = form.fullName.trim()
+    const trimmedPhone = form.phone.trim()
+    const trimmedAddress = form.address.trim()
 
-    if (!file) return
-
-    if (!['image/jpeg', 'image/png'].includes(file.type)) {
-      toast.error(
-        'Ảnh đại diện chỉ nhận định dạng JPG hoặc PNG.')
-      return
+    // Kiểm tra họ tên
+    if (!trimmedName) {
+      newErrors.fullName = 'Vui lòng nhập họ tên'
+    } else if (trimmedName.length < 2) {
+      newErrors.fullName = 'Họ tên phải có ít nhất 2 ký tự'
+    } else if (trimmedName.length > 100) {
+      newErrors.fullName = 'Họ tên không được vượt quá 100 ký tự'
+    } else if (!nameRegex.test(trimmedName)) {
+      newErrors.fullName =
+        'Họ tên không được chứa số hoặc ký tự đặc biệt'
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error(
-        'Ảnh đại diện không được vượt quá 5MB.'
-,
-      )
-      return
+    // Kiểm tra số điện thoại
+    if (!trimmedPhone) {
+      newErrors.phone = 'Vui lòng nhập số điện thoại'
+    } else if (!phoneRegex.test(trimmedPhone)) {
+      newErrors.phone =
+        'Số điện thoại không đúng định dạng'
     }
 
-    const previewUrl = URL.createObjectURL(file)
+    // Kiểm tra địa chỉ
+    if (!trimmedAddress) {
+      newErrors.address = 'Vui lòng nhập địa chỉ'
+    } else if (trimmedAddress.length < 5) {
+      newErrors.address = 'Địa chỉ phải có ít nhất 5 ký tự'
+    } else if (trimmedAddress.length > 255) {
+      newErrors.address =
+        'Địa chỉ không được vượt quá 255 ký tự'
+    } else if (!addressRegex.test(trimmedAddress)) {
+      newErrors.address =
+        'Địa chỉ chứa ký tự không hợp lệ'
+    }
 
-    setAvatarFile(file)
-    setAvatarPreview(previewUrl)
+    setErrors(newErrors)
+
+    if (Object.keys(newErrors).length > 0) {
+      setForm((current) => ({
+        ...current,
+        fullName: newErrors.fullName ? '' : current.fullName,
+        phone: newErrors.phone ? '' : current.phone,
+        address: newErrors.address ? '' : current.address,
+      }))
+    }
+
+    return Object.keys(newErrors).length === 0
   }
 
   const handleSubmit = async (event) => {
     event.preventDefault()
 
-    if (saving) return
-
-    setSaving(true)
+    if (!validateForm()) return
 
     try {
-      const profileUpdate = {
-        fullName: form.fullName,
-        phone: form.phone,
-        address: form.address,
-      }
+      setSaving(true)
 
-      // Upload ảnh trước nếu người dùng chọn ảnh mới.
-      if (avatarFile) {
-        profileUpdate.avatarUrl =
-          await uploadProfileAvatar(avatarFile)
-      }
+      const updatedUser = await updateProfile({
+        fullName: form.fullName.trim(),
+        phone: form.phone.trim(),
+        address: form.address.trim(),
+      })
 
-      // Cập nhật thông tin hồ sơ.
-      const updatedUser = await updateProfile(profileUpdate)
-
-      // Cập nhật user trong localStorage.
-      window.localStorage.setItem(
-        'user',
-        JSON.stringify(updatedUser),
-      )
-
-      // Thông báo các component khác cập nhật thông tin.
-      window.dispatchEvent(
-        new CustomEvent('profile-updated', {
-          detail: updatedUser,
-        }),
-      )
-
-      // Cập nhật state sau khi người dùng bấm lưu.
       setForm({
-        fullName: updatedUser.FullName || '',
-        email: updatedUser.Email || '',
+        fullName: updatedUser.FullName || form.fullName.trim(),
         phone: updatedUser.Phone || '',
         address: updatedUser.Address || '',
       })
-
-      setAvatarUrl(updatedUser.AvatarUrl || '')
-      setAvatarFile(null)
-
-      // Thu hồi preview sau khi upload thành công.
-      setAvatarPreview((currentPreview) => {
-        if (currentPreview) {
-          URL.revokeObjectURL(currentPreview)
-        }
-
-        return ''
-      })
+      syncUpdatedUser(updatedUser)
 
       toast.success('Cập nhật hồ sơ thành công.')
     } catch (error) {
-      toast.error(
-        errorMessage(
-          error,
-          error.message || 'Không thể cập nhật hồ sơ.',
-        ),
-      )
+      toast.error(errorMessage(error))
     } finally {
       setSaving(false)
     }
   }
 
-  const currentAvatar = avatarPreview || avatarUrl
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleAvatarChange = async (event) => {
+    const file = event.target.files?.[0]
+
+    if (!file) return
+
+    if (!['image/jpeg', 'image/png'].includes(file.type)) {
+      toast.error('Ảnh đại diện chỉ nhận định dạng JPG hoặc PNG.')
+      event.target.value = ''
+      return
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Ảnh không được vượt quá 5MB.')
+      event.target.value = ''
+      return
+    }
+
+    try {
+      setUploading(true)
+
+      const avatarUrl = await uploadProfileAvatar(file)
+      const updatedUser = await updateProfile({ avatarUrl })
+      setAvatar(updatedUser.AvatarUrl || avatarUrl)
+      syncUpdatedUser(updatedUser)
+
+      toast.success('Cập nhật ảnh đại diện thành công.')
+    } catch (error) {
+      toast.error(errorMessage(error))
+    } finally {
+      setUploading(false)
+      event.target.value = ''
+    }
+  }
+
+  const syncUpdatedUser = (updatedUser) => {
+    window.localStorage.setItem('user', JSON.stringify(updatedUser))
+    window.dispatchEvent(
+      new CustomEvent('profile-updated', { detail: updatedUser }),
+    )
+  }
 
   return (
-    <section className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
-      {/* Tiêu đề */}
-      <div className="mb-7">
-        <p className="text-sm font-bold uppercase tracking-[0.14em] text-emerald-600">
-          Tài khoản
-        </p>
-
-        <h1 className="mt-1 text-2xl font-extrabold text-slate-900">
-          Thông tin cá nhân
-        </h1>
-
-        <p className="mt-1 text-sm text-slate-500">
-          Cập nhật thông tin hiển thị trên tài khoản của bạn.
+    <div className="profile-page">
+      <div className="profile-page__heading">
+        <h1 className="profile-page__title">Hồ sơ cá nhân</h1>
+        <p className="profile-page__description">
+          Quản lý thông tin tài khoản của bạn
         </p>
       </div>
 
       <form
+        className="profile-form"
         onSubmit={handleSubmit}
-        className="space-y-6"
+        noValidate
       >
-        {/* Ảnh đại diện */}
-        <div className="flex flex-col items-center gap-4 rounded-2xl bg-slate-50 p-5 sm:flex-row">
-          <div className="relative grid size-28 shrink-0 place-items-center overflow-hidden rounded-full bg-emerald-100 text-emerald-700 ring-4 ring-white">
-            {currentAvatar ? (
-              <img
-                src={currentAvatar}
-                alt="Ảnh đại diện"
-                className="size-full object-cover"
-              />
+        <div className="profile-avatar">
+          <div className="profile-avatar__image">
+            {avatar ? (
+              <img src={avatar} alt="Ảnh đại diện" />
             ) : (
-              <UserRound
-                size={48}
-                strokeWidth={1.5}
-              />
+              <UserRound size={48} />
             )}
           </div>
 
-          <div className="text-center sm:text-left">
-            <h2 className="font-bold text-slate-800">
-              Ảnh đại diện
-            </h2>
-
-            <p className="mt-1 text-sm text-slate-500">
+          <div className="profile-avatar__details">
+            <h3 className="profile-avatar__title">Ảnh đại diện</h3>
+            <p className="profile-avatar__description">
               Chọn ảnh JPG hoặc PNG, tối đa 5MB.
             </p>
 
-            <input
-              ref={fileInput}
-              type="file"
-              accept="image/jpeg,image/png"
-              className="sr-only"
-              onChange={handleAvatarChange}
-              aria-label="Chọn ảnh đại diện"
-            />
-
             <button
               type="button"
-              onClick={() => fileInput.current?.click()}
-              className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 text-sm font-bold text-emerald-800 transition hover:bg-emerald-50"
+              className="profile-avatar__button"
+              onClick={handleAvatarClick}
+              disabled={uploading}
             >
-              <Camera size={16} />
-              Thay ảnh
+              {uploading ? (
+                <LoaderCircle className="profile-page__spinner" size={16} />
+              ) : (
+                <Camera size={16} />
+              )}
+
+              {uploading ? 'Đang tải ảnh...' : 'Chọn ảnh'}
             </button>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png"
+              className="profile-avatar__input"
+              onChange={handleAvatarChange}
+            />
           </div>
         </div>
 
-        {/* Thông tin cá nhân */}
-        <div className="grid gap-5 sm:grid-cols-2">
-          <label className="text-sm font-semibold text-slate-700">
-            Họ và tên
+        <div className="profile-fields">
+          <div className="profile-field">
+            <label className="profile-field__label" htmlFor="fullName">
+              Họ và tên
+            </label>
 
             <input
+              id="fullName"
               name="fullName"
+              type="text"
               value={form.fullName}
               onChange={handleFieldChange}
               autoComplete="name"
               maxLength={100}
-              required
-              className={inputClass}
+              placeholder={errors.fullName || 'Nhập họ và tên'}
+              className={`profile-input ${errors.fullName ? 'profile-input--error' : ''}`}
+              aria-invalid={Boolean(errors.fullName)}
             />
-          </label>
+          </div>
 
-          <label className="text-sm font-semibold text-slate-700">
-            Email
+          <div className="profile-field">
+            <label className="profile-field__label" htmlFor="email">
+              Email
+            </label>
 
             <input
+              id="email"
               type="email"
-              value={form.email}
+              value={me.Email || me.email || ''}
               readOnly
-              aria-describedby="profile-email-note"
-              className={`${inputClass} cursor-not-allowed bg-slate-50 text-slate-500`}
+              className="profile-input profile-input--readonly"
             />
 
-            <span
-              id="profile-email-note"
-              className="mt-1 block text-xs font-normal text-slate-500"
-            >
-              Email không thể thay đổi tại đây.
+            <span className="profile-field__note">
+              Email không thể thay đổi.
             </span>
-          </label>
+          </div>
 
-          <label className="text-sm font-semibold text-slate-700">
-            Số điện thoại
+          <div className="profile-field">
+            <label className="profile-field__label" htmlFor="phone">
+              Số điện thoại
+            </label>
 
             <input
+              id="phone"
               name="phone"
               type="tel"
               value={form.phone}
               onChange={handleFieldChange}
               autoComplete="tel"
-              maxLength={16}
-              pattern="(\+84|0)[0-9]{8,11}"
-              placeholder="Ví dụ: 0901234567"
-              className={inputClass}
+              maxLength={10}
+              placeholder={errors.phone || 'Nhập số điện thoại'}
+              className={`profile-input ${errors.phone ? 'profile-input--error' : ''}`}
+              aria-invalid={Boolean(errors.phone)}
             />
-          </label>
+          </div>
 
-          <label className="text-sm font-semibold text-slate-700 sm:col-span-2">
-            Địa chỉ
+          <div className="profile-field">
+            <label className="profile-field__label" htmlFor="address">
+              Địa chỉ
+            </label>
 
             <input
+              id="address"
               name="address"
+              type="text"
               value={form.address}
               onChange={handleFieldChange}
               autoComplete="street-address"
               maxLength={255}
-              placeholder="Nhập địa chỉ của bạn"
-              className={inputClass}
+              placeholder={errors.address || 'Nhập địa chỉ'}
+              className={`profile-input ${errors.address ? 'profile-input--error' : ''}`}
+              aria-invalid={Boolean(errors.address)}
             />
-          </label>
+          </div>
         </div>
 
-        {/* Nút lưu */}
-        <div className="flex justify-end border-t border-slate-100 pt-5">
+        <div className="profile-form__actions">
           <button
             type="submit"
+            className="profile-save-button"
             disabled={saving}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-wait disabled:opacity-60"
           >
             {saving ? (
-              <LoaderCircle
-                size={17}
-                className="animate-spin"
-              />
+              <LoaderCircle className="profile-page__spinner" size={18} />
             ) : (
-              <Save size={17} />
+              <Save size={18} />
             )}
 
             {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
           </button>
         </div>
       </form>
-    </section>
+    </div>
   )
 }
+
+export default ProfilePage

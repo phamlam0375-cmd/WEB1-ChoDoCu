@@ -69,6 +69,7 @@ services:
       dockerfile: nginx/Dockerfile
       args:
         VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?Set GOOGLE_CLIENT_ID in .env}
+        VITE_DEV_ACCOUNT_SWITCHER: "false"
     restart: unless-stopped
     expose:
       - "80"

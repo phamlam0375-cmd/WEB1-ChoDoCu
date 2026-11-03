@@ -5,10 +5,10 @@ const { Listings, ListingMedia, Categories, Users } = require("../models");
 const getAllListing = async (req, res) => {
     try {
         const page = Number(req.query.page) || 1;
-        const limit = Number(req.query.limit) || 10;
+        const limit = Number(req.query.limit) || 20;
 
         const { count, rows } = await Listings.findAndCountAll({
-            where: { Status: "ACTIVE" },
+            where: { Status: ["ACTIVE", "RESERVED", "SOLD"] },
             include: [
                 { model: Categories, as: "Category", attributes: ["CategoryId", "CategoryName"] },
                 { model: Users, as: "Seller", attributes: ["UserId", "FullName", "EmailVerified", "AvatarUrl"] },

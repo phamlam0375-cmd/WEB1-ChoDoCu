@@ -5,6 +5,7 @@ import Header from "../../components/Header";
 import { createListing } from "../../services/listingApi";
 import { toast } from "react-toastify";
 import { useState } from "react";
+import { errorMessage } from "../../lib/api";
 
 const CreateListing = () => {
     const navigate = useNavigate();
@@ -69,11 +70,11 @@ const CreateListing = () => {
                 SellerId: sellerId,
                 StoreId: storeId,
             }, images);
-            toast.success("Tạo sản phẩm thành công");
+            toast.success("Tạo sản phẩm thành công. Tin sẽ hiển thị sau khi được duyệt.");
             navigate(-1);
         }
         catch(error){
-            toast.error("Lỗi không thể tạo sản phẩm: ",error)
+            toast.error(`Lỗi không thể tạo sản phẩm: ${errorMessage(error)}`)
         }
 
         

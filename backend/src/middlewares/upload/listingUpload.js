@@ -1,8 +1,9 @@
 const multer = require("multer");
+const crypto = require("crypto");
 const path = require("path");
 const fs = require("fs");
 
-const uploadDir = path.join(process.cwd(), "uploads", "listings");
+const uploadDir = path.resolve(__dirname, "../../../uploads/listings");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 const storage = multer.diskStorage({
@@ -30,4 +31,3 @@ const uploadListing = multer({
 });
 
 module.exports = uploadListing;
-

@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
-import { BellRing, Eye } from 'lucide-react'
-import { DataTable, Field, FilterBar, PageHeader, Pagination, SearchInput, Section, StatusBadge, StatusTabs } from '../../components/admin/AdminUi'
+import { BellRing, Eye, RefreshCw } from 'lucide-react'
+import { ConfirmDialog, DataTable, Field, FilterBar, PageHeader, Pagination, SearchInput, Section, StatusBadge, StatusTabs } from '../../components/admin/AdminUi'
 import { btn, input } from '../../components/admin/styles'
 import CommissionDetail from '../../components/admin/CommissionDetail'
 import { commissionColumns } from '../../components/admin/commissionColumns'
@@ -25,6 +25,18 @@ export default function AdminCommissionsPage() {
     try {
       const result = await run('post', '/admin/commissions/remind-overdue')
       toast.success(result.message)
+    } catch (err) {
+      toast.error(errorMessage(err))
+    }
+  }
+  // Tạo khoản hoa hồng cho đơn đã hoàn tất mà chưa có (đơn cũ, hoặc lúc hoàn tất bị lỗi ghi).
+  const [syncing, setSyncing] = useState(false)
+  const syncMissing = async () => {
+    try {
+      const result = await run('post', '/admin/commissions/sync')
+      toast.success(result.message)
+      setSyncing(false)
+      reload()
     } catch (err) {
       toast.error(errorMessage(err))
     }
@@ -53,10 +65,24 @@ export default function AdminCommissionsPage() {
         title="Hoa hồng theo đơn"
         description="Khi đơn hoàn tất, hệ thống ghi một khoản hoa hồng duy nhất theo tỷ lệ đã lưu trên đơn; khoản này được điều chỉnh khi đơn hoàn tiền. Khoản quá hạn được tự nhắc người bán mỗi ngày."
         actions={
-          <button type="button" className={btn.secondary} onClick={remindOverdue} disabled={busy}>
-            <BellRing size={16} /> Nhắc các khoản quá hạn
-          </button>
+          <>
+            <button type="button" className={btn.secondary} onClick={() => setSyncing(true)} disabled={busy}>
+              <RefreshCw size={16} /> Đồng bộ hoa hồng
+            </button>
+            <button type="button" className={btn.secondary} onClick={remindOverdue} disabled={busy}>
+              <BellRing size={16} /> Nhắc các khoản quá hạn
+            </button>
+          </>
         }
+      />
+      <ConfirmDialog
+        open={syncing}
+        title="Đồng bộ hoa hồng cho đơn còn thiếu?"
+        message="Hệ thống tìm các đơn đã hoàn tất nhưng chưa có khoản hoa hồng và tạo khoản phải nộp (mỗi đơn một lần, theo tỷ lệ đã lưu trên đơn). Đơn đã có khoản hoa hồng giữ nguyên."
+        confirmText="Đồng bộ"
+        busy={busy}
+        onConfirm={syncMissing}
+        onClose={() => setSyncing(false)}
       />
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-5">

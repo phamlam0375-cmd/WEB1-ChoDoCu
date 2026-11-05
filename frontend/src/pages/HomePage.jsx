@@ -26,6 +26,18 @@ const defaultFilters = {
   sort: 'newest',
 }
 
+function getListingImage(media) {
+  const imageUrl = media?.find((item) => item.MediaType === 'IMAGE')?.MediaUrl
+  if (!imageUrl) return '/product-placeholder.svg'
+  if (imageUrl.startsWith('/demo/listings/')) {
+    return `/api/v1/uploads/listings/${imageUrl.slice('/demo/listings/'.length)}`
+  }
+  if (imageUrl.startsWith('/listings/')) {
+    return `/api/v1/uploads${imageUrl}`
+  }
+  return imageUrl
+}
+
 function HomePage() {
   const navigate = useNavigate()
   const listing = useListingStore((state) => state.listing)
@@ -52,10 +64,15 @@ function HomePage() {
 
     const loadListings = async () => {
       try {
-        const response = await getAllListing(1, 100)
+        const firstPage = await getAllListing(1, 100)
         if (cancelled) return
-
-        const rows = response.data || []
+        const rows = Array.isArray(firstPage.data) ? [...firstPage.data] : []
+        const totalPages = Number(firstPage.pagination?.totalPages) || 1
+        for (let page = 2; page <= totalPages; page += 1) {
+          const response = await getAllListing(page, 100)
+          if (Array.isArray(response.data)) rows.push(...response.data)
+        }
+        if (cancelled) return
         const categoryRows = [...new Map(
           rows
             .filter((item) => item.Category)
@@ -100,8 +117,8 @@ function HomePage() {
     sellerAvatar: item.Seller?.AvatarUrl || '',
     verified: Boolean(item.Seller?.EmailVerified),
     isVip: false,
-    isFeatured: index < 3,
-    image: item.Media?.find((media) => media.MediaType === 'IMAGE')?.MediaUrl || '/product-placeholder.svg',
+    isFeatured: item.Status === 'ACTIVE' && index < 3,
+    image: getListingImage(item.Media),
   })), [listing, searchResults])
 
   useEffect(() => {

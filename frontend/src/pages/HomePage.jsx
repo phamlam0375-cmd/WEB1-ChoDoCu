@@ -11,11 +11,10 @@ import ProductGrid from '../components/ProductGrid'
 import SearchBar from '../components/SearchBar'
 import WhyChooseUs from '../components/WhyChooseUs'
 import { categories as fallbackCategories, conditions as fallbackConditions, locations as fallbackLocations } from '../data/mockProducts'
-import { getAllListing } from '../services/listingApi'
+import { getAllListing, searchListings } from '../services/listingApi'
 import ListingDetail from './listing/ListingDetail'
 import { useListingStore } from '../store/useListing'
 import { matchesProductCategory } from '../utils/productFilters'
-import { searchProducts } from '../utils/searchEngine'
 import { clearSearchHistory, getSearchHistory, saveSearchHistory } from '../utils/searchHistory'
 
 const defaultFilters = {
@@ -49,6 +48,7 @@ function HomePage() {
   const [loading, setLoading] = useState(true)
   const [keyword, setKeyword] = useState('')
   const [appliedKeyword, setAppliedKeyword] = useState('')
+  const [searchResults, setSearchResults] = useState(null)
   const [searchCategory, setSearchCategory] = useState('all')
   const [searchLocation, setSearchLocation] = useState('all')
   const [draftFilters, setDraftFilters] = useState(defaultFilters)
@@ -99,7 +99,7 @@ function HomePage() {
     return () => { cancelled = true }
   }, [setListing])
 
-  const products = useMemo(() => listing.map((item, index) => ({
+  const products = useMemo(() => (searchResults ?? listing).map((item, index) => ({
     id: item.ListingId,
     name: item.Title,
     price: Number(item.Price),
@@ -119,9 +119,43 @@ function HomePage() {
     isVip: false,
     isFeatured: item.Status === 'ACTIVE' && index < 3,
     image: getListingImage(item.Media),
-  })), [listing])
+  })), [listing, searchResults])
+
+  useEffect(() => {
+    const q = appliedKeyword.trim();
+
+    if (!q) return;
+
+    let cancelled = false;
+
+    const loadSearch = async () => {
+      try {
+        const response = await searchListings(q, 1, 100);
+
+        if (!cancelled) {
+          setSearchResults(response.data || []);
+        }
+      } catch (error) {
+        console.error("Lỗi Elasticsearch:", error);
+
+        if (!cancelled) {
+          toast.error("Không thể tìm kiếm sản phẩm");
+          setSearchResults([]);
+        }
+      }
+    };
+
+    loadSearch();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [appliedKeyword]);
 
   const filteredProducts = useMemo(() => {
+    if (appliedKeyword.trim() && searchResults === null) {
+      return []
+    }
     const minPrice = Number(appliedFilters.minPrice) || 0
     const maxPrice = Number(appliedFilters.maxPrice) || Number.POSITIVE_INFINITY
     const matchesFilters = (product) => {
@@ -144,15 +178,18 @@ function HomePage() {
         })
     }
 
-    return searchProducts(products, appliedKeyword)
-      .filter(({ product }) => matchesFilters(product))
+    return products
+      .filter(matchesFilters)
       .sort((first, second) => {
-        if (appliedFilters.sort === 'price-asc') return first.product.price - second.product.price || second.score - first.score
-        if (appliedFilters.sort === 'price-desc') return second.product.price - first.product.price || second.score - first.score
-        return second.score - first.score || second.product.createdOrder - first.product.createdOrder
+        if (appliedFilters.sort === 'price-asc')
+          return first.price - second.price
+
+        if (appliedFilters.sort === 'price-desc')
+          return second.price - first.price
+
+        return 0
       })
-      .map(({ product }) => product)
-  }, [appliedFilters, appliedKeyword, categories, products, savedIds, savedOnly])
+  }, [appliedFilters, appliedKeyword, categories, products, savedIds, savedOnly, searchResults])
 
   const featuredProducts = useMemo(() => products.filter((product) => product.isFeatured), [products])
 
@@ -167,6 +204,7 @@ function HomePage() {
 
   const handleSearch = (event) => {
     event.preventDefault()
+    setSearchResults(null)
     setAppliedKeyword(keyword)
     setSearchHistory(saveSearchHistory(keyword))
     syncQuickFilters(searchCategory, searchLocation)
@@ -176,6 +214,7 @@ function HomePage() {
 
   const handleHistorySelect = (query) => {
     setKeyword(query)
+    setSearchResults(null)
     setAppliedKeyword(query)
     setSearchHistory(saveSearchHistory(query))
     syncQuickFilters(searchCategory, searchLocation)
@@ -209,6 +248,7 @@ function HomePage() {
 
   const handleResetFilters = () => {
     setKeyword('')
+    setSearchResults(null)
     setAppliedKeyword('')
     setSearchCategory('all')
     setSearchLocation('all')

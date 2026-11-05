@@ -16,3 +16,5 @@ backend/upload/
 
 # Ảnh kiểm chứng production headless (sinh tự động, không phải source).
 frontend/test-results/
+# Elasticsearch - bỏ qua cache pnpm
+backend/.pnpm-store/

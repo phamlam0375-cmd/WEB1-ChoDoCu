@@ -1,3 +1,4 @@
+const { searchListings } = require('../controllers/search.controller');
 const express = require('express');
 const { createListing, getAllListingStore, getListingId, updateListing, hiddenListing } = require('../controllers/sellerListing.controller');
 const { getAllListing } = require('../controllers/listing.controller');
@@ -10,6 +11,7 @@ const router = express.Router();
 router.post("/", requireAuth, uploadListing.array("images", 5), createListing);
 router.get("/store/:StoreId", getAllListingStore);
 router.get("/", getAllListing);
+router.get("/search", searchListings);
 router.get("/:ListingId", getListingId);
 router.patch("/:ListingId", requireAuth, updateListing);
 router.patch("/:ListingId/hidden", requireAuth, hiddenListing);

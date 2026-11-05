@@ -103,13 +103,11 @@ function HomePage() {
     isFeatured: index < 3,
     image: item.Media?.find((media) => media.MediaType === 'IMAGE')?.MediaUrl || '/product-placeholder.svg',
   })), [listing, searchResults])
+
   useEffect(() => {
     const q = appliedKeyword.trim();
 
-    if (!q) {
-      setSearchResults(null);
-      return;
-    }
+    if (!q) return;
 
     let cancelled = false;
 
@@ -130,13 +128,13 @@ function HomePage() {
       }
     };
 
-    setSearchResults(null);
     loadSearch();
 
     return () => {
       cancelled = true;
     };
   }, [appliedKeyword]);
+
   const filteredProducts = useMemo(() => {
     if (appliedKeyword.trim() && searchResults === null) {
       return []
@@ -189,6 +187,7 @@ function HomePage() {
 
   const handleSearch = (event) => {
     event.preventDefault()
+    setSearchResults(null)
     setAppliedKeyword(keyword)
     setSearchHistory(saveSearchHistory(keyword))
     syncQuickFilters(searchCategory, searchLocation)
@@ -198,6 +197,7 @@ function HomePage() {
 
   const handleHistorySelect = (query) => {
     setKeyword(query)
+    setSearchResults(null)
     setAppliedKeyword(query)
     setSearchHistory(saveSearchHistory(query))
     syncQuickFilters(searchCategory, searchLocation)
@@ -231,6 +231,7 @@ function HomePage() {
 
   const handleResetFilters = () => {
     setKeyword('')
+    setSearchResults(null)
     setAppliedKeyword('')
     setSearchCategory('all')
     setSearchLocation('all')

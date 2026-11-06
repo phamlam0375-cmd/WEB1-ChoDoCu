@@ -366,19 +366,6 @@ const TABLES = [
       }
     ]
   },
-
-  {
-    name: 'Messages',
-    row: (i) => ({
-      MessageId: i,
-      ConversationId: i,
-      SenderId: i % 5 === 0 ? null : nextId(i),
-      SenderType: i % 5 === 0 ? 'AI' : 'USER',
-      Content: `Tin nhắn dữ liệu mẫu số ${i}`,
-      IsRead: i % 2 === 0,
-      SentAt: demoDate(i)
-    })
-  },
   {
     name: 'Reviews',
     row: (i) => ({

@@ -1,2 +1,2 @@
 allowBuilds:
-  '@parcel/watcher': true
+  '@parcel/watcher': truegit add frontend/pnpm-workspace.yaml

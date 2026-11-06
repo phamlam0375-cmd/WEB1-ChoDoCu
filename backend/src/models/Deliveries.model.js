@@ -12,6 +12,9 @@ module.exports = sequelize.define('Deliveries', {
   Status: { type: D.STRING(20), allowNull: false, defaultValue: 'AVAILABLE' },
   AcceptedAt: D.DATE,
   PickedUpAt: D.DATE,
+  RetryCount: { type: D.INTEGER.UNSIGNED, allowNull: false, defaultValue: 0 },
+  FailureReason: D.STRING(500), ReturnedAt: D.DATE,
+  RetryScheduledAt: D.DATE, D10Revision: { type: D.INTEGER.UNSIGNED, allowNull: false, defaultValue: 0 },
   PickupCodeHash: D.STRING(255),
   PickupCodeExpiresAt: D.DATE, PickupCodeIssuedAt: D.DATE, PickupCodeUsedAt: D.DATE,
   PickupCodeAttempts: { type: D.TINYINT.UNSIGNED, allowNull: false, defaultValue: 0 },
@@ -23,5 +26,5 @@ module.exports = sequelize.define('Deliveries', {
   // D08 chọn tường minh khi cần; các caller cũ không vô tình đọc hash/bằng chứng,
   // cũng không phụ thuộc các cột mới trước khi áp dụng migration D08.
   defaultScope: { attributes: { exclude: ['PickupCodeHash', 'PickupCodeExpiresAt', 'PickupCodeIssuedAt', 'PickupCodeUsedAt', 'PickupCodeAttempts',
-    'SellerHandoverAt', 'SellerHandoverBy', 'SellerHandoverDriverId', 'PickupProofKey', 'PickupProofDigest'] } },
+    'SellerHandoverAt', 'SellerHandoverBy', 'SellerHandoverDriverId', 'PickupProofKey', 'PickupProofDigest', 'RetryScheduledAt', 'D10Revision'] } },
 });

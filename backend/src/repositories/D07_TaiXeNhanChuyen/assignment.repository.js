@@ -6,7 +6,7 @@ const { notify } = require('../../services/notification.service');
 const withTransaction = work => sequelize.transaction({ isolationLevel: Transaction.ISOLATION_LEVELS.READ_COMMITTED }, work);
 const select = (sql, replacements, transaction) => sequelize.query(sql, { replacements, type: QueryTypes.SELECT, transaction });
 const activeWhere = userId => ({ DriverId: userId, Status: { [Op.notIn]: ['DELIVERED', 'RETURNED'] } });
-async function driver(userId, transaction, lock = false) {
+async function driver(userId, transaction, lock = false, { lockActive = true } = {}) {
   const options = { transaction, raw: true, ...(lock ? { lock: transaction.LOCK.UPDATE } : {}) };
   // Mutex USER -> USER_ROLE -> PROFILE: một tài xế không thể đồng thời nhận hai đơn.
   const user = await Users.findByPk(userId, { ...options, attributes: ['UserId', 'Status'] });
@@ -19,10 +19,11 @@ async function driver(userId, transaction, lock = false) {
   const application = await PartnerApplications.findOne({ where: { UserId: userId, PartnerType: 'DRIVER' },
     attributes: ['ApplicationId', 'Status', 'ReviewNote', 'SubmittedAt', 'ReviewedAt'], order: [['SubmittedAt', 'DESC'], ['ApplicationId', 'DESC']], transaction, raw: true });
   const profile = await DriverProfiles.findOne({ where: { UserId: userId }, ...options });
-  const active = await Deliveries.findOne({ where: activeWhere(userId), attributes: ['DeliveryId', 'OrderId', 'Status', 'AcceptedAt'], order: [['DeliveryId', 'DESC']], ...options });
+  const active = await Deliveries.findOne({ where: activeWhere(userId), attributes: ['DeliveryId', 'OrderId', 'Status', 'AcceptedAt'], order: [['DeliveryId', 'DESC']], ...options, ...(!lockActive ? { lock: undefined } : {}) });
   // Không khóa ORDER sau USER: các thao tác nhận/hủy/hoàn tiền lấy ORDER trước.
   if (active) active.OrderStatus = (await Orders.findByPk(active.OrderId, { attributes: ['Status'], transaction, raw: true }))?.Status || null;
-  return { user, hasRole: roles.length > 0, application, profile, active };
+  const qrValid = await require('../../services/D11_HoSoVanHanhTaiXe/qr.storage').valid(userId, profile?.QrImageUrl);
+  return { user, hasRole: roles.length > 0, application, profile, active, qrValid };
 }
 
 // Một predicate SQL dùng CHUNG cho GET và PATCH, không phân trang xong mới lọc JS.

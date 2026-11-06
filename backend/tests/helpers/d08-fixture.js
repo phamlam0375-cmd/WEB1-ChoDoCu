@@ -2,7 +2,7 @@
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 // Phải kiểm tra trước khi import model; không chạy trong DB của nhóm hay CD.
-const feature = process.env.D09_INTEGRATION_TEST === 'true' ? 'D09' : 'D08';
+const feature = process.env.D11_INTEGRATION_TEST === 'true' ? 'D11' : process.env.D10_INTEGRATION_TEST === 'true' ? 'D10' : process.env.D09_INTEGRATION_TEST === 'true' ? 'D09' : 'D08';
 if (process.env.NODE_ENV !== 'test' || process.env[`${feature}_INTEGRATION_TEST`] !== 'true'
   || !new RegExp(`^cho_do_cu_${feature.toLowerCase()}_[a-z0-9_]+$`).test(process.env.DB_NAME || '') || !process.env[`${feature}_EXPECTED_MYSQL_UUID`]) throw new Error('Fixture chỉ dành cho database test riêng với UUID MySQL local đã xác minh.');
 for (const key of ['EMAIL_USER', 'EMAIL_PASS', 'MAIL_USER', 'MAIL_PASS', 'SMTP_USER', 'SMTP_PASS']) process.env[key] = '';
@@ -19,7 +19,9 @@ async function createEnvironment({ browser = false } = {}) {
   if (!new RegExp(`^${feature.toLowerCase()}_[a-z0-9_]{5,30}$`).test(prefix || '')) throw new Error('Fixture prefix không hợp lệ.');
   const password = browser ? process.env[`${feature}_BROWSER_TEST_PASSWORD`] : crypto.randomBytes(24).toString('base64url');
   if (typeof password !== 'string' || password.length < 20) throw new Error('Thiếu mật khẩu fixture ngẫu nhiên.');
-  const server = app.listen(browser ? 3000 : 0, '0.0.0.0'); await new Promise(resolve => server.once('listening', resolve));
+  const browserPort = Number(process.env[`${feature}_BROWSER_PORT`] ?? 3000), host = process.env[`${feature}_BROWSER_HOST`] || '0.0.0.0';
+  if (!Number.isInteger(browserPort) || browserPort < 0 || browserPort > 65535 || !['0.0.0.0', '127.0.0.1'].includes(host)) throw new Error('Fixture listen address không hợp lệ.');
+  const server = app.listen(browser ? browserPort : 0, host); await new Promise(resolve => server.once('listening', resolve));
   const base = `http://127.0.0.1:${server.address().port}`, tokens = new Map();
   const roles = {};
   for (const RoleName of ['USER', 'SELLER', 'DRIVER']) [roles[RoleName]] = await Roles.findOrCreate({ where: { RoleName } });
@@ -35,13 +37,14 @@ async function createEnvironment({ browser = false } = {}) {
       ...(body !== undefined && !file && !form ? { 'content-type': 'application/json' } : {}), ...headers }, ...(payload !== undefined ? { body: payload } : {}) });
     return { status: response.status, headers: response.headers, body: raw ? Buffer.from(await response.arrayBuffer()) : await response.json() };
   }
-  async function person(label = `u${++sequence}`, { driver = false, application = 'APPROVED', availability = 'AVAILABLE' } = {}) {
+  async function person(label = `u${++sequence}`, { driver = false, application = 'APPROVED', availability = 'AVAILABLE', profile = true } = {}) {
     const user = await Users.create({ Username: `${prefix}_${label}`, FullName: `${feature} fixture ${label}`, Email: `${prefix}_${label}@example.test`,
       PasswordHash: await bcrypt.hash(password, 4), EmailVerified: true, PhoneVerified: true, Status: 'ACTIVE' });
     if (driver) {
       await UserRoles.create({ UserId: user.UserId, RoleId: roles.DRIVER.RoleId });
       if (application) await PartnerApplications.create({ UserId: user.UserId, PartnerType: 'DRIVER', Status: application });
-      await DriverProfiles.create({ UserId: user.UserId, VehicleType: 'MOTORBIKE', VehiclePlate: 'TEST', ServiceArea: 'AREA_1', AvailabilityStatus: availability });
+      if (profile) await DriverProfiles.create({ UserId: user.UserId, VehicleType: 'MOTORBIKE', VehiclePlate: 'TEST', ServiceArea: 'AREA_1', AvailabilityStatus: availability,
+        BankName: 'TEST BANK', BankAccountNumber: '0012345678', BankAccountHolder: 'TEST DRIVER' });
     }
     const login = await request('/api/auth/login', { method: 'POST', body: { email: user.Email, password } });
     assert.equal(login.status, 200, 'Đăng nhập thật phải thành công'); tokens.set(user.UserId, login.body.token);

@@ -7,6 +7,7 @@ const { policy: confirmationPolicy } = require('../D04_XacNhanNhanTien/confirmat
 const { refundEligibility } = require('../../controllers/refunds.controller');
 const v = require('../../validators/D05_TheoDoiDonHang/tracking.validator');
 const defaultRepository = require('../../repositories/D05_TheoDoiDonHang/tracking.repository');
+const { refundHandoff, moneyConfirmed } = require('../D10_ThatBai_HoanTra/failure.policy');
 
 function viewer(state, user) {
   const id = Number(user?.UserId ?? user?.userId);
@@ -18,6 +19,9 @@ function viewer(state, user) {
 }
 function progress(state) {
   const { order: o, payment: p } = state, d = o.DeliveryMethod === 'DELIVERY' ? state.deliveries[0] : null;
+  if (d && ['RETURNING', 'RETURNED'].includes(d.Status) && !['COMPLETED', 'DELIVERED'].includes(o.Status)) return {
+    label: d.Status === 'RETURNED' ? 'Đã trả hàng cho người bán' : 'Đang chuyển hoàn',
+    description: o.Status === 'REFUNDED' ? 'B07 đã ghi nhận hoàn tiền; xem kết quả trả kiện và lịch sử riêng bên dưới.' : 'Trả kiện và hoàn tiền là hai quy trình riêng. Chưa xác nhận đã hoàn tiền; theo dõi B06–B07 nếu đủ điều kiện.', branch: 'DELIVERY_EXCEPTION' };
   if (o.Status === 'CANCELLED') return { label: 'Đơn đã hủy', description: 'Xem lý do hủy và lịch sử bên dưới.', branch: 'CANCEL' };
   if (['REFUND_PENDING', 'REFUNDED'].includes(o.Status)) return { label: o.Status === 'REFUNDED' ? 'Đã hoàn tiền' : 'Đang xử lý hoàn tiền', description: 'Theo dõi kết quả hoàn tiền; không thanh toán lại.', branch: 'REFUND' };
   if (o.Status === 'COMPLETED') return { label: 'Đơn đã hoàn tất', description: 'Giao dịch đã được ghi nhận hoàn tất.', branch: 'COMPLETE' };
@@ -53,6 +57,8 @@ function capabilities(state, role, user, now) {
   const id = state.order.OrderId, buyer = role === 'BUYER', seller = role === 'SELLER';
   const c = cancellationPolicy(state), p = paymentPolicy(state), f = confirmationPolicy(state);
   const r = refundEligibility({ ...state, now, windowDays: state.refundWindowDays });
+  const returning = state.deliveries.find(d => ['RETURNING', 'RETURNED'].includes(d.Status));
+  if (returning && !moneyConfirmed(state)) { r.enabled = false; r.reason = 'Chưa có khoản tiền sản phẩm được xác nhận để nối hoàn tiền D10.'; }
   const accepted = state.order.DeliveryMethod === 'DELIVERY' && state.order.Status === 'PAID' && !state.refund
     ? state.deliveries.find(d => d.Status === 'ACCEPTED' && d.DriverId && d.ReadyForPickupAt && Number(d.PreparedBy) === Number(state.order.SellerId)) : null;
   const action = (enabled, href, reason) => ({ enabled, href: enabled ? href : null, reason: enabled ? null : reason });
@@ -66,6 +72,7 @@ function capabilities(state, role, user, now) {
     rejectOrder: action(seller && state.order.Status === 'RESERVED' && !state.payment && !state.deliveries.length, `/seller/orders/${id}/reject`, seller ? 'Từ chối đơn hàng đang chờ người bán chấp nhận.' : 'Chỉ người bán của đơn được từ chối đơn.'),
     refund: action(buyer && !user.d01Demo && r.enabled, `/orders/${id}/refund`, user.d01Demo ? 'Yêu cầu hoàn tiền cần phiên tài khoản hiện có, không dùng chế độ thử mua hàng.' : r.reason || 'Chỉ người mua được yêu cầu hoàn tiền.'),
     receive: action(false, null, 'Chức năng xác nhận nhận hàng chưa sẵn sàng.'),
+    deliveryFailure: action(role === 'DRIVER' && !user.d01Demo && state.deliveries.some(d => Number(d.DriverId) === Number(user.UserId ?? user.userId) && d.PickedUpAt && ['PAID', 'IN_DELIVERY', 'REFUND_PENDING', 'REFUNDED', 'CANCELLED'].includes(state.order.Status) && ['DELIVERING', 'FAILED', 'RETURNING'].includes(d.Status)), `/driver/deliveries/${state.deliveries.find(d => Number(d.DriverId) === Number(user.UserId ?? user.userId))?.DeliveryId}/failure`, 'Chỉ tài xế được phân công xử lý giao thất bại và trả kiện.'),
     pickup: action(role === 'DRIVER' && Boolean(accepted), `/driver/deliveries/${accepted?.DeliveryId}/pickup`, 'Chỉ đúng tài xế đã nhận chuyến được xác nhận lấy hàng sau bàn giao.'),
     pickupCode: action(seller && Boolean(accepted), `/seller/orders/${id}/pickup-code`, 'Cần đơn giao hàng đã PAID, chuẩn bị và có tài xế nhận chuyến.'),
     deliveryProgress: action(role === 'DRIVER' && !user.d01Demo && Boolean(progressing), `/driver/deliveries/${progressing?.DeliveryId}/progress`, 'Chỉ tài xế được phân công cập nhật tiến độ sau D08.'),
@@ -94,9 +101,11 @@ function createTrackingService({ repository = defaultRepository, clock = () => n
         reservedUntil: o.Status === 'RESERVED' ? o.ReservedUntil : null,
         payment: state.payment ? { status: state.payment.Status, reportedAt: state.payment.ReportedAt, confirmedAt: state.payment.ConfirmedAt, ...(driverOnly ? {} : { amount: state.payment.Amount }) } : null,
         deliveries: o.DeliveryMethod === 'DELIVERY' ? state.deliveries.map(d => ({ deliveryId: d.DeliveryId, status: d.Status, driver: d.DriverId ? { userId: d.DriverId, name: d.DriverName, phone: d.DriverPhone } : null, pickupAddress: d.PickupAddress, deliveryAddress: d.DeliveryAddress, driverFee: d.DriverFee, retryCount: d.RetryCount, failureReason: d.FailureReason, acceptedAt: d.AcceptedAt, pickedUpAt: d.PickedUpAt, deliveredAt: d.DeliveredAt, returnedAt: d.ReturnedAt,
-          pickupProofUrl: d.HasPickupProof ? `/api/v1/orders/${o.OrderId}/deliveries/${d.DeliveryId}/pickup-proof` : null })) : [],
+          pickupProofUrl: d.HasPickupProof ? `/api/v1/orders/${o.OrderId}/deliveries/${d.DeliveryId}/pickup-proof` : null,
+          scheduledAt: d.RetryScheduledAt || null, failureCount: Number(d.FailureCount || 0), refundHandoff: refundHandoff({ ...state, delivery: d }, role) })) : [],
         refunds: state.refunds.map(r => ({ refundId: r.RefundRequestId, status: r.Status, reason: r.Reason, amount: r.Amount, requestedAt: r.RequestedAt, completedAt: r.CompletedAt })),
-        histories: state.histories.map(h => ({ historyId: h.HistoryId, deliveryId: h.DeliveryId, group: h.StatusType, status: h.StatusValue, at: h.CreatedAt, note: safeNote(h, driverOnly), actor: h.ChangedBy ? { userId: h.ChangedBy, name: h.ChangedByName || null } : null })), historyPagination: state.historyPagination,
+        histories: state.histories.map(h => ({ historyId: h.HistoryId, deliveryId: h.DeliveryId, group: h.StatusType, status: h.StatusValue, at: h.CreatedAt, note: safeNote(h, driverOnly), actor: h.ChangedBy ? { userId: h.ChangedBy, name: h.ChangedByName || null } : null,
+          deliveryEvent: h.D10Event ? { action: h.D10Event.action, attempt: h.D10Event.attempt, scheduledAt: h.D10Event.scheduledAt || null, recipientName: h.D10Event.recipientName || null } : null })), historyPagination: state.historyPagination,
         capabilities: capabilities(state, role, user, now), serverNow: now.toISOString() };
       if (driverOnly) { delete data.productAmount; delete data.totalAmount; }
       // Không đưa serverNow vào version: không lặp thông báo thay đổi khi

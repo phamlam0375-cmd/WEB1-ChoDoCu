@@ -328,18 +328,45 @@ const TABLES = [
       CreatedAt: demoDate(i)
     })
   },
+  
+  // Cuộc hội thoại giữa User 1 và User 11
   {
     name: 'Conversations',
-    row: (i) => ({
-      ConversationId: i,
-      ListingId: i,
-      OrderId: i,
-      CreatedBy: nextId(i),
-      ConversationType: i % 5 === 0 ? 'AI_SUPPORT' : 'DIRECT_CHAT',
-      CreatedAt: demoDate(i),
-      LastMessageAt: demoDate(i, 1)
-    })
+    rows: [
+      {
+        ConversationId: 1,
+        ListingId: 1,
+        OrderId: null,
+        CreatedBy: 11,
+        ConversationType: 'DIRECT',
+        BuyerId: 11,
+        CreatedAt: demoDate(1),
+        LastMessageAt: demoDate(5)
+      }
+    ]
   },
+
+  // Thành viên tham gia cuộc hội thoại
+  {
+    name: 'ConversationParticipants',
+    rows: [
+      {
+        ConversationId: 1,
+        UserId: 1,
+        JoinedAt: demoDate(1),
+        LastReadMessageId: 4,
+        IsMuted: false
+      },
+      {
+        ConversationId: 1,
+        UserId: 11,
+        JoinedAt: demoDate(1),
+        LastReadMessageId: 3,
+        IsMuted: false
+      }
+    ]
+  },
+
   {
     name: 'Messages',
     row: (i) => ({

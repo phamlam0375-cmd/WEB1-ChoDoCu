@@ -71,6 +71,7 @@ function DriverDeliveries() {
     {loading && !status ? <Loading /> : error ? <ErrorState message={error} onRetry={refresh} /> : status && <>
       <Card className="mb-5 space-y-3 p-5">
         <h2 className="text-lg font-bold">Trạng thái tài xế</h2>
+        <Link className={btn.secondary} to="/driver/profile">Hồ sơ tài xế</Link>
         <p>{status.application ? applicationLabels[status.application.Status] || status.application.Status : 'Chưa đăng ký DRIVER tại C01'}</p>
         {status.application?.ReviewNote && <p className="whitespace-pre-wrap text-sm">Phản hồi B02: {status.application.ReviewNote}</p>}
         {status.profile && <p>{status.profile.availabilityStatus} · {status.profile.vehicleType} · {status.profile.serviceArea}{status.profile.maxDistanceKm ? ` · Bán kính tối đa ${status.profile.maxDistanceKm} km` : ''}</p>}

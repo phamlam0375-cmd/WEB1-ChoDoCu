@@ -20,12 +20,13 @@ const StatusHistories = sequelize.define(
     ChangedBy: { type: DataTypes.INTEGER.UNSIGNED, allowNull: true },
     D09RequestId: { type: DataTypes.STRING(36), allowNull: true },
     D09RequestHash: { type: DataTypes.CHAR(64), allowNull: true },
+    D10Event: { type: DataTypes.JSON, allowNull: true },
     CreatedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
   },
   {
     tableName: "StatusHistories",
     timestamps: false,
-    defaultScope: { attributes: { exclude: ['D09RequestId', 'D09RequestHash'] } },
+    defaultScope: { attributes: { exclude: ['D09RequestId', 'D09RequestHash', 'D10Event'] } },
   }
 );
 

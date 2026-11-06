@@ -13,6 +13,7 @@ import PickupProof from '../../components/D08_XacNhanLayHang/PickupProof'
 
 const load = ({ orderId, historyPage }, signal) => getOrderTracking(orderId, { historyPage, historyLimit: 20 }, { signal })
 const actionLabels = { cancel: 'Hủy đơn', payment: 'Thanh toán / Báo chuyển tiền', confirmPayment: 'Xác nhận nhận tiền', rejectOrder: 'Từ chối đơn hàng', refund: 'Yêu cầu hoàn tiền', receive: 'Xác nhận nhận hàng', chat: 'Liên hệ tài xế', pickup: 'Xác nhận đã lấy hàng', pickupCode: 'Bàn giao và cấp mã lấy hàng', deliveryProgress: 'Cập nhật tiến độ giao hàng' }
+actionLabels.deliveryFailure = 'Giao thất bại / Chuyển hoàn'
 function TrackingDetail({ orderId }) {
   const [historyPage, setHistoryPage] = useState(1)
   const { data, loading, error, notice, refresh } = useTrackingResource(load, JSON.stringify({ orderId, historyPage }), true)
@@ -66,6 +67,10 @@ function TrackingDetail({ orderId }) {
               {d.driver && <p>Tài xế: {d.driver.name || 'Đã phân công'}{d.driver.phone ? ` · ${d.driver.phone}` : ''}</p>}
               <p className="break-words">Lấy hàng: {d.pickupAddress}</p><p className="break-words">Giao đến: {d.deliveryAddress}</p>
               <p>Phí chuyến đã lưu: {formatDecimalMoney(d.driverFee)}</p>
+              <p>Thất bại đã ghi nhận: {d.failureCount || 0} · Đã bắt đầu giao lại: {d.retryCount || 0}</p>
+              {d.scheduledAt && <p>Lịch giao lại đã lưu: {formatDateTime(d.scheduledAt)} (chưa tự bắt đầu)</p>}
+              {['RETURNING', 'RETURNED'].includes(d.status) && <p className="text-amber-800">{d.refundHandoff?.message}</p>}
+              {d.refundHandoff?.href && <Link className={btn.secondary} to={d.refundHandoff.href}>Tiếp tục yêu cầu hoàn tiền B06</Link>}
               {[[d.acceptedAt, 'Nhận chuyến'], [d.pickedUpAt, 'Lấy hàng'], [d.deliveredAt, 'Giao thành công'], [d.returnedAt, 'Trả hàng']].filter(([at]) => at).map(([at, label]) => <p key={label}>{label}: {formatDateTime(at)}</p>)}
               {d.failureReason && <p className="whitespace-pre-wrap text-rose-700">Lý do giao chưa thành công: {d.failureReason}</p>}
               {d.pickupProofUrl && <PickupProof orderId={data.orderId} deliveryId={d.deliveryId} />}

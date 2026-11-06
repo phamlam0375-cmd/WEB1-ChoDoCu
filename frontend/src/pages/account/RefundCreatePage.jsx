@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { Card, Field, PageHeader } from '../../components/admin/AdminUi'
 import { btn, input } from '../../components/admin/styles'
@@ -11,12 +11,17 @@ import { errorMessage } from '../../lib/api'
 // Trang theo dõi đơn hàng chỉ cần đặt nút "Yêu cầu hoàn tiền" dẫn tới đường dẫn này.
 export default function RefundCreatePage() {
   const { orderId } = useParams()
+  const location = useLocation(), fromReturn = new URLSearchParams(location.search).get('source') === 'delivery-return'
+  const { data: tracking } = useApi(fromReturn ? `/orders/${orderId}/tracking` : null)
+  const returningDelivery = tracking?.deliveries?.find(d => ['RETURNING', 'RETURNED'].includes(d.status))
+  const suggestedDescription = returningDelivery ? `Chuyến #${returningDelivery.deliveryId}: ${returningDelivery.failureReason || 'Ngừng giao/chuyển hoàn'}. ${returningDelivery.status === 'RETURNED' ? 'Đã ghi nhận trả kiện.' : 'Đang chuyển hoàn.'} Trả kiện không đồng nghĩa đã hoàn tiền.` : ''
+  const [descriptionEdited, setDescriptionEdited] = useState(false)
   const navigate = useNavigate()
   const { data: reasons } = useApi('/refund-requests/reasons')
   const { data: banks } = useApi('/banks')
   const { busy, run } = useMutation()
   const [form, setForm] = useState({
-    reason: '',
+    reason: fromReturn ? 'Không nhận được hàng' : '',
     description: '',
     amount: '',
     evidenceUrl: '',
@@ -42,7 +47,7 @@ export default function RefundCreatePage() {
     try {
       const result = await run('post', `/orders/${orderId}/refund-requests`, {
         ...form,
-        description: form.description.trim() || undefined,
+        description: (descriptionEdited ? form.description : suggestedDescription || form.description).trim() || undefined,
         amount: form.amount ? Number(form.amount) : undefined,
         evidenceUrl: form.evidenceUrl || undefined,
       })
@@ -71,7 +76,7 @@ export default function RefundCreatePage() {
             </select>
           </Field>
           <Field label={`Mô tả${form.reason === 'Khác' ? ' *' : ''}`} hint={`${form.description.length}/1000`} error={errors.description}>
-            <textarea rows={3} maxLength={1000} value={form.description} onChange={(event) => set({ description: event.target.value })} className={input} />
+            <textarea rows={3} maxLength={1000} value={descriptionEdited ? form.description : suggestedDescription || form.description} onChange={(event) => { setDescriptionEdited(true); set({ description: event.target.value }) }} className={input} />
           </Field>
           <Field label="Số tiền yêu cầu hoàn (đồng)" hint="Để trống để yêu cầu hoàn toàn bộ giá trị đơn hàng." error={errors.amount}>
             <input inputMode="numeric" value={form.amount} onChange={(event) => set({ amount: event.target.value.trim() })} className={input} />

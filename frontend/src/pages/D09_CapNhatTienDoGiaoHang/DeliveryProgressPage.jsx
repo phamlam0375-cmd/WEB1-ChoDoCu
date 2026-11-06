@@ -72,6 +72,7 @@ function ProgressContent({ id }) {
         <p>Điểm giao: {data.deliveryAddress || 'Chưa có dữ liệu'}</p>
         {data.pickedUpAt && <p>Đã lấy hàng: {formatDateTime(data.pickedUpAt)}</p>}
         <Link className={btn.secondary} to={data.trackingUrl}>Xem lịch sử tiến độ D05</Link>
+        {['DELIVERING', 'FAILED', 'RETURNING', 'RETURNED'].includes(data.deliveryStatus) && <Link className={`${btn.secondary} ml-2`} to={`/driver/deliveries/${data.deliveryId}/failure`}>Giao không thành công / Chuyển hoàn</Link>}
       </Card>
       <Card className="space-y-4 p-5">
         <p role="status" className={data.progress?.allowed ? 'text-emerald-800' : 'text-amber-800'}>{data.progress?.message || 'Chuyến chưa đủ điều kiện cập nhật tiến độ.'}</p>
@@ -83,7 +84,7 @@ function ProgressContent({ id }) {
           <p className="text-sm text-slate-500">{[...note].length}/500 ký tự. Ghi chú được hiển thị cho người mua, người bán và tài xế được phân công; không nhập mã xác thực hay dữ liệu bí mật.</p>
           <button className={btn.primary} type="submit" disabled={sending || loading || !data.progress?.allowed}>{sending ? 'Đang cập nhật…' : data.deliveryStatus === 'PICKED_UP' ? 'Bắt đầu giao hàng' : 'Lưu ghi chú tiến độ mới'}</button>
         </form>
-        <p className="text-sm text-amber-800">D13 chưa triển khai. Chưa có thao tác xác thực giao thành công; D09 không ghi DELIVERED, hoàn tất đơn hoặc thanh toán phí tài xế. D10 giao thất bại/giao lại/chuyển hoàn cũng chưa triển khai; D09 không tự xử lý thay.</p>
+        <p className="text-sm text-amber-800">D13 chưa triển khai. Chưa có thao tác xác thực giao thành công; D09 không ghi DELIVERED, hoàn tất đơn hoặc thanh toán phí tài xế. Giao thất bại/giao lại/chuyển hoàn dùng luồng D10 riêng.</p>
       </Card>
     </>}
   </>

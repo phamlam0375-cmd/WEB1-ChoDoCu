@@ -28,6 +28,7 @@ import VerifyEmail from './pages/VerifyEmail'
 import AvailableDeliveriesPage from './pages/D07_TaiXeNhanChuyen/AvailableDeliveriesPage'
 import PickupPage from './pages/D08_XacNhanLayHang/PickupPage'
 import DeliveryProgressPage from './pages/D09_CapNhatTienDoGiaoHang/DeliveryProgressPage'
+import DeliveryFailurePage from './pages/D10_ThatBai_HoanTra/DeliveryFailurePage'
 
 // Phân hệ B: quản trị và doanh thu (tải khi cần để không làm nặng trang chủ)
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'))
@@ -78,6 +79,7 @@ function App() {
         <Route path="/driver/deliveries" element={<AvailableDeliveriesPage />} />
         <Route path="/driver/deliveries/:deliveryId/pickup" element={<PickupPage />} />
         <Route path="/driver/deliveries/:deliveryId/progress" element={<DeliveryProgressPage />} />
+        <Route path="/driver/deliveries/:deliveryId/failure" element={<DeliveryFailurePage />} />
         <Route path="/seller/orders/:orderId/pickup-code" element={<PickupPage seller />} />
         <Route path="store/:ownerId" element={<PublicStore />} />
         <Route path="/seller/store" element={<SellerStore />} />

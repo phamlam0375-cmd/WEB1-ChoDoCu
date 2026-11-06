@@ -104,6 +104,7 @@ export const DELIVERY_STATUS = {
   PICKED_UP: 'Tài xế đã lấy hàng', DELIVERING: 'Đang giao hàng',
   HANDOVER_CONFIRMED: 'Người bán xác nhận bàn giao',
   PROGRESS_NOTE: 'Ghi chú tiến độ giao hàng',
+  RETRY_SCHEDULED: 'Đã hẹn giao lại (chưa bắt đầu)',
   DELIVERED: 'Đã giao thành công', FAILED: 'Giao chưa thành công',
   RETURNING: 'Đang chuyển hoàn', RETURNED: 'Đã trả hàng cho người bán',
 }

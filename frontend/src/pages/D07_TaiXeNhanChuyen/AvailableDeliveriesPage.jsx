@@ -79,6 +79,7 @@ function DriverDeliveries() {
         {status.activeDelivery && <Link className={btn.primary} to={status.activeDelivery.trackingUrl}>Theo dõi chuyến #{status.activeDelivery.deliveryId} · {status.activeDelivery.status}</Link>}
         {status.activeDelivery?.pickupUrl && <Link className={`${btn.secondary} ml-2`} to={status.activeDelivery.pickupUrl}>Xác nhận đã lấy hàng</Link>}
         {status.activeDelivery?.progressUrl && <Link className={`${btn.secondary} ml-2`} to={status.activeDelivery.progressUrl}>Cập nhật tiến độ giao hàng</Link>}
+        {status.activeDelivery?.failureUrl && <Link className={`${btn.secondary} ml-2`} to={status.activeDelivery.failureUrl}>Giao không thành công / Chuyển hoàn</Link>}
         {status.activeDelivery?.blocked && <p role="alert" className="font-semibold text-rose-700">Đơn đang {status.activeDelivery.orderStatus}. Tạm dừng thực hiện chuyến và theo dõi xử lý; không tự xác nhận lấy/giao hàng hoặc chuyển AVAILABLE.</p>}
         <details className="text-sm text-slate-600"><summary className="cursor-pointer font-semibold">Các chức năng còn chờ tích hợp</summary><ul className="mt-3 space-y-2">{Object.entries(status.dependencies).map(([key, message]) => <li key={key}>{message}</li>)}</ul></details>
       </Card>

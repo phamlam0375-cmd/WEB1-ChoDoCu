@@ -30,6 +30,8 @@ import PickupPage from './pages/D08_XacNhanLayHang/PickupPage'
 import DeliveryProgressPage from './pages/D09_CapNhatTienDoGiaoHang/DeliveryProgressPage'
 import DeliveryFailurePage from './pages/D10_ThatBai_HoanTra/DeliveryFailurePage'
 import DriverProfilePage from './pages/D11_HoSoVanHanhTaiXe/DriverProfilePage'
+import DeliveryFailurePage from './pages/D10_ThatBai_HoanTra/DeliveryFailurePage'
+import DriverProfilePage from './pages/D11_HoSoVanHanhTaiXe/DriverProfilePage'
 import ChatWidget from './components/Chat/ChatWidget'
 
 // Phân hệ B: quản trị và doanh thu (tải khi cần để không làm nặng trang chủ)

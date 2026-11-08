@@ -21,7 +21,6 @@ export default function ChatBox({
     currentUserId
   );
   const [text, setText] = useState("");
-  const [showProductDetails, setShowProductDetails] = useState(false);
   const listRef = useRef(null);
   const bottomRef = useRef(null);
   const prevHeightRef = useRef(0);
@@ -53,6 +52,15 @@ export default function ChatBox({
     if (!content) return;
     send(content);
     setText("");
+  };
+
+  const handleOpenProductDetail = () => {
+    if (!listing?.ListingId) return;
+    window.dispatchEvent(
+      new CustomEvent("view-listing-detail", {
+        detail: { listingId: listing.ListingId, listing },
+      })
+    );
   };
 
   const listingImage = listing?.Media?.[0]?.MediaUrl;
@@ -94,7 +102,7 @@ export default function ChatBox({
         </div>
       </div>
 
-      {/* Banner ghim thông tin sản phẩm */}
+      {/* Banner tóm tắt sản phẩm + Nút chuyển sang xem chi tiết sản phẩm */}
       {listing && (
         <div className="border-b bg-emerald-50/60 p-2.5 transition">
           <div className="flex items-center gap-2.5">
@@ -119,51 +127,30 @@ export default function ChatBox({
               </p>
             </div>
 
-            {/* Nút bấm toggle xem chi tiết sản phẩm */}
+            {/* Nút bấm xem thông tin sản phẩm */}
             <button
               type="button"
-              onClick={() => setShowProductDetails((prev) => !prev)}
-              className="shrink-0 flex items-center gap-1 rounded-lg border border-emerald-300 bg-white px-2.5 py-1 text-xs font-semibold text-emerald-700 shadow-sm transition hover:bg-emerald-50 active:scale-95"
+              onClick={handleOpenProductDetail}
+              className="shrink-0 flex items-center gap-1 rounded-lg border border-emerald-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-emerald-700 shadow-sm transition hover:bg-emerald-600 hover:text-white active:scale-95"
+              title="Xem thông tin chi tiết sản phẩm"
             >
-              <span>{showProductDetails ? "Ẩn" : "Chi tiết"}</span>
+              <span>Xem món đồ</span>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className={`h-3.5 w-3.5 transition-transform duration-200 ${
-                  showProductDetails ? "rotate-180" : ""
-                }`}
+                className="h-3.5 w-3.5"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
                 strokeWidth={2}
               >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                />
               </svg>
             </button>
           </div>
-
-          {/* Phần mở rộng chi tiết sản phẩm khi bấm nút */}
-          {showProductDetails && (
-            <div className="mt-2.5 rounded-lg border border-emerald-200 bg-white p-2.5 text-xs space-y-1.5 animate-in fade-in slide-in-from-top-1">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Tình trạng:</span>
-                <span className="font-semibold text-slate-700">
-                  {listing.ConditionLevel === "GOOD" ? "Tốt" : listing.ConditionLevel || "Chưa rõ"}
-                </span>
-              </div>
-              {listing.Location && (
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Khu vực:</span>
-                  <span className="font-medium text-slate-700 truncate max-w-[200px]">
-                    {listing.Location}
-                  </span>
-                </div>
-              )}
-              <div className="flex justify-between">
-                <span className="text-slate-500">Trạng thái món đồ:</span>
-                <span className="font-medium text-emerald-700">{listing.Status || "Đang bán"}</span>
-              </div>
-            </div>
-          )}
         </div>
       )}
 

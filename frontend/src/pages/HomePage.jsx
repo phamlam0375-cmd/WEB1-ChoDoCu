@@ -11,7 +11,7 @@ import ProductGrid from '../components/ProductGrid'
 import SearchBar from '../components/SearchBar'
 import WhyChooseUs from '../components/WhyChooseUs'
 import { categories as fallbackCategories, conditions as fallbackConditions, locations as fallbackLocations } from '../data/mockProducts'
-import { getAllListing } from '../services/listingApi'
+import { getAllListing, getListingById } from '../services/listingApi'
 import ListingDetail from './listing/ListingDetail'
 import { useListingStore } from '../store/useListing'
 import { matchesProductCategory } from '../utils/productFilters'
@@ -103,6 +103,60 @@ function HomePage() {
     isFeatured: index < 3,
     image: item.Media?.find((media) => media.MediaType === 'IMAGE')?.MediaUrl || '/product-placeholder.svg',
   })), [listing])
+
+  // Lắng nghe sự kiện xem chi tiết sản phẩm từ chatbox
+  useEffect(() => {
+    const handleViewListingFromChat = async (e) => {
+      const { listingId, listing: chatListing } = e.detail || {}
+      if (!listingId) return
+
+      // Thử tìm trong danh sách products đã load
+      const found = products.find((p) => Number(p.id) === Number(listingId))
+      if (found) {
+        setSelectedProduct(found)
+        return
+      }
+
+      // Nếu không có sẵn trong products, gọi API lấy chi tiết
+      try {
+        const res = await getListingById(listingId)
+        const item = res.data || res
+        setSelectedProduct({
+          id: item.ListingId,
+          name: item.Title,
+          price: Number(item.Price),
+          category: String(item.CategoryId),
+          categoryName: item.Category?.CategoryName || '',
+          description: item.Description || '',
+          knownDefects: item.KnownDefects || '',
+          status: item.Status || '',
+          condition: { NEW: 'Như mới', LIKE_NEW: 'Như mới', GOOD: 'Đã sử dụng', FAIR: 'Đã sử dụng', POOR: 'Cần sửa chữa nhẹ' }[item.ConditionLevel] || item.ConditionLevel,
+          location: item.Location || 'Chưa cập nhật',
+          postedAt: new Date(item.CreatedAt).toLocaleDateString('vi-VN'),
+          seller: item.Seller?.FullName || `Người bán #${item.SellerId}`,
+          sellerId: item.SellerId,
+          sellerAvatar: item.Seller?.AvatarUrl || '',
+          image: item.Media?.find((m) => m.MediaType === 'IMAGE')?.MediaUrl || '/product-placeholder.svg',
+        })
+      } catch {
+        // Fallback dùng tạm dữ liệu từ chat
+        if (chatListing) {
+          setSelectedProduct({
+            id: chatListing.ListingId,
+            name: chatListing.Title,
+            price: Number(chatListing.Price),
+            condition: chatListing.ConditionLevel || 'Đã sử dụng',
+            location: chatListing.Location || 'Chưa cập nhật',
+            status: chatListing.Status || '',
+            image: chatListing.Media?.[0]?.MediaUrl || '/product-placeholder.svg',
+          })
+        }
+      }
+    }
+
+    window.addEventListener('view-listing-detail', handleViewListingFromChat)
+    return () => window.removeEventListener('view-listing-detail', handleViewListingFromChat)
+  }, [products])
 
   const filteredProducts = useMemo(() => {
     const minPrice = Number(appliedFilters.minPrice) || 0

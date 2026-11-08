@@ -17,12 +17,11 @@ export default function ConversationList({
   conversations = [],
   loading = false,
   onSelect = () => {},
-  onRefresh = () => {},
 }) {
   return (
     <div className="flex h-[540px] w-[360px] sm:w-[420px] flex-col rounded-2xl border border-gray-200 bg-white shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
       {/* Header */}
-      <div className="flex items-center justify-between border-b bg-emerald-600 px-4 py-3.5 text-white">
+      <div className="flex items-center justify-between border-b bg-emerald-600 px-4 py-3.5 text-white pr-12">
         <div className="flex items-center gap-2">
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -40,28 +39,6 @@ export default function ConversationList({
           </svg>
           <span className="font-semibold text-base">Hội thoại sản phẩm</span>
         </div>
-
-        <button
-          onClick={onRefresh}
-          className="rounded-full p-1.5 text-white/80 transition hover:bg-white/20 hover:text-white"
-          title="Làm mới"
-          aria-label="Làm mới"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-            />
-          </svg>
-        </button>
       </div>
 
       {/* Danh sách hội thoại */}

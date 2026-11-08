@@ -42,8 +42,13 @@ const getAllListing = async (page = 1, limit = 100) => {
     const res = await api.get(`/seller/listing`, { params: { page, limit } });
     return res.data;
 }
-export { getStoreListing, updateListing, hideListing, createListing, getAllListing };
-export const searchListings = async (keyword, page = 1, limit = 100) => {
+
+const getListingById = async (ListingId) => {
+    const res = await api.get(`/seller/listing/${ListingId}`);
+    return res.data;
+};
+
+const searchListings = async (keyword, page = 1, limit = 100) => {
     const res = await api.get("/seller/listing/search", {
         params: {
             q: keyword,
@@ -53,4 +58,14 @@ export const searchListings = async (keyword, page = 1, limit = 100) => {
     });
 
     return res.data;
+};
+
+export {
+    getStoreListing,
+    updateListing,
+    hideListing,
+    createListing,
+    getAllListing,
+    getListingById,
+    searchListings,
 };

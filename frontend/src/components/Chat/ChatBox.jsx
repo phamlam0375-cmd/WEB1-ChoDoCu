@@ -4,7 +4,12 @@ import useChat from "../../hooks/useChat";
 const formatTime = (iso) =>
   new Date(iso).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
 
-export default function ChatBox({ conversationId, currentUserId, title }) {
+export default function ChatBox({
+  conversationId,
+  currentUserId,
+  title,
+  onBack,
+}) {
   const { messages, hasMore, loading, loadMore, send } = useChat(
     conversationId,
     currentUserId
@@ -44,13 +49,36 @@ export default function ChatBox({ conversationId, currentUserId, title }) {
   };
 
   return (
-    <div className="flex h-[520px] w-[360px] sm:w-[400px] flex-col rounded-2xl border border-gray-200 bg-white shadow-2xl overflow-hidden">
-      <div className="flex items-center justify-between border-b bg-emerald-600 px-4 py-3 text-white">
-        <div className="font-semibold text-sm truncate">
-          {title || `Cuộc trò chuyện #${conversationId}`}
+    <div className="flex h-[520px] w-[360px] sm:w-[400px] flex-col rounded-2xl border border-gray-200 bg-white shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b bg-emerald-600 px-3 py-3 text-white">
+        <div className="flex items-center gap-2 min-w-0 pr-8">
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="rounded-full p-1 text-white/90 hover:bg-white/20 transition"
+              title="Quay lại danh sách"
+              aria-label="Quay lại"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          )}
+          <div className="font-semibold text-sm truncate">
+            {title || `Cuộc trò chuyện #${conversationId}`}
+          </div>
         </div>
       </div>
 
+      {/* Messages list */}
       <div ref={listRef} onScroll={handleScroll} className="flex-1 space-y-2.5 overflow-y-auto bg-slate-50 p-4">
         {loading && <p className="text-center text-xs text-gray-400">Đang tải...</p>}
 
@@ -83,6 +111,7 @@ export default function ChatBox({ conversationId, currentUserId, title }) {
         <div ref={bottomRef} />
       </div>
 
+      {/* Input form */}
       <form onSubmit={handleSubmit} className="flex gap-2 border-t bg-white p-3">
         <input
           value={text}

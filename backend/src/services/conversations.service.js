@@ -77,4 +77,99 @@ const getMessages = async ({ conversationId, userId, limit, before }) => {
     return { message, hasMore, nextCursor };
 }
 
-module.exports = { sendMessage, getMessages }
+const getUserConversations = async ({ userId }) => {
+    // 1. Tìm tất cả ConversationId mà user này tham gia
+    const userMemberships = await ConversationParticipants.findAll({
+        where: { UserId: userId },
+        attributes: ['ConversationId', 'LastReadMessageId', 'JoinedAt', 'IsMuted'],
+    });
+
+    if (!userMemberships || userMemberships.length === 0) {
+        return [];
+    }
+
+    const conversationIds = userMemberships.map((m) => m.ConversationId);
+    const membershipMap = new Map(
+        userMemberships.map((m) => [m.ConversationId, m])
+    );
+
+    // 2. Lấy thông tin Conversations cùng với Participants (kèm Users)
+    const conversations = await Conversations.findAll({
+        where: {
+            ConversationId: {
+                [Op.in]: conversationIds,
+            },
+        },
+        include: [
+            {
+                model: ConversationParticipants,
+                as: 'Participants',
+                include: [
+                    {
+                        model: require('../models').Users,
+                        as: 'User',
+                        attributes: ['UserId', 'Username', 'FullName', 'AvatarUrl'],
+                    },
+                ],
+            },
+        ],
+        order: [
+            ['LastMessageAt', 'DESC'],
+            ['CreatedAt', 'DESC'],
+        ],
+    });
+
+    // 3. Lấy tin nhắn mới nhất của từng conversation
+    const latestMessages = await Promise.all(
+        conversationIds.map((cId) =>
+            Messages.findOne({
+                where: { ConversationId: cId },
+                order: [['MessageId', 'DESC']],
+            })
+        )
+    );
+
+    const messageMap = new Map();
+    latestMessages.forEach((msg) => {
+        if (msg) messageMap.set(msg.ConversationId, msg);
+    });
+
+    // 4. Định dạng dữ liệu trả về
+    return conversations.map((conv) => {
+        const plain = conv.toJSON();
+        const myMembership = membershipMap.get(conv.ConversationId);
+        const lastMessage = messageMap.get(conv.ConversationId) || null;
+
+        // Xác định đối phương (other participant)
+        const otherParticipants = (plain.Participants || [])
+            .filter((p) => Number(p.UserId) !== Number(userId))
+            .map((p) => p.User);
+
+        // Kiểm tra xem có tin nhắn chưa đọc không
+        const isUnread =
+            Boolean(lastMessage) &&
+            Number(lastMessage.SenderId) !== Number(userId) &&
+            (!myMembership?.LastReadMessageId ||
+                Number(lastMessage.MessageId) > Number(myMembership.LastReadMessageId));
+
+        return {
+            ConversationId: plain.ConversationId,
+            ConversationType: plain.ConversationType,
+            ListingId: plain.ListingId,
+            OrderId: plain.OrderId,
+            CreatedAt: plain.CreatedAt,
+            LastMessageAt: plain.LastMessageAt,
+            MyMembership: {
+                JoinedAt: myMembership?.JoinedAt,
+                LastReadMessageId: myMembership?.LastReadMessageId,
+                IsMuted: myMembership?.IsMuted,
+            },
+            OtherUser: otherParticipants[0] || null,
+            OtherParticipants: otherParticipants,
+            LastMessage: lastMessage,
+            IsUnread: isUnread,
+        };
+    });
+};
+
+module.exports = { sendMessage, getMessages, getUserConversations }

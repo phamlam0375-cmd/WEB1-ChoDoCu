@@ -14,24 +14,37 @@ const sendMessage = async (req, res, next) => {
         });
         res.status(201).json(message);
     } catch (err) {
-        next(err)
+        next(err);
     }
 };
 
-const getMessage = async (req, res, next) => {
+const getMessageId = async (req, res, next) => {
     try {
-        const conversationId = Number(req.params.id)
+        const conversationId = Number(req.params.id);
         const result = await conversationService.getMessages({
             conversationId,
             userId: req.user.UserId,
             limit: req.query.limit,
             before: req.query.before
         });
-        res.json(result)
-    }
-    catch (err) {
+        res.json(result);
+    } catch (err) {
         next(err);
     }
-}
+};
 
-module.exports = { sendMessage, getMessage };
+const getConversations = async (req, res, next) => {
+    try {
+        const conversations = await conversationService.getUserConversations({
+            userId: req.user.UserId,
+        });
+        res.json({
+            success: true,
+            data: conversations,
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+module.exports = { sendMessage, getMessageId, getConversations };

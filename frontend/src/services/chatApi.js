@@ -1,5 +1,10 @@
 import api from "./apiClient";
 
+export const getConversations = async () => {
+    const { data } = await api.get("/conversations");
+    return data?.data || [];
+};
+
 export const getMessages = async (conversationId, cursor) => {
     const { data } = await api.get(
         `/conversations/${conversationId}/messages`,

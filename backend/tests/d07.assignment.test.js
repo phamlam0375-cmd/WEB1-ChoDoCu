@@ -4,7 +4,8 @@ const assert = require('node:assert/strict');
 const { driverPolicy, createAssignmentService } = require('../src/services/D07_TaiXeNhanChuyen/assignment.service');
 const v = require('../src/validators/D07_TaiXeNhanChuyen/assignment.validator');
 const valid = () => ({ user: { Status: 'ACTIVE' }, application: { Status: 'APPROVED' }, hasRole: true,
-  profile: { VehicleType: 'MOTORBIKE', VehiclePlate: 'TEST', ServiceArea: 'AREA_1', MaxDistanceKm: null, AvailabilityStatus: 'AVAILABLE' }, active: null });
+  profile: { VehicleType: 'MOTORBIKE', VehiclePlate: 'TEST', ServiceArea: 'AREA_1', MaxDistanceKm: null, AvailabilityStatus: 'AVAILABLE',
+    BankName: 'TEST BANK', BankAccountNumber: '001234', BankAccountHolder: 'TEST DRIVER' }, active: null });
 test('D07 driver policy: C01 DRIVER + B02 + fresh role + D11, không tự cấp quyền/AVAILABLE', () => {
   assert.equal(driverPolicy(valid()).allowed, true);
   for (const [change, code] of [

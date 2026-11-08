@@ -3,7 +3,7 @@ const { HttpError } = require('../../utils/httpError');
 const v = require('../../validators/D07_TaiXeNhanChuyen/assignment.validator');
 const defaultRepository = require('../../repositories/D07_TaiXeNhanChuyen/assignment.repository');
 const fail = (status, code, message) => new HttpError(status, message, null, code);
-const text = value => typeof value === 'string' && value.trim() && !/[\x00-\x1f\x7f]/.test(value);
+const profileValidation = require('../../validators/D11_HoSoVanHanhTaiXe/profile.validator');
 function approvalPolicy(state) {
   if (!state.user || state.user.Status !== 'ACTIVE') return { allowed: false, code: 'ACCOUNT_UNAVAILABLE', message: 'Tài khoản không được phép hoạt động.' };
   if (!state.application) return { allowed: false, code: 'DRIVER_NOT_REGISTERED', message: 'Bạn chưa đủ điều kiện nhận chuyến. Hãy đăng ký DRIVER tại C01.' };
@@ -15,12 +15,12 @@ function driverPolicy(state, { replay = false } = {}) {
   if (!approval.allowed) return approval;
   if (replay) return { allowed: true, code: 'ALREADY_ACCEPTED' };
   const p = state.profile;
-  if (!p || !text(p.VehicleType) || !text(p.VehiclePlate) || !text(p.ServiceArea)
-      || (p.MaxDistanceKm !== null && p.MaxDistanceKm !== undefined && (!Number.isFinite(Number(p.MaxDistanceKm)) || Number(p.MaxDistanceKm) <= 0))) {
-    return { allowed: false, code: 'DRIVER_PROFILE_INCOMPLETE', message: 'Chưa có hồ sơ vận hành D11 hợp lệ (phương tiện, biển số, khu vực/bán kính). D11 chưa được triển khai; không tự tạo thông tin thay thế.' };
+  if (!p || profileValidation.operationErrors(p).length) {
+    return { allowed: false, code: 'DRIVER_PROFILE_INCOMPLETE', message: 'Vui lòng nhập đầy đủ thông tin vận hành tại Hồ sơ tài xế.' };
   }
   if (state.active || p.AvailabilityStatus === 'BUSY') return { allowed: false, code: 'DRIVER_BUSY', message: 'Bạn đang BUSY hoặc có chuyến chưa kết thúc; không thể nhận thêm chuyến.' };
-  if (p.AvailabilityStatus !== 'AVAILABLE') return { allowed: false, code: 'DRIVER_OFFLINE', message: 'Hãy bật trạng thái sẵn sàng nhận chuyến. Chức năng cập nhật D11 hiện chưa có; D07 không tự bật AVAILABLE.' };
+  if (!profileValidation.readiness(p, state.qrValid).ready) return { allowed: false, code: 'DRIVER_RECEIVING_REQUIRED', message: 'Vui lòng bổ sung tài khoản hoặc QR nhận phí tại Hồ sơ tài xế.' };
+  if (p.AvailabilityStatus !== 'AVAILABLE') return { allowed: false, code: 'DRIVER_OFFLINE', message: 'Hãy bật trạng thái sẵn sàng nhận chuyến tại Hồ sơ tài xế.' };
   return { allowed: true, code: 'AVAILABLE', message: 'Sẵn sàng xem các chuyến phù hợp.' };
 }
 function createAssignmentService({ repository = defaultRepository, clock = () => new Date() } = {}) {
@@ -53,11 +53,12 @@ function createAssignmentService({ repository = defaultRepository, clock = () =>
         pickupUrl: state.active.Status === 'ACCEPTED' && state.active.OrderStatus === 'PAID' ? `/driver/deliveries/${state.active.DeliveryId}/pickup` : null,
         progressUrl: ['PICKED_UP', 'DELIVERING'].includes(state.active.Status) && ['PAID', 'IN_DELIVERY'].includes(state.active.OrderStatus) ? `/driver/deliveries/${state.active.DeliveryId}/progress` : null,
         orderStatus: state.active.OrderStatus,
+        failureUrl: ['DELIVERING', 'FAILED', 'RETURNING'].includes(state.active.Status) ? `/driver/deliveries/${state.active.DeliveryId}/failure` : null,
         blocked: !['PAID', 'IN_DELIVERY'].includes(state.active.OrderStatus),
       } : null, dependencies: {
         preparation: 'C07 chưa có thao tác xác nhận sẵn sàng lấy hàng; chuyến thiếu dấu xác nhận thật không xuất hiện.',
         routing: 'D12 chưa có báo giá/tuyến tin cậy. Không tự tạo khu vực, khoảng cách hoặc phí.',
-        profile: 'D11 chưa có giao diện cập nhật hồ sơ/trạng thái. D07 không tự tạo hồ sơ hoặc bật AVAILABLE.',
+        profile: 'D11: cập nhật hồ sơ và bật nhận chuyến tại /driver/profile. Không tự tạo hồ sơ hoặc bật AVAILABLE.',
         nextStep: 'D08 xác nhận lấy hàng sau bàn giao; D09 bắt đầu giao và ghi chú tiến độ. D13 chưa triển khai; không tự xác thực giao thành công.',
       } };
     });

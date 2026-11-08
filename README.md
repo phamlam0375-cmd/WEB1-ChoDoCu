@@ -44,7 +44,18 @@ Theo dõi quá trình khởi động nếu cần: `docker compose logs -f api`.
 
 ### Tài khoản thử nghiệm
 
-Đăng nhập, đăng ký và xác thực email dùng tài khoản thật. Bộ chọn **"Tài khoản thử nghiệm"** vẫn có thể dùng để kiểm tra riêng các trang quản trị và tài khoản demo: nhập mã tài khoản rồi bấm **Đổi**.
+Đăng nhập, đăng ký và xác thực email dùng tài khoản thật. Bộ chọn tài khoản thử nghiệm tắt mặc định; không dùng tài khoản trong snapshot để đăng nhập khi chấm. Các API quản trị kiểm tra role `ADMIN` từ database, tài khoản mới đăng ký chỉ có role `USER`. Database Docker và tài khoản/role được cấp trên đó là riêng trên từng máy, không được chia sẻ qua `git pull`.
+
+Để tự kiểm tra phân quyền trên máy mới:
+
+1. Chạy `docker compose up -d --build`, sau đó mở web trên URL Vite in ra ở terminal (cổng có thể là `5173`, `5174`, ...) hoặc `http://localhost:8081`.
+2. Đăng ký bằng email thật của mình. Compose development mặc định ghi OTP trong log; chạy `docker compose logs -f api`, tìm `[OTP][development]` rồi nhập mã xác minh.
+3. Mở PowerShell ở thư mục gốc repo và chạy `docker compose exec api pnpm run admin:grant -- --email email-cua-ban@example.com --confirm`, thay bằng email vừa xác minh. Lệnh chỉ cấp `ADMIN` cho user đang tồn tại, đã xác minh và hoạt động trên database local; không tạo email/mật khẩu hay dùng tài khoản mẫu.
+4. Đăng xuất rồi đăng nhập lại, mở `/admin`. Tài khoản khác chưa được cấp `ADMIN` sẽ bị chặn. Mỗi bạn muốn thử admin trên database máy mình cần cấp role riêng bằng lệnh này.
+
+Không cần file `.env` hay SMTP chỉ để thử phân quyền. Muốn gửi OTP qua email thật, tạo `backend/.env` từ `.env.example`, cấu hình `MAIL_USER`/`MAIL_PASS` rồi đặt `OTP_DELIVERY_MODE=email` trong shell hoặc `.env` ở thư mục gốc. Không commit thông tin SMTP.
+
+Các mã tài khoản liệt kê bên dưới chỉ dành cho dữ liệu minh họa khi phát triển, không dùng khi chấm đồ án.
 
 | Mã | Dùng để thử |
 |---|---|
@@ -199,7 +210,7 @@ docker compose up -d --build
 | Máy từng chạy bản cũ của dự án, trang báo lỗi hoặc thiếu bảng | `git pull` rồi `docker compose up -d --build`; vẫn lỗi thì `docker compose down -v` rồi chạy lại (xóa dữ liệu cũ trên máy đó) |
 | Máy khác không thấy dữ liệu mới của mình | Làm theo mục "Chia sẻ dữ liệu giữa các máy" |
 | Trang báo "Lỗi server" ngay sau khi khởi động | Chờ API chạy xong migration (xem `docker compose logs -f api`) |
-| Trang quản trị chỉ hiện "Khu vực dành cho quản trị viên" | Nhập mã tài khoản 2 ở ô "Tài khoản thử nghiệm"; nếu dùng cổng 5173 thì khởi động lại `pnpm dev` |
+| Trang quản trị chỉ hiện "Khu vực dành cho quản trị viên" | Đăng ký/xác minh tài khoản thật, cấp role bằng lệnh `admin:grant`, rồi đăng xuất và đăng nhập lại |
 | Sửa frontend nhưng cổng 8081 không đổi | Chạy `docker compose up -d --build nginx` |
 
 ## Phân hệ B: Quản trị và doanh thu
@@ -209,7 +220,7 @@ Phân hệ B gồm 12 chức năng B01–B12: quản trị viên quản lý tài
 ### Cách mở thử
 
 1. Chạy web theo mục [Chạy nhanh](#chạy-nhanh-máy-mới) rồi mở http://localhost:8081/admin.
-2. Đăng nhập bằng tài khoản quản trị, hoặc dùng bộ chọn **Tài khoản thử nghiệm** với mã `2` (xem bảng [Tài khoản thử nghiệm](#tài-khoản-thử-nghiệm)).
+2. Đăng nhập bằng tài khoản thật đã đăng ký/xác minh và được cấp vai trò `ADMIN` theo mục [Tài khoản thử nghiệm](#tài-khoản-thử-nghiệm). Tài khoản thường không có quyền vào trang quản trị.
 3. Menu bên trái có các trang B01–B12 như bảng dưới. Số cạnh menu là việc đang chờ xử lý (hồ sơ chờ duyệt, tin chờ duyệt, báo cáo mở, hoàn tiền chờ xử lý, hoa hồng quá hạn, phí chờ đối soát).
 
 ### Danh sách chức năng
@@ -295,11 +306,22 @@ node --test tests/b05.listingAiReview.test.js tests/b07.refundCommission.test.js
 | `b08.commission.test.js` | Tính hoa hồng, hạn nộp, tổng nợ và hạn mức nợ |
 | `b09.feePayment.test.js` | Người bán báo nộp phí, admin đối soát |
 
-Phần B đã được quét bằng OWASP ZAP trên bản chạy local: trang web và API quản trị không còn cảnh báo mức High, Medium hay Low. Quét bằng tài khoản quản trị cần header thử nghiệm `x-user-id` (xem bên dưới).
+### Kiểm thử đăng nhập bằng database thật
+
+`frontend/tests/auth.test.js` là unit test cho logic token và điều hướng; nó mock phản hồi HTTP nên không phụ thuộc dữ liệu mẫu hoặc tài khoản thật. Để kiểm tra luồng thật, API đang chạy và database có tài khoản đã đăng ký/xác minh, đặt `AUTH_TEST_EMAIL`, `AUTH_TEST_PASSWORD`, `AUTH_TEST_EXPECT_ROLE` (`USER` hoặc `ADMIN`) và tùy chọn `AUTH_TEST_BASE_URL` (mặc định `http://localhost:3000`), rồi chạy:
+
+```bash
+cd frontend
+pnpm run test:auth:integration
+```
+
+Integration test đăng nhập vào API thật, xác minh `/me` trả đúng tài khoản/role từ database và kiểm tra quyền `/admin/my-activity`; test không tạo, sửa hay xóa dữ liệu. Không commit thông tin đăng nhập vào repository.
+
+Phần B đã được quét bằng OWASP ZAP trên bản chạy local: trang web và API quản trị không còn cảnh báo mức High, Medium hay Low. Khi chạy Docker Compose phát triển hiện tại, xác thực vẫn yêu cầu JWT thật; không dùng header thử nghiệm `x-user-id`.
 
 ### Lưu ý khi chạy và nộp
 
-- Đăng nhập bằng mã tài khoản thử nghiệm dùng header `x-user-id`, chỉ hoạt động khi `NODE_ENV` khác `production` và `AUTH_DEV_HEADER` khác `false`. Khi triển khai thật phải đặt `NODE_ENV=production`, nếu không ai cũng có thể giả làm quản trị viên chỉ bằng một header.
+- Header `x-user-id` chỉ là cơ chế phát triển cũ; Compose hiện tại đặt `AUTH_DEV_HEADER=false`, còn production đặt `NODE_ENV=production`. Khi chấm, đăng nhập bằng tài khoản thật và JWT.
 - Lệnh `POST /admin/commissions/sync` và `POST /admin/commissions/remind-overdue` thay đổi dữ liệu thật; chỉ chạy khi cần.
 - Tính năng duyệt tin bằng AI cần khóa API AI trong `.env`; không có khóa thì chỉ phần AI không chạy, các chức năng khác vẫn dùng bình thường.
 

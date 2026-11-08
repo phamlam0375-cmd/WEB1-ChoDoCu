@@ -28,6 +28,8 @@ import VerifyEmail from './pages/VerifyEmail'
 import AvailableDeliveriesPage from './pages/D07_TaiXeNhanChuyen/AvailableDeliveriesPage'
 import PickupPage from './pages/D08_XacNhanLayHang/PickupPage'
 import DeliveryProgressPage from './pages/D09_CapNhatTienDoGiaoHang/DeliveryProgressPage'
+import DeliveryFailurePage from './pages/D10_ThatBai_HoanTra/DeliveryFailurePage'
+import DriverProfilePage from './pages/D11_HoSoVanHanhTaiXe/DriverProfilePage'
 import ChatWidget from './components/Chat/ChatWidget'
 
 // Phân hệ B: quản trị và doanh thu (tải khi cần để không làm nặng trang chủ)
@@ -77,8 +79,10 @@ function App() {
 
         <Route path="/partner-application" element={<RegisterApplication />} />
         <Route path="/driver/deliveries" element={<AvailableDeliveriesPage />} />
+        <Route path="/driver/profile" element={<DriverProfilePage />} />
         <Route path="/driver/deliveries/:deliveryId/pickup" element={<PickupPage />} />
         <Route path="/driver/deliveries/:deliveryId/progress" element={<DeliveryProgressPage />} />
+        <Route path="/driver/deliveries/:deliveryId/failure" element={<DeliveryFailurePage />} />
         <Route path="/seller/orders/:orderId/pickup-code" element={<PickupPage seller />} />
         <Route path="store/:ownerId" element={<PublicStore />} />
         <Route path="/seller/store" element={<SellerStore />} />

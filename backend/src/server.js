@@ -7,6 +7,8 @@ const { Server } = require('socket.io');
 
 const app = require('./app');
 const sequelize = require('./database');
+const { startElasticsearchSyncJob } =
+  require('./services/elasticsearchSyncJob');
 const {
   startReservationExpirationJob,
   stopReservationExpirationJob
@@ -59,10 +61,14 @@ async function start() {
     return;
   }
 
-  httpServer.listen(port, () => {
-    console.log(`Chợ Đồ Cũ API đang chạy tại http://localhost:${port}`);
-    startReservationExpirationJob();
-  });
+ httpServer.listen(port, () => {
+  console.log(`Chợ Đồ Cũ API đang chạy tại http://localhost:${port}`);
+
+  startReservationExpirationJob();
+
+  // Tự động đồng bộ MySQL sang Elasticsearch
+  startElasticsearchSyncJob();
+});
 
   const shutdown = () => {
     stopReservationExpirationJob();

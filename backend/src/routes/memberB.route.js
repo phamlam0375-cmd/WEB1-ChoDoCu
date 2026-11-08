@@ -25,7 +25,11 @@ router.post(
 router.use(ensureBody);
 
 // Thông tin tài khoản đang đăng nhập (vai trò) để giao diện hiển thị đúng menu.
-router.get("/me", requireAuth, (req, res) => res.status(200).json({ success: true, data: req.user }));
+// Chỉ trả thông tin tài khoản, không trả các claim của token (iat, exp, sub).
+const ME_FIELDS = ["userId", "UserId", "FullName", "Email", "Phone", "Address", "AvatarUrl", "Status", "roles"];
+router.get("/me", requireAuth, (req, res) =>
+  res.status(200).json({ success: true, data: Object.fromEntries(ME_FIELDS.map((key) => [key, req.user[key]])) })
+);
 router.patch("/me", requireAuth, profile.updateProfile);
 
 // B03 Danh mục và tình trạng sản phẩm dùng chung

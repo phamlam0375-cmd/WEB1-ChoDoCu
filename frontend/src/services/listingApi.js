@@ -48,4 +48,24 @@ const getListingById = async (ListingId) => {
     return res.data;
 };
 
-export { getStoreListing, updateListing, hideListing, createListing, getAllListing, getListingById };
+const searchListings = async (keyword, page = 1, limit = 100) => {
+    const res = await api.get("/seller/listing/search", {
+        params: {
+            q: keyword,
+            page,
+            limit
+        }
+    });
+
+    return res.data;
+};
+
+export {
+    getStoreListing,
+    updateListing,
+    hideListing,
+    createListing,
+    getAllListing,
+    getListingById,
+    searchListings,
+};

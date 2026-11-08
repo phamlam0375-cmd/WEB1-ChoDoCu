@@ -9,12 +9,15 @@ export default function TrackingTimeline({ histories, pagination, onPage }) {
     {!histories.length && <p className="mt-4 text-sm text-slate-500">Chưa có lịch sử được lưu cho đơn này.</p>}
     <ol className="mt-5 space-y-5 border-l-2 border-emerald-100 pl-5">
       {histories.map(item => {
-        const label = maps[item.group]?.[item.status]
+        const label = item.deliveryEvent?.action === 'RETRY' ? 'Bắt đầu giao lại' : maps[item.group]?.[item.status]
         return <li key={item.historyId} className="relative break-words">
           <span aria-hidden="true" className="absolute -left-[27px] top-1 size-3 rounded-full border-2 border-white bg-emerald-600" />
           <p className="text-xs font-semibold text-slate-500">{groups[item.group] || 'Cập nhật'} · {formatDateTime(item.at)}</p>
           <p className="mt-1 text-sm font-bold">{typeof label === 'string' ? label : label?.label || 'Trạng thái khác'}</p>
           {item.note && <p className="mt-1 whitespace-pre-wrap text-sm text-slate-600">{item.note}</p>}
+          {item.deliveryEvent?.attempt && <p className="mt-1 text-xs text-slate-500">Lần giao #{item.deliveryEvent.attempt}</p>}
+          {item.deliveryEvent?.scheduledAt && <p className="mt-1 text-sm">Lịch giao lại: {formatDateTime(item.deliveryEvent.scheduledAt)}</p>}
+          {item.deliveryEvent?.recipientName && <p className="mt-1 text-sm">Người nhận kiện trả: {item.deliveryEvent.recipientName}</p>}
           {item.actor && <p className="mt-1 text-xs text-slate-500">Thực hiện: {item.actor.name || `Tài khoản #${item.actor.userId}`}</p>}
         </li>
       })}

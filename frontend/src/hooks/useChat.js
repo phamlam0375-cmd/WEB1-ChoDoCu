@@ -1,5 +1,6 @@
 import { getMessages, sendMessage } from "../services/chatApi";
 import { useCallback, useEffect, useRef, useState } from "react";
+import socket from "../services/socket";
 
 export default function useChat(conversationId, currentUserId) {
   const [messages, setMessages] = useState([]);
@@ -32,8 +33,37 @@ export default function useChat(conversationId, currentUserId) {
       }
     })();
 
+    // Tham gia vào room của conversation trên socket
+    socket.emit("join_conversation", conversationId);
+
+    // Lắng nghe tin nhắn mới từ socket realtime
+    const handleNewMessage = (newMsg) => {
+      if (Number(newMsg.ConversationId) === Number(conversationId)) {
+        setMessages((prev) => {
+          // Tránh duplicate tin nhắn (nếu đã thêm từ optimistic)
+          const exists = prev.some(
+            (m) =>
+              m.MessageId === newMsg.MessageId ||
+              (m._status === "sending" && m.Content === newMsg.Content && Number(m.SenderId) === Number(newMsg.SenderId))
+          );
+          if (exists) {
+            return prev.map((m) =>
+              m.Content === newMsg.Content && Number(m.SenderId) === Number(newMsg.SenderId) && m._status === "sending"
+                ? newMsg
+                : m
+            );
+          }
+          return [...prev, newMsg];
+        });
+      }
+    };
+
+    socket.on("new_message", handleNewMessage);
+
     return () => {
       isMounted = false;
+      socket.emit("leave_conversation", conversationId);
+      socket.off("new_message", handleNewMessage);
     };
   }, [conversationId]);
 
@@ -93,12 +123,5 @@ export default function useChat(conversationId, currentUserId) {
     [conversationId, currentUserId]
   );
 
-  // Nhận tin mới từ socket (tránh trùng)
-  const receive = useCallback((msg) => {
-    setMessages((prev) =>
-      prev.some((m) => m.MessageId === msg.MessageId) ? prev : [...prev, msg]
-    );
-  }, []);
-
-  return { messages, hasMore, loading, loadMore, send, receive };
+  return { messages, hasMore, loading, loadMore, send };
 }

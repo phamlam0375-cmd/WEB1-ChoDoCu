@@ -8,6 +8,11 @@ const formatTime = (iso) => {
     : d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
 };
 
+const formatPrice = (price) => {
+  if (price === undefined || price === null) return "";
+  return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(price);
+};
+
 export default function ConversationList({
   conversations = [],
   loading = false,
@@ -15,7 +20,7 @@ export default function ConversationList({
   onRefresh = () => {},
 }) {
   return (
-    <div className="flex h-[520px] w-[360px] sm:w-[400px] flex-col rounded-2xl border border-gray-200 bg-white shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="flex h-[540px] w-[360px] sm:w-[420px] flex-col rounded-2xl border border-gray-200 bg-white shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
       {/* Header */}
       <div className="flex items-center justify-between border-b bg-emerald-600 px-4 py-3.5 text-white">
         <div className="flex items-center gap-2">
@@ -33,7 +38,7 @@ export default function ConversationList({
               d="M8 10h8M8 14h5m-9 6l3-3h11a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v14z"
             />
           </svg>
-          <span className="font-semibold text-base">Hội thoại</span>
+          <span className="font-semibold text-base">Hội thoại sản phẩm</span>
         </div>
 
         <button
@@ -86,7 +91,7 @@ export default function ConversationList({
             </svg>
             <p className="text-sm font-medium text-gray-600">Chưa có cuộc trò chuyện nào</p>
             <p className="text-xs mt-1 text-gray-400">
-              Hãy liên hệ với người bán từ bài đăng để bắt đầu nhắn tin!
+              Hãy bấm vào bất kỳ món đồ nào để nhắn tin với người bán!
             </p>
           </div>
         )}
@@ -95,9 +100,11 @@ export default function ConversationList({
           conversations.map((item) => {
             const partner = item.OtherUser || {};
             const displayName =
-              partner.FullName || partner.Username || `Hội thoại #${item.ConversationId}`;
+              partner.FullName || partner.Username || `Người dùng #${partner.UserId || ""}`;
             const avatar = partner.AvatarUrl;
-            const lastMsg = item.LastMessage?.Content || "Đã tạo cuộc trò chuyện";
+            const listing = item.Listing;
+            const listingImage = listing?.Media?.[0]?.MediaUrl;
+            const lastMsg = item.LastMessage?.Content || "Đã mở cuộc trò chuyện";
             const time = formatTime(item.LastMessageAt || item.CreatedAt);
 
             return (
@@ -105,34 +112,41 @@ export default function ConversationList({
                 key={item.ConversationId}
                 type="button"
                 onClick={() => onSelect(item)}
-                className={`w-full flex items-center gap-3 p-3.5 text-left transition hover:bg-slate-50 ${
+                className={`w-full flex items-start gap-3 p-3.5 text-left transition hover:bg-slate-50 ${
                   item.IsUnread ? "bg-emerald-50/40" : ""
                 }`}
               >
-                {/* Avatar */}
+                {/* Avatar Người nhắn hoặc Ảnh sản phẩm */}
                 <div className="relative shrink-0">
-                  {avatar ? (
+                  {listingImage ? (
+                    <img
+                      src={listingImage}
+                      alt={listing?.Title || "Sản phẩm"}
+                      className="h-12 w-12 rounded-xl object-cover border border-gray-200"
+                    />
+                  ) : avatar ? (
                     <img
                       src={avatar}
                       alt={displayName}
-                      className="h-11 w-11 rounded-full object-cover border border-gray-200"
+                      className="h-12 w-12 rounded-xl object-cover border border-gray-200"
                     />
                   ) : (
-                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 font-semibold text-sm border border-emerald-200">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 font-semibold text-sm border border-emerald-200">
                       {displayName.charAt(0).toUpperCase()}
                     </div>
                   )}
+
                   {item.IsUnread && (
-                    <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-white" />
+                    <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-emerald-500 ring-2 ring-white" />
                   )}
                 </div>
 
-                {/* Thông tin */}
+                {/* Thông tin hội thoại & sản phẩm */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-1">
                     <p
                       className={`truncate text-sm ${
-                        item.IsUnread ? "font-bold text-gray-900" : "font-medium text-gray-800"
+                        item.IsUnread ? "font-bold text-gray-900" : "font-semibold text-gray-800"
                       }`}
                     >
                       {displayName}
@@ -140,9 +154,17 @@ export default function ConversationList({
                     <span className="shrink-0 text-[11px] text-gray-400">{time}</span>
                   </div>
 
+                  {/* Tag thông tin sản phẩm đính kèm */}
+                  {listing && (
+                    <div className="mt-0.5 flex items-center gap-1.5 text-xs text-emerald-700 font-medium truncate">
+                      <span className="truncate">📦 {listing.Title}</span>
+                      <span className="shrink-0 font-bold">· {formatPrice(listing.Price)}</span>
+                    </div>
+                  )}
+
                   <p
-                    className={`truncate text-xs mt-0.5 ${
-                      item.IsUnread ? "font-semibold text-emerald-800" : "text-gray-500"
+                    className={`truncate text-xs mt-1 ${
+                      item.IsUnread ? "font-semibold text-gray-900" : "text-gray-500"
                     }`}
                   >
                     {lastMsg}

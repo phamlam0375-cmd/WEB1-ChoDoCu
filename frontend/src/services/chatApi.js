@@ -5,6 +5,11 @@ export const getConversations = async () => {
     return data?.data || [];
 };
 
+export const startListingConversation = async (listingId) => {
+    const { data } = await api.post("/conversations/listing", { listingId });
+    return data?.data;
+};
+
 export const getMessages = async (conversationId, cursor) => {
     const { data } = await api.get(
         `/conversations/${conversationId}/messages`,

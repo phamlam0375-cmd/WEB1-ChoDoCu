@@ -4,10 +4,16 @@ import useChat from "../../hooks/useChat";
 const formatTime = (iso) =>
   new Date(iso).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
 
+const formatPrice = (price) => {
+  if (price === undefined || price === null) return "";
+  return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(price);
+};
+
 export default function ChatBox({
   conversationId,
   currentUserId,
   title,
+  listing,
   onBack,
 }) {
   const { messages, hasMore, loading, loadMore, send } = useChat(
@@ -15,6 +21,7 @@ export default function ChatBox({
     currentUserId
   );
   const [text, setText] = useState("");
+  const [showProductDetails, setShowProductDetails] = useState(false);
   const listRef = useRef(null);
   const bottomRef = useRef(null);
   const prevHeightRef = useRef(0);
@@ -48,8 +55,10 @@ export default function ChatBox({
     setText("");
   };
 
+  const listingImage = listing?.Media?.[0]?.MediaUrl;
+
   return (
-    <div className="flex h-[520px] w-[360px] sm:w-[400px] flex-col rounded-2xl border border-gray-200 bg-white shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="flex h-[540px] w-[360px] sm:w-[420px] flex-col rounded-2xl border border-gray-200 bg-white shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
       {/* Header */}
       <div className="flex items-center justify-between border-b bg-emerald-600 px-3 py-3 text-white">
         <div className="flex items-center gap-2 min-w-0 pr-8">
@@ -72,11 +81,91 @@ export default function ChatBox({
               </svg>
             </button>
           )}
-          <div className="font-semibold text-sm truncate">
-            {title || `Cuộc trò chuyện #${conversationId}`}
+          <div className="min-w-0">
+            <div className="font-semibold text-sm truncate">
+              {title || `Cuộc trò chuyện #${conversationId}`}
+            </div>
+            {listing && (
+              <div className="text-[11px] text-emerald-100 truncate">
+                Đang trao đổi về sản phẩm
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Banner ghim thông tin sản phẩm */}
+      {listing && (
+        <div className="border-b bg-emerald-50/60 p-2.5 transition">
+          <div className="flex items-center gap-2.5">
+            {listingImage ? (
+              <img
+                src={listingImage}
+                alt={listing.Title}
+                className="h-11 w-11 shrink-0 rounded-lg object-cover border border-emerald-200 bg-white"
+              />
+            ) : (
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 text-lg">
+                📦
+              </div>
+            )}
+
+            <div className="flex-1 min-w-0">
+              <p className="truncate text-xs font-semibold text-slate-800">
+                {listing.Title}
+              </p>
+              <p className="text-xs font-bold text-emerald-700">
+                {formatPrice(listing.Price)}
+              </p>
+            </div>
+
+            {/* Nút bấm toggle xem chi tiết sản phẩm */}
+            <button
+              type="button"
+              onClick={() => setShowProductDetails((prev) => !prev)}
+              className="shrink-0 flex items-center gap-1 rounded-lg border border-emerald-300 bg-white px-2.5 py-1 text-xs font-semibold text-emerald-700 shadow-sm transition hover:bg-emerald-50 active:scale-95"
+            >
+              <span>{showProductDetails ? "Ẩn" : "Chi tiết"}</span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className={`h-3.5 w-3.5 transition-transform duration-200 ${
+                  showProductDetails ? "rotate-180" : ""
+                }`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Phần mở rộng chi tiết sản phẩm khi bấm nút */}
+          {showProductDetails && (
+            <div className="mt-2.5 rounded-lg border border-emerald-200 bg-white p-2.5 text-xs space-y-1.5 animate-in fade-in slide-in-from-top-1">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Tình trạng:</span>
+                <span className="font-semibold text-slate-700">
+                  {listing.ConditionLevel === "GOOD" ? "Tốt" : listing.ConditionLevel || "Chưa rõ"}
+                </span>
+              </div>
+              {listing.Location && (
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Khu vực:</span>
+                  <span className="font-medium text-slate-700 truncate max-w-[200px]">
+                    {listing.Location}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-slate-500">Trạng thái món đồ:</span>
+                <span className="font-medium text-emerald-700">{listing.Status || "Đang bán"}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Messages list */}
       <div ref={listRef} onScroll={handleScroll} className="flex-1 space-y-2.5 overflow-y-auto bg-slate-50 p-4">

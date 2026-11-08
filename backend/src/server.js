@@ -26,17 +26,26 @@ const io = new Server(httpServer, {
   }
 });
 
+// Gắn io vào app để controller có thể gọi req.app.get('io')
+app.set('io', io);
+
 // Xử lý kết nối Socket.IO
 io.on('connection', (socket) => {
-  console.log('Socket kết nối:', socket.id);
+  // Client tham gia vào room của conversation
+  socket.on('join_conversation', (conversationId) => {
+    if (conversationId) {
+      socket.join(`conversation_${conversationId}`);
+    }
+  });
 
-  socket.on('send_message', (message) => {
-    // Demo: phát tin nhắn đến mọi client đang kết nối
-    io.emit('new_message', message);
+  socket.on('leave_conversation', (conversationId) => {
+    if (conversationId) {
+      socket.leave(`conversation_${conversationId}`);
+    }
   });
 
   socket.on('disconnect', () => {
-    console.log('Socket ngắt kết nối:', socket.id);
+    // Tự động rời rooms khi disconnect
   });
 });
 

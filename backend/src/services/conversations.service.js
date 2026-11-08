@@ -1,24 +1,32 @@
 'use strict';
 
-const { sequelize, Conversations, ConversationParticipants, Messages } = require('../models');
+const {
+    sequelize,
+    Conversations,
+    ConversationParticipants,
+    Messages,
+    Listings,
+    ListingMedia,
+    Users,
+} = require('../models');
 const { badRequest, forbidden } = require('../utils/httpError');
 const { Op } = require('sequelize');
 
 const DEFAULT_LIMIT = 30;
 const MAX_LIMIT = 50;
 
-//check user co thuoc trong chat khong
+// check user co thuoc trong chat khong
 const assertPaticipant = async (conversationId, userId) => {
     const participant = await ConversationParticipants.findOne({
         where: {
             ConversationId: conversationId,
             UserId: userId
         }
-    })
+    });
     if (!participant) {
         throw forbidden("Bạn không thuộc hội thoại này");
     }
-}
+};
 
 const sendMessage = async ({ conversationId, senderId, content, messageType = 'TEXT', attachmentUrl = null }) => {
     await assertPaticipant(conversationId, senderId);
@@ -36,20 +44,20 @@ const sendMessage = async ({ conversationId, senderId, content, messageType = 'T
             Content: text || null,
             MessageType: messageType,
             AttachmentUrl: attachmentUrl
-        }, { transaction })
+        }, { transaction });
 
         await Conversations.update(
             { LastMessageAt: message.SentAt },
             { where: { ConversationId: conversationId }, transaction },
-        )
+        );
 
         await ConversationParticipants.update(
             { LastReadMessageId: message.MessageId },
             { where: { ConversationId: conversationId, UserId: senderId }, transaction }
-        )
+        );
         return message;
-    })
-}
+    });
+};
 
 const getMessages = async ({ conversationId, userId, limit, before }) => {
     await assertPaticipant(conversationId, userId);
@@ -57,25 +65,25 @@ const getMessages = async ({ conversationId, userId, limit, before }) => {
     const take = Math.min(
         Math.max(Number(limit) || DEFAULT_LIMIT, 1),
         MAX_LIMIT
-    )
+    );
     const where = { ConversationId: conversationId };
     if (Number(before))
         where.MessageId = {
             [Op.lt]: Number(before)
-        }
+        };
 
     const rows = await Messages.findAll({
         where,
         order: [['MessageId', 'DESC']],
         limit: take + 1
-    })
+    });
 
     const hasMore = rows.length > take;
     const message = rows.slice(0, take).reverse();
     const nextCursor = hasMore ? message[0].MessageId : null;
 
     return { message, hasMore, nextCursor };
-}
+};
 
 const getUserConversations = async ({ userId }) => {
     // 1. Tìm tất cả ConversationId mà user này tham gia
@@ -93,7 +101,7 @@ const getUserConversations = async ({ userId }) => {
         userMemberships.map((m) => [m.ConversationId, m])
     );
 
-    // 2. Lấy thông tin Conversations cùng với Participants (kèm Users)
+    // 2. Lấy thông tin Conversations cùng với Participants (kèm Users) & Listing (kèm Media)
     const conversations = await Conversations.findAll({
         where: {
             ConversationId: {
@@ -106,9 +114,22 @@ const getUserConversations = async ({ userId }) => {
                 as: 'Participants',
                 include: [
                     {
-                        model: require('../models').Users,
+                        model: Users,
                         as: 'User',
                         attributes: ['UserId', 'Username', 'FullName', 'AvatarUrl'],
+                    },
+                ],
+            },
+            {
+                model: Listings,
+                as: 'Listing',
+                attributes: ['ListingId', 'Title', 'Price', 'ConditionLevel', 'Status', 'Location'],
+                include: [
+                    {
+                        model: ListingMedia,
+                        as: 'Media',
+                        attributes: ['MediaId', 'MediaUrl'],
+                        limit: 1,
                     },
                 ],
             },
@@ -166,10 +187,58 @@ const getUserConversations = async ({ userId }) => {
             },
             OtherUser: otherParticipants[0] || null,
             OtherParticipants: otherParticipants,
+            Listing: plain.Listing || null,
             LastMessage: lastMessage,
             IsUnread: isUnread,
         };
     });
 };
 
-module.exports = { sendMessage, getMessages, getUserConversations }
+// Tạo hoặc lấy hội thoại theo ListingId giữa Buyer và Seller
+const getOrCreateListingConversation = async ({ listingId, buyerId }) => {
+    const listing = await Listings.findByPk(listingId);
+    if (!listing) {
+        throw badRequest('Sản phẩm không tồn tại');
+    }
+
+    if (Number(listing.SellerId) === Number(buyerId)) {
+        throw badRequest('Bạn không thể tự trò chuyện với chính sản phẩm của mình');
+    }
+
+    // 1. Tìm xem đã có hội thoại nào của (ListingId, BuyerId) chưa
+    let conversation = await Conversations.findOne({
+        where: {
+            ListingId: listingId,
+            BuyerId: buyerId,
+        },
+    });
+
+    if (!conversation) {
+        // 2. Tạo hội thoại mới nếu chưa có
+        conversation = await sequelize.transaction(async (transaction) => {
+            const newConv = await Conversations.create({
+                ListingId: listingId,
+                BuyerId: buyerId,
+                CreatedBy: buyerId,
+                ConversationType: 'LISTING',
+            }, { transaction });
+
+            // Thêm 2 bên tham gia: Người mua (Buyer) & Người bán (Seller)
+            await ConversationParticipants.bulkCreate([
+                { ConversationId: newConv.ConversationId, UserId: buyerId },
+                { ConversationId: newConv.ConversationId, UserId: listing.SellerId },
+            ], { transaction });
+
+            return newConv;
+        });
+    }
+
+    return conversation;
+};
+
+module.exports = {
+    sendMessage,
+    getMessages,
+    getUserConversations,
+    getOrCreateListingConversation,
+};

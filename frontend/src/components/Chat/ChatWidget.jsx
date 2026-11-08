@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
+
 import ChatBox from "./ChatBox";
 import ConversationList from "./ConversationList";
-import { getConversations } from "../../services/chatApi";
+import { getConversations, startListingConversation } from "../../services/chatApi";
+import socket from "../../services/socket";
 
 export default function ChatWidget({ currentUserId }) {
   const [open, setOpen] = useState(false);
@@ -21,20 +23,22 @@ export default function ChatWidget({ currentUserId }) {
       }
     })();
 
-  // Hàm load lại danh sách thủ công (khi bấm refresh hoặc quay lại từ chatbox)
-  const refreshConversations = useCallback(async () => {
+  // Gọi API lấy danh sách hội thoại
+  const fetchConversations = useCallback(async () => {
     try {
       setLoading(true);
       const data = await getConversations();
       setConversations(Array.isArray(data) ? data : []);
+      return data;
     } catch (err) {
       console.error("Lỗi lấy danh sách cuộc trò chuyện:", err);
+      return [];
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // Gọi API lấy danh sách hội thoại ngay khi vào ứng dụng / mount trang chủ
+  // Gọi khi mount trang
   useEffect(() => {
     let isMounted = true;
 
@@ -54,10 +58,52 @@ export default function ChatWidget({ currentUserId }) {
       }
     })();
 
+    // Lắng nghe socket khi có tin nhắn mới ở bất kỳ hội thoại nào để refresh inbox
+    const handleConversationUpdated = () => {
+      fetchConversations();
+    };
+
+    socket.on("conversation_updated", handleConversationUpdated);
+
     return () => {
       isMounted = false;
+      socket.off("conversation_updated", handleConversationUpdated);
     };
-  }, []);
+  }, [fetchConversations]);
+
+  // Lắng nghe sự kiện toàn cục khi người dùng click "Chat với người bán" từ trang sản phẩm
+  useEffect(() => {
+    const handleOpenListingChat = async (e) => {
+      const { listingId, listing } = e.detail || {};
+      if (!listingId) return;
+
+      setOpen(true);
+      try {
+        setLoading(true);
+        const conv = await startListingConversation(listingId);
+        const updatedList = await fetchConversations();
+
+        // Tìm hội thoại vừa tạo/lấy trong danh sách để có đủ thông tin Listing & OtherUser
+        const found = updatedList.find(
+          (c) => Number(c.ConversationId) === Number(conv.ConversationId)
+        );
+
+        setSelectedConv(
+          found || {
+            ...conv,
+            Listing: listing || null,
+          }
+        );
+      } catch (err) {
+        console.error("Lỗi mở cuộc trò chuyện với người bán:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    window.addEventListener("open-listing-chat", handleOpenListingChat);
+    return () => window.removeEventListener("open-listing-chat", handleOpenListingChat);
+  }, [fetchConversations]);
 
   const unreadCount = conversations.filter((c) => c.IsUnread).length;
 
@@ -87,9 +133,10 @@ export default function ChatWidget({ currentUserId }) {
                 selectedConv.OtherUser?.Username ||
                 `Hội thoại #${selectedConv.ConversationId}`
               }
+              listing={selectedConv.Listing}
               onBack={() => {
                 setSelectedConv(null);
-                refreshConversations();
+                fetchConversations();
               }}
             />
           ) : (
@@ -98,7 +145,7 @@ export default function ChatWidget({ currentUserId }) {
               conversations={conversations}
               loading={loading}
               onSelect={(conv) => setSelectedConv(conv)}
-              onRefresh={refreshConversations}
+              onRefresh={fetchConversations}
             />
           )}
         </div>
@@ -109,7 +156,7 @@ export default function ChatWidget({ currentUserId }) {
         <button
           onClick={() => {
             setOpen(true);
-            refreshConversations();
+            fetchConversations();
           }}
           className="relative flex items-center gap-2 rounded-full bg-emerald-600 px-5 py-3 text-white shadow-xl transition-all duration-200 hover:bg-emerald-700 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-emerald-500/20"
         >

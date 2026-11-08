@@ -28,6 +28,7 @@ import VerifyEmail from './pages/VerifyEmail'
 import AvailableDeliveriesPage from './pages/D07_TaiXeNhanChuyen/AvailableDeliveriesPage'
 import PickupPage from './pages/D08_XacNhanLayHang/PickupPage'
 import DeliveryProgressPage from './pages/D09_CapNhatTienDoGiaoHang/DeliveryProgressPage'
+import ChatWidget from './components/Chat/ChatWidget'
 
 // Phân hệ B: quản trị và doanh thu (tải khi cần để không làm nặng trang chủ)
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'))
@@ -140,6 +141,8 @@ function App() {
         newestOnTop
         theme="light"
       />
+
+      <ChatWidget />
     </>
   )
 }

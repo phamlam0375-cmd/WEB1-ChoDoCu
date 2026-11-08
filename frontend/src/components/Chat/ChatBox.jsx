@@ -1,0 +1,103 @@
+import { useLayoutEffect, useRef, useState } from "react";
+import useChat from "../../hooks/useChat";
+
+const formatTime = (iso) =>
+  new Date(iso).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+
+export default function ChatBox({ conversationId, currentUserId, title }) {
+  const { messages, hasMore, loading, loadMore, send } = useChat(
+    conversationId,
+    currentUserId
+  );
+  const [text, setText] = useState("");
+  const listRef = useRef(null);
+  const bottomRef = useRef(null);
+  const prevHeightRef = useRef(0);
+  const isLoadingOldRef = useRef(false);
+
+  // Cuộn xuống cuối khi có tin mới; giữ vị trí khi load tin cũ
+  useLayoutEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    if (isLoadingOldRef.current) {
+      el.scrollTop = el.scrollHeight - prevHeightRef.current;
+      isLoadingOldRef.current = false;
+    } else {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
+
+  const handleScroll = (e) => {
+    if (e.target.scrollTop < 40 && hasMore && !loading) {
+      prevHeightRef.current = e.target.scrollHeight;
+      isLoadingOldRef.current = true;
+      loadMore();
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const content = text.trim();
+    if (!content) return;
+    send(content);
+    setText("");
+  };
+
+  return (
+    <div className="flex h-[520px] w-[360px] sm:w-[400px] flex-col rounded-2xl border border-gray-200 bg-white shadow-2xl overflow-hidden">
+      <div className="flex items-center justify-between border-b bg-emerald-600 px-4 py-3 text-white">
+        <div className="font-semibold text-sm truncate">
+          {title || `Cuộc trò chuyện #${conversationId}`}
+        </div>
+      </div>
+
+      <div ref={listRef} onScroll={handleScroll} className="flex-1 space-y-2.5 overflow-y-auto bg-slate-50 p-4">
+        {loading && <p className="text-center text-xs text-gray-400">Đang tải...</p>}
+
+        {!loading && messages.length === 0 && (
+          <p className="text-center text-xs text-gray-400 mt-10">Chưa có tin nhắn nào. Hãy gửi lời chào!</p>
+        )}
+
+        {messages.map((m) => {
+          const mine = Number(m.SenderId) === Number(currentUserId);
+          return (
+            <div key={m.MessageId} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+              <div
+                className={`max-w-[78%] rounded-2xl px-3.5 py-2 text-sm shadow-sm ${
+                  mine ? "bg-emerald-600 text-white" : "bg-white text-gray-800 border border-gray-200"
+                } ${m._status === "sending" ? "opacity-60" : ""}`}
+              >
+                {m.MessageType === "IMAGE" && m.AttachmentUrl && (
+                  <img src={m.AttachmentUrl} alt="" className="mb-1 max-h-48 rounded-lg object-cover" />
+                )}
+                <p className="whitespace-pre-wrap break-words">{m.Content}</p>
+                <div className={`mt-1 text-[10px] ${mine ? "text-emerald-100 text-right" : "text-gray-400"}`}>
+                  {formatTime(m.SentAt)}
+                  {m._status === "error" && " · Gửi lỗi"}
+                  {mine && !m._status && (m.IsRead ? " · Đã xem" : " · Đã gửi")}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        <div ref={bottomRef} />
+      </div>
+
+      <form onSubmit={handleSubmit} className="flex gap-2 border-t bg-white p-3">
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Nhập tin nhắn..."
+          className="flex-1 rounded-full border border-gray-300 px-4 py-2 text-sm outline-none transition focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+        />
+        <button
+          type="submit"
+          disabled={!text.trim()}
+          className="rounded-full bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
+        >
+          Gửi
+        </button>
+      </form>
+    </div>
+  );
+}

@@ -170,6 +170,6 @@ async function main() {
     } finally { await tx.rollback(); }
     assert.equal((await f.read(t)).Status, 'ACCEPTED', 'Không dùng dựng DELIVERED để khẳng định D13 đã chạy');
   });
-  console.log(`D11 integration: ${count} nhóm PASS; chỉ database test riêng. D13 chưa có endpoint nên chưa kiểm thử hoàn tất OTP.`);
+  console.log(`D11 integration: ${count} nhóm PASS; chỉ database test riêng. Luồng hoàn tất OTP D13 được kiểm thử trong verify-delivery-completion.js.`);
 }
 main().catch(error => { console.error('D11 verification failed:', error.code || error.name, error.message); process.exitCode = 1; }).finally(async () => { if (f) await f.close(); });

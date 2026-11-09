@@ -24,7 +24,7 @@ function createProgressService({ repository = defaultRepository, clock = () => n
         const response = (event, alreadyApplied) => ({ message: alreadyApplied ? 'Thao tác đã được ghi nhận trước đó; không cập nhật trùng.' : 'Đã cập nhật tiến độ giao hàng.',
           data: { deliveryId: id, orderId: state.order.OrderId, deliveryStatus: state.delivery.Status, orderStatus: state.order.Status, alreadyApplied,
             event: { historyId: event.HistoryId, kind: event.StatusValue === 'PROGRESS_NOTE' ? 'NOTE' : 'START', note: event.Note, at: event.CreatedAt, actorId: event.ChangedBy },
-            trackingUrl: `/orders/${state.order.OrderId}/tracking`, progressUrl: `/driver/deliveries/${id}/progress`, verification: { available: false, message: 'D13 chưa triển khai; chưa thể xác thực giao thành công.' } } });
+            trackingUrl: `/orders/${state.order.OrderId}/tracking`, progressUrl: `/driver/deliveries/${id}/progress`, verification: { available: state.delivery.Status === 'DELIVERING', href: `/driver/deliveries/${id}/complete`, message: 'Xác thực mã giao hàng, ảnh và bàn giao thực tế qua D13.' } } });
         const existing = await repository.requestEvent(id, input.requestId, tx);
         if (existing) {
           if (existing.D09RequestHash !== hash || Number(existing.ChangedBy) !== userId) throw error(409, 'IDEMPOTENCY_KEY_REUSED', 'Khóa thao tác đã dùng cho nội dung khác. Không ghi đè request cũ.');

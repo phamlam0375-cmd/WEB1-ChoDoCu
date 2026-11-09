@@ -12,10 +12,12 @@ import SearchBar from '../components/SearchBar'
 import WhyChooseUs from '../components/WhyChooseUs'
 import { categories as fallbackCategories, conditions as fallbackConditions, locations as fallbackLocations } from '../data/mockProducts'
 import { getAllListing, getListingById, searchListings } from '../services/listingApi'
+import { getAccessToken } from '../lib/auth'
 import ListingDetail from './listing/ListingDetail'
 import { useListingStore } from '../store/useListing'
 import { matchesProductCategory } from '../utils/productFilters'
 import { clearSearchHistory, getSearchHistory, saveSearchHistory } from '../utils/searchHistory'
+import useSavedListings from '../hooks/useSavedListings'
 
 const defaultFilters = {
   category: 'all',
@@ -53,7 +55,7 @@ function HomePage() {
   const [searchLocation, setSearchLocation] = useState('all')
   const [draftFilters, setDraftFilters] = useState(defaultFilters)
   const [appliedFilters, setAppliedFilters] = useState(defaultFilters)
-  const [savedIds, setSavedIds] = useState(() => new Set())
+  const { savedIds, toggleSaved } = useSavedListings()
   const [savedOnly, setSavedOnly] = useState(false)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const [searchHistory, setSearchHistory] = useState(() => getSearchHistory())
@@ -313,18 +315,23 @@ function HomePage() {
   }
 
   const handleToggleSave = (productId) => {
+    if (!getAccessToken({ sessionOnly: true })) {
+      toast.info('Vui lòng đăng nhập để sử dụng tính năng này')
+      return
+    }
+
     const product = products.find((item) => item.id === productId)
     const isCurrentlySaved = savedIds.has(productId)
 
-    setSavedIds((current) => {
-      const next = new Set(current)
-      if (next.has(productId)) next.delete(productId)
-      else next.add(productId)
-      return next
-    })
+    try {
+      toggleSaved(productId)
+    } catch {
+      toast.error('Không thể cập nhật danh sách yêu thích.')
+      return
+    }
 
     toast[isCurrentlySaved ? 'info' : 'success'](
-      isCurrentlySaved ? `Đã bỏ lưu “${product.name}”` : `Đã lưu “${product.name}”`,
+      isCurrentlySaved ? `Đã bỏ lưu “${product?.name || 'sản phẩm'}”` : `Đã lưu “${product?.name || 'sản phẩm'}”`,
     )
   }
 

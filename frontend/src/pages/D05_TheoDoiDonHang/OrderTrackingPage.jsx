@@ -11,6 +11,8 @@ import { getOrderTracking } from '../../services/D05_TheoDoiDonHang/trackingApi'
 import { formatDateTime, formatDecimalMoney } from '../../lib/format'
 import { ORDER_STATUS, PAYMENT_STATUS, DELIVERY_STATUS, REFUND_STATUS } from '../../lib/labels'
 import PickupProof from '../../components/D08_XacNhanLayHang/PickupProof'
+import CompletionProof from '../../components/D13_XacThucGiaoHangOTP/CompletionProof'
+import BuyerCodePanel from '../../components/D13_XacThucGiaoHangOTP/BuyerCodePanel'
 
 const load = ({ orderId, historyPage }, signal) => getOrderTracking(orderId, { historyPage, historyLimit: 20 }, { signal })
 const actionLabels = { cancel: 'Hủy đơn', payment: 'Thanh toán / Báo chuyển tiền', confirmPayment: 'Xác nhận nhận tiền', rejectOrder: 'Từ chối đơn hàng', refund: 'Yêu cầu hoàn tiền', receive: 'Xác nhận nhận hàng', chat: 'Liên hệ tài xế', pickup: 'Xác nhận đã lấy hàng', pickupCode: 'Bàn giao và cấp mã lấy hàng', deliveryProgress: 'Cập nhật tiến độ giao hàng' }
@@ -75,11 +77,15 @@ function TrackingDetail({ orderId }) {
               {[[d.acceptedAt, 'Nhận chuyến'], [d.pickedUpAt, 'Lấy hàng'], [d.deliveredAt, 'Giao thành công'], [d.returnedAt, 'Trả hàng']].filter(([at]) => at).map(([at, label]) => <p key={label}>{label}: {formatDateTime(at)}</p>)}
               {d.failureReason && <p className="whitespace-pre-wrap text-rose-700">Lý do giao chưa thành công: {d.failureReason}</p>}
               {d.pickupProofUrl && <PickupProof orderId={data.orderId} deliveryId={d.deliveryId} />}
+              {d.verifiedAt && <p>Xác thực giao hàng: {formatDateTime(d.verifiedAt)}</p>}
+              {d.completionProofUrl && <CompletionProof orderId={data.orderId} deliveryId={d.deliveryId} />}
+              {data.viewer.role === 'DRIVER' && d.status === 'DELIVERING' && <Link className={btn.primary} to={`/driver/deliveries/${d.deliveryId}/complete`}>Xác thực giao hàng</Link>}
             </section>)}
           </>}
           {data.buyerNote && <p className="mt-4 whitespace-pre-wrap break-words text-sm text-slate-600">Ghi chú đặt hàng: {data.buyerNote}</p>}
         </Card>
       </div>
+      {data.viewer.role === 'BUYER' && data.deliveryMethod === 'DELIVERY' && ['IN_DELIVERY', 'DELIVERED'].includes(data.orderStatus) && <BuyerCodePanel orderId={data.orderId} onVerified={data.orderStatus === 'IN_DELIVERY' ? refresh : undefined} />}
       {data.cancelReason && <Card className="mt-5 p-5"><h2 className="font-bold">Lý do hủy</h2><p className="mt-2 whitespace-pre-wrap break-words text-sm">{data.cancelReason}</p></Card>}
       {!!data.refunds.length && <Card className="mt-5 p-5"><h2 className="font-bold">Hoàn tiền</h2>{data.refunds.map(r => <div key={r.refundId} className="mt-4 text-sm"><p className="font-semibold">Yêu cầu #{r.refundId} · {REFUND_STATUS[r.status]?.label || 'Trạng thái khác'}</p><p>{formatDecimalMoney(r.amount)} · {formatDateTime(r.requestedAt)}</p><p className="mt-1 whitespace-pre-wrap break-words">{r.reason}</p></div>)}</Card>}
       <Card className="mt-5 p-5">

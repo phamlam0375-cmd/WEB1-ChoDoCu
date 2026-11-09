@@ -8,6 +8,7 @@ const { refundEligibility } = require('../../controllers/refunds.controller');
 const v = require('../../validators/D05_TheoDoiDonHang/tracking.validator');
 const defaultRepository = require('../../repositories/D05_TheoDoiDonHang/tracking.repository');
 const { refundHandoff, moneyConfirmed } = require('../D10_ThatBai_HoanTra/failure.policy');
+const { receiptPolicy } = require('../D06_XacNhanNhanHang/receipt.service');
 
 function viewer(state, user) {
   const id = Number(user?.UserId ?? user?.userId);
@@ -71,7 +72,7 @@ function capabilities(state, role, user, now) {
     confirmPayment: action(seller && f.canDecide, `/seller/orders/${id}/payment`, seller ? f.message : 'Chỉ người bán của đơn được đối chiếu nhận tiền.'),
     rejectOrder: action(seller && state.order.Status === 'RESERVED' && !state.payment && !state.deliveries.length, `/seller/orders/${id}/reject`, seller ? 'Từ chối đơn hàng đang chờ người bán chấp nhận.' : 'Chỉ người bán của đơn được từ chối đơn.'),
     refund: action(buyer && !user.d01Demo && r.enabled, `/orders/${id}/refund`, user.d01Demo ? 'Yêu cầu hoàn tiền cần phiên tài khoản hiện có, không dùng chế độ thử mua hàng.' : r.reason || 'Chỉ người mua được yêu cầu hoàn tiền.'),
-    receive: action(false, null, 'Chức năng xác nhận nhận hàng chưa sẵn sàng.'),
+    receive: action(buyer && !user.d01Demo && receiptPolicy(state, now).canConfirm, `/orders/${id}/received`, receiptPolicy(state, now).reason || 'Chỉ người mua xác nhận sau khi kiểm tra sản phẩm.'),
     deliveryFailure: action(role === 'DRIVER' && !user.d01Demo && state.deliveries.some(d => Number(d.DriverId) === Number(user.UserId ?? user.userId) && d.PickedUpAt && ['PAID', 'IN_DELIVERY', 'REFUND_PENDING', 'REFUNDED', 'CANCELLED'].includes(state.order.Status) && ['DELIVERING', 'FAILED', 'RETURNING'].includes(d.Status)), `/driver/deliveries/${state.deliveries.find(d => Number(d.DriverId) === Number(user.UserId ?? user.userId))?.DeliveryId}/failure`, 'Chỉ tài xế được phân công xử lý giao thất bại và trả kiện.'),
     pickup: action(role === 'DRIVER' && Boolean(accepted), `/driver/deliveries/${accepted?.DeliveryId}/pickup`, 'Chỉ đúng tài xế đã nhận chuyến được xác nhận lấy hàng sau bàn giao.'),
     pickupCode: action(seller && Boolean(accepted), `/seller/orders/${id}/pickup-code`, 'Cần đơn giao hàng đã PAID, chuẩn bị và có tài xế nhận chuyến.'),
@@ -102,6 +103,7 @@ function createTrackingService({ repository = defaultRepository, clock = () => n
         payment: state.payment ? { status: state.payment.Status, reportedAt: state.payment.ReportedAt, confirmedAt: state.payment.ConfirmedAt, ...(driverOnly ? {} : { amount: state.payment.Amount }) } : null,
         deliveries: o.DeliveryMethod === 'DELIVERY' ? state.deliveries.map(d => ({ deliveryId: d.DeliveryId, status: d.Status, driver: d.DriverId ? { userId: d.DriverId, name: d.DriverName, phone: d.DriverPhone } : null, pickupAddress: d.PickupAddress, deliveryAddress: d.DeliveryAddress, driverFee: d.DriverFee, retryCount: d.RetryCount, failureReason: d.FailureReason, acceptedAt: d.AcceptedAt, pickedUpAt: d.PickedUpAt, deliveredAt: d.DeliveredAt, returnedAt: d.ReturnedAt,
           pickupProofUrl: d.HasPickupProof ? `/api/v1/orders/${o.OrderId}/deliveries/${d.DeliveryId}/pickup-proof` : null,
+          verifiedAt: d.VerifiedAt || null, completionProofUrl: d.CompletionProofAvailable && d.HasD13Event ? `/api/v1/orders/${o.OrderId}/deliveries/${d.DeliveryId}/completion-proof` : null,
           scheduledAt: d.RetryScheduledAt || null, failureCount: Number(d.FailureCount || 0), refundHandoff: refundHandoff({ ...state, delivery: d }, role) })) : [],
         refunds: state.refunds.map(r => ({ refundId: r.RefundRequestId, status: r.Status, reason: r.Reason, amount: r.Amount, requestedAt: r.RequestedAt, completedAt: r.CompletedAt })),
         histories: state.histories.map(h => ({ historyId: h.HistoryId, deliveryId: h.DeliveryId, group: h.StatusType, status: h.StatusValue, at: h.CreatedAt, note: safeNote(h, driverOnly), actor: h.ChangedBy ? { userId: h.ChangedBy, name: h.ChangedByName || null } : null,

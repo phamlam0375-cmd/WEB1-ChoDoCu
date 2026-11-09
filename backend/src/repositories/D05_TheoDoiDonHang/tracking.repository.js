@@ -25,7 +25,8 @@ async function deliveriesFor(ids, transaction) {
   // Deliveries có trong schema nhóm, chưa có model/API vận hành. Chỉ chọn các
   // trường công khai cần theo dõi; tuyệt đối không SELECT * hoặc lấy CodeHash.
   return sequelize.query(`SELECT d.DeliveryId, d.OrderId, d.DriverId, d.Status, d.PickupAddress, d.DeliveryAddress,
-    d.DriverFee, d.RetryCount, d.FailureReason, d.AcceptedAt, d.PickedUpAt, d.DeliveredAt, d.ReturnedAt,
+    d.DriverFee, d.RetryCount, d.FailureReason, d.AcceptedAt, d.PickedUpAt, d.DeliveredAt, d.ReturnedAt, d.VerifiedAt,
+    d.CompletionCodeDriverId, d.CompletionCodeSession, d.CompletionCodeIssuedAt, d.CompletionCodeExpiresAt, d.CompletionCodeUsedAt, d.CompletionProofKey, d.CompletionProofDigest,
     d.RetryScheduledAt, (SELECT COUNT(*) FROM StatusHistories h WHERE h.DeliveryId=d.DeliveryId AND h.StatusType='DELIVERY' AND h.StatusValue='FAILED') AS FailureCount,
     d.ReadyForPickupAt, d.PreparedBy, CASE WHEN d.PickupProofKey IS NOT NULL THEN 1 ELSE 0 END AS HasPickupProof,
     u.FullName AS DriverName, u.Phone AS DriverPhone
@@ -49,6 +50,7 @@ async function readState(id, transaction) {
 }
 async function readRelated(state, historyOptions, driverOnly, transaction) {
   const id = state.order.OrderId;
+  await require('../D13_XacThucGiaoHangOTP/completion.repository').hydrateVerification(state.deliveries, transaction);
   const media = await mediaFor([state.order.ListingId], transaction);
   const refundRows = driverOnly ? [] : await RefundRequests.findAll({ where: { OrderId: id }, attributes: ['RefundRequestId', 'Status', 'Reason', 'Amount', 'RequestedAt', 'CompletedAt'], order: [['RequestedAt', 'DESC'], ['RefundRequestId', 'DESC']], transaction, raw: true });
   const histories = await StatusHistories.findAndCountAll({ where: { OrderId: id, ...(driverOnly ? { StatusType: { [Op.in]: ['ORDER', 'DELIVERY'] } } : {}) }, attributes: ['HistoryId', 'DeliveryId', 'StatusType', 'StatusValue', 'Note', 'CreatedAt', 'ChangedBy', 'D10Event'], order: [['CreatedAt', 'ASC'], ['HistoryId', 'ASC']], limit: historyOptions.limit, offset: historyOptions.offset, transaction, raw: true });

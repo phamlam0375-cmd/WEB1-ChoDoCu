@@ -8,7 +8,9 @@ function fixture() {
   let state = {
     order: { OrderId: 91, BuyerId: 11, SellerId: 12, ListingId: 41, Status: 'DELIVERED', DeliveryMethod: 'DELIVERY', ProductAmount: '123456.10', DeliveryFee: '25000.00', TotalAmount: '148456.10', CommissionRate: '2.50', CreatedAt: '2026-10-15T08:00:00Z', CompletedAt: null },
     payment: { OrderId: 91, PayerId: 11, PayeeId: 12, Amount: '123456.10', Status: 'CONFIRMED', ConfirmedBy: 12, ReportedAt: '2026-10-15T09:00:00Z', ConfirmedAt: '2026-10-15T09:01:00Z', ProofUrl: '/api/v1/uploads/receipt.png', BankName: 'LOCAL TEST BANK', BankAccountSnapshot: '000123456789', BankAccountHolderSnapshot: 'LOCAL SELLER', TransferContent: 'D06 91' },
-    deliveries: [{ OrderId: 91, DeliveryId: 8, DriverId: 13, Status: 'DELIVERED', VerifiedAt: '2026-10-15T10:00:00Z', DeliveredAt: '2026-10-15T10:00:00Z', ProofUrl: '/api/v1/uploads/delivery.png' }],
+    deliveries: [{ OrderId: 91, DeliveryId: 8, DriverId: 13, Status: 'DELIVERED', VerifiedAt: '2026-10-15T10:00:00Z', DeliveredAt: '2026-10-15T10:00:00Z', ProofUrl: null,
+      CompletionCodeSession: 'a56bcc56-3e6b-4c73-a173-3bfd4d270411', CompletionCodeDriverId: 13, CompletionCodeIssuedAt: '2026-10-15T09:59:00Z', CompletionCodeExpiresAt: '2026-10-15T10:09:00Z', CompletionCodeUsedAt: '2026-10-15T10:00:00Z',
+      CompletionProofKey: 'd13-a56bcc56-3e6b-4c73-a173-3bfd4d270411.png', CompletionProofDigest: 'a'.repeat(64), HasD13Event: true, CompletionProofAvailable: true }],
     listing: { ListingId: 41, SellerId: 12, Status: 'RESERVED', Title: 'Fixture' }, refunds: [], commissions: [], histories: [], notifications: [],
   };
   let queue = Promise.resolve();
@@ -48,7 +50,7 @@ test('D06 mọi trạng thái chưa giao/hủy/hoàn tiền đều chặn; PICKU
   }
 });
 test('D06 Orders.DELIVERED chưa đủ: thiếu/sai chuyến, driver, ảnh, VerifiedAt/DeliveredAt tương lai, đang chuyển hoàn', async () => {
-  for (const key of ['missing', 'duplicate', 'OrderId', 'DriverId', 'Status', 'ProofUrl', 'VerifiedAt', 'DeliveredAt', 'future', 'ReturnedAt']) {
+  for (const key of ['missing', 'duplicate', 'OrderId', 'DriverId', 'Status', 'CompletionProofAvailable', 'HasD13Event', 'CompletionCodeSession', 'CompletionCodeUsedAt', 'CompletionProofKey', 'CompletionProofDigest', 'VerifiedAt', 'DeliveredAt', 'future', 'ReturnedAt']) {
     const f = fixture(), d = f.state.deliveries[0];
     if (key === 'missing') f.state.deliveries = [];
     else if (key === 'duplicate') f.state.deliveries.push({ ...d });

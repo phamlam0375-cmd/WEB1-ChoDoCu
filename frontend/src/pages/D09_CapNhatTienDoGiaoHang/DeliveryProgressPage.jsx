@@ -84,7 +84,8 @@ function ProgressContent({ id }) {
           <p className="text-sm text-slate-500">{[...note].length}/500 ký tự. Ghi chú được hiển thị cho người mua, người bán và tài xế được phân công; không nhập mã xác thực hay dữ liệu bí mật.</p>
           <button className={btn.primary} type="submit" disabled={sending || loading || !data.progress?.allowed}>{sending ? 'Đang cập nhật…' : data.deliveryStatus === 'PICKED_UP' ? 'Bắt đầu giao hàng' : 'Lưu ghi chú tiến độ mới'}</button>
         </form>
-        <p className="text-sm text-amber-800">D13 chưa triển khai. Chưa có thao tác xác thực giao thành công; D09 không ghi DELIVERED, hoàn tất đơn hoặc thanh toán phí tài xế. Giao thất bại/giao lại/chuyển hoàn dùng luồng D10 riêng.</p>
+        {data.deliveryStatus === 'DELIVERING' && <Link className={btn.primary} to={`/driver/deliveries/${data.deliveryId}/complete`}>Xác thực giao hàng bằng mã và ảnh bàn giao</Link>}
+        <p className="text-sm text-slate-600">Giao thành công cần mã người mua và ảnh bàn giao. Người mua kiểm tra và xác nhận nhận hàng sau đó. Giao thất bại/giao lại/chuyển hoàn dùng luồng D10 riêng.</p>
       </Card>
     </>}
   </>

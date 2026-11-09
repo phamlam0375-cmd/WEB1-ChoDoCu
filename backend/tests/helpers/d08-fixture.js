@@ -2,7 +2,7 @@
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 // Phải kiểm tra trước khi import model; không chạy trong DB của nhóm hay CD.
-const feature = process.env.D11_INTEGRATION_TEST === 'true' ? 'D11' : process.env.D10_INTEGRATION_TEST === 'true' ? 'D10' : process.env.D09_INTEGRATION_TEST === 'true' ? 'D09' : 'D08';
+const feature = process.env.D12_INTEGRATION_TEST === 'true' ? 'D12' : process.env.D11_INTEGRATION_TEST === 'true' ? 'D11' : process.env.D10_INTEGRATION_TEST === 'true' ? 'D10' : process.env.D09_INTEGRATION_TEST === 'true' ? 'D09' : 'D08';
 if (process.env.NODE_ENV !== 'test' || process.env[`${feature}_INTEGRATION_TEST`] !== 'true'
   || !new RegExp(`^cho_do_cu_${feature.toLowerCase()}_[a-z0-9_]+$`).test(process.env.DB_NAME || '') || !process.env[`${feature}_EXPECTED_MYSQL_UUID`]) throw new Error('Fixture chỉ dành cho database test riêng với UUID MySQL local đã xác minh.');
 for (const key of ['EMAIL_USER', 'EMAIL_PASS', 'MAIL_USER', 'MAIL_PASS', 'SMTP_USER', 'SMTP_PASS']) process.env[key] = '';

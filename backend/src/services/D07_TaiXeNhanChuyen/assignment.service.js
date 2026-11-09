@@ -56,8 +56,8 @@ function createAssignmentService({ repository = defaultRepository, clock = () =>
         failureUrl: ['DELIVERING', 'FAILED', 'RETURNING'].includes(state.active.Status) ? `/driver/deliveries/${state.active.DeliveryId}/failure` : null,
         blocked: !['PAID', 'IN_DELIVERY'].includes(state.active.OrderStatus),
       } : null, dependencies: {
-        preparation: 'C07 chưa có thao tác xác nhận sẵn sàng lấy hàng; chuyến thiếu dấu xác nhận thật không xuất hiện.',
-        routing: 'D12 chưa có báo giá/tuyến tin cậy. Không tự tạo khu vực, khoảng cách hoặc phí.',
+        preparation: 'C07 xác nhận chuẩn bị đơn PAID và tạo chuyến từ snapshot đã chốt; không tự tạo chuyến khi thanh toán.',
+        routing: 'D12 chốt phí/tuyến/phương tiện trên đơn. Chưa có dịch vụ khoảng cách; hồ sơ có bán kính chỉ thấy chuyến đã có số km tin cậy.',
         profile: 'D11: cập nhật hồ sơ và bật nhận chuyến tại /driver/profile. Không tự tạo hồ sơ hoặc bật AVAILABLE.',
         nextStep: 'D08 xác nhận lấy hàng sau bàn giao; D09 bắt đầu giao và ghi chú tiến độ. D13 chưa triển khai; không tự xác thực giao thành công.',
       } };

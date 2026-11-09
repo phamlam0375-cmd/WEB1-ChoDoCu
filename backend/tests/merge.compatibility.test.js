@@ -178,6 +178,7 @@ test('aliases model/controller dung chung, Orders giu fields D01 va associations
 
 test('preview ho tro buyerId cu va profile v1, giu check san pham cua minh', async () => {
   const service = createOrderService({
+    deliveryFeeService: { getContext: async () => ({ available: true, pickup: null, routes: [], vehicleTypes: [] }) },
     repository: { findListingPreview: async () => ({
       ListingId: 10, SellerId: 7, Price: '123.45', Status: 'ACTIVE', SellerVerified: 1
     }) }
@@ -207,11 +208,11 @@ test('tien cong bang BigInt, gia lon khong mat xu va validation khong bi bo', ()
   }
 });
 
-test('D12 chua co: khong gia lap phi giao hang, giu endpoint v1 va ma loi 503', async () => {
+test('D12 sẵn sàng qua một adapter D01, không tin mã/phí client không có chữ ký', async () => {
   const delivery = require('../src/services/deliveryFee.service');
-  assert.equal(delivery.getCapability().available, false);
+  assert.equal(delivery.getCapability().available, true);
   assert.equal(delivery.getCapability().estimateEndpoint, '/api/v1/delivery-fees/estimate');
-  await assert.rejects(delivery.verifyQuote(), { status: 503, code: 'DELIVERY_SERVICE_UNAVAILABLE' });
+  await assert.rejects(delivery.verifyQuote({ quoteId: 'client-fee', transaction: {} }), { status: 422, code: 'DELIVERY_QUOTE_INVALID' });
 });
 
 test('repository thong bao giu transaction va timestamp voi ca hai contract', async (t) => {

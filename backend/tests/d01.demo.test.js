@@ -12,6 +12,7 @@ const listing = { ListingId: 42, SellerId: 81, Title: 'Demo fixture', Price: '12
 const payload = { listingId: 42, deliveryMethod: 'PICKUP', receiverName: 'D01 Test', receiverPhone: '0901234567' };
 
 async function fixture(t) {
+  t.mock.method(require('../src/services/deliveryFee.service'), 'getContext', async () => ({ available: true, pickup: null, routes: [], vehicleTypes: [] }));
   const keys = ['NODE_ENV', 'AUTH_DEV_HEADER', 'D01_DEMO_MODE', 'D01_DEMO_USER_ID', 'JWT_SECRET'];
   const saved = Object.fromEntries(keys.map(key => [key, process.env[key]]));
   Object.assign(process.env, { NODE_ENV: 'production', AUTH_DEV_HEADER: 'false', D01_DEMO_MODE: 'true', D01_DEMO_USER_ID: '315', JWT_SECRET: 'd01-demo-unit-test-only' });

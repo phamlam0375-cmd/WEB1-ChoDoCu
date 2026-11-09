@@ -30,6 +30,7 @@ const updateStoreSchema = z.object({
     StoreName: z.string().regex(/^.{1,120}$/, "Tên cửa hàng không hợp lệ"),
     Description: z.string().regex(/^.{0,500}$/, "Mô tả không hợp lệ").nullable().optional(),
     Address: z.string().regex(/^.{0,255}$/, "Địa chỉ không hợp lệ").nullable().optional(),
+    PickupArea: z.string().trim().min(1, 'Vui lòng nhập khu vực lấy hàng').max(100, 'Khu vực tối đa 100 ký tự').refine(value => !/[\x00-\x1f\x7f]/.test(value), 'Khu vực không hợp lệ').nullable().optional(),
     Latitude: latitudeSchema.nullable().optional(),
     Longitude: longitudeSchema.nullable().optional(),
     IsDemoLocation: z.boolean().optional(),

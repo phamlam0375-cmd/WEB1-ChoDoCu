@@ -58,6 +58,7 @@ app.get('/api/test', (_request, response) => {
 });
 
 app.use('/api/health', healthRouter);
+app.use('/api/v1/delivery-fees', require('./routes/D12_UocTinhPhiGiaoHang/fee.route'));
 app.use('/api/auth', authRoutes);
 app.use('/api/auth', passwordResetRoutes);
 app.use('/api/orders', orderRoutes);

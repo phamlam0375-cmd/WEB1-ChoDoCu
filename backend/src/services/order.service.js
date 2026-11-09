@@ -5,7 +5,7 @@ const orderConfig = require('../config/order.config');
 const defaultDeliveryFeeService = require('./deliveryFee.service');
 const defaultRepository = require('../repositories/order.repository');
 const { validateCreateOrder } = require('../validators/order.validator');
-const { addMoney, asApiNumber } = require('../utils/money');
+const { addMoney, asApiNumber, toCents } = require('../utils/money');
 
 const EXPIRED_REASON = 'Hết thời gian giữ sản phẩm.';
 
@@ -33,7 +33,7 @@ function normalizeQuote(quote, now) {
   if (!Number.isSafeInteger(deliveryFeeRuleId) || deliveryFeeRuleId <= 0) {
     throw orderError(422, 'DELIVERY_QUOTE_INVALID', 'Báo giá giao hàng không hợp lệ.');
   }
-  return { amount: String(quote.amount), deliveryFeeRuleId };
+  return { amount: String(quote.amount), deliveryFeeRuleId, snapshot: quote.snapshot || null };
 }
 
 function createOrderService({
@@ -73,7 +73,7 @@ function createOrderService({
         address: profile.Address || ''
       },
       reservationMinutes: config.reservationMinutes,
-      delivery: deliveryFeeService.getCapability()
+      delivery: deliveryFeeService.getContext ? await deliveryFeeService.getContext(normalizedListingId) : deliveryFeeService.getCapability()
     };
   }
 
@@ -98,6 +98,7 @@ function createOrderService({
 
         let deliveryFee = '0.00';
         let deliveryFeeRuleId = null;
+        let deliverySnapshot = null;
         if (data.deliveryMethod === 'DELIVERY') {
           const quote = normalizeQuote(await deliveryFeeService.verifyQuote({
             quoteId: data.deliveryQuoteId,
@@ -108,13 +109,16 @@ function createOrderService({
           }), now);
           deliveryFee = quote.amount;
           deliveryFeeRuleId = quote.deliveryFeeRuleId;
+          deliverySnapshot = quote.snapshot;
         }
 
         const productAmount = String(listing.Price);
         let totalAmount;
         try {
           totalAmount = addMoney(productAmount, deliveryFee);
+          if (toCents(totalAmount) > 999999999999999999n) throw orderError(422, 'ORDER_TOTAL_OUT_OF_RANGE', 'Tổng chi phí vượt giới hạn lưu trữ của đơn.');
         } catch (_error) {
+          if (_error instanceof HttpError) throw _error;
           throw orderError(500, 'INVALID_MONEY_VALUE', 'Không thể tính tổng thanh toán.');
         }
 
@@ -129,6 +133,7 @@ function createOrderService({
           SellerId: Number(listing.SellerId),
           DeliveryMethod: data.deliveryMethod,
           DeliveryFeeRuleId: deliveryFeeRuleId,
+          DeliveryQuoteSnapshot: deliverySnapshot,
           ReceiverName: data.receiverName,
           ReceiverPhone: data.receiverPhone,
           ReceiverAddress: data.receiverAddress,
@@ -165,7 +170,7 @@ function createOrderService({
         }, transaction);
 
         return {
-          message: `Đã giữ sản phẩm đến ${formatVietnameseDate(reservedUntil)}.`,
+          message: `Đã giữ sản phẩm đến ${formatVietnameseDate(reservedUntil)}.${data.deliveryMethod === 'DELIVERY' ? ' Đã chốt phí cho đơn trong thời hạn báo giá.' : ''}`,
           data: {
             orderId,
             listingId: data.listingId,

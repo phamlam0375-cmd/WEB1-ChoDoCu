@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { RefreshCw } from 'lucide-react'
 import { Card, ErrorState, Loading, PageHeader } from '../../components/admin/AdminUi'
+import PrepareDeliveryPanel from '../../components/D12_UocTinhPhiGiaoHang/PrepareDeliveryPanel'
 import { btn } from '../../components/admin/styles'
 import TrackingTimeline from '../../components/D05_TheoDoiDonHang/TrackingTimeline'
 import ReservationCountdown from '../../components/D05_TheoDoiDonHang/ReservationCountdown'
@@ -83,6 +84,7 @@ function TrackingDetail({ orderId }) {
       {!!data.refunds.length && <Card className="mt-5 p-5"><h2 className="font-bold">Hoàn tiền</h2>{data.refunds.map(r => <div key={r.refundId} className="mt-4 text-sm"><p className="font-semibold">Yêu cầu #{r.refundId} · {REFUND_STATUS[r.status]?.label || 'Trạng thái khác'}</p><p>{formatDecimalMoney(r.amount)} · {formatDateTime(r.requestedAt)}</p><p className="mt-1 whitespace-pre-wrap break-words">{r.reason}</p></div>)}</Card>}
       <Card className="mt-5 p-5">
         <h2 className="font-bold">Thao tác liên quan</h2>
+        {data.viewer.role === 'SELLER' && data.deliveryMethod === 'DELIVERY' && data.orderStatus === 'PAID' && !data.deliveries.length && <PrepareDeliveryPanel orderId={data.orderId} onSaved={refresh} />}
         <div className="mt-4 flex flex-wrap gap-3">{Object.entries(data.capabilities).filter(([, action]) => action.enabled && action.href).map(([key, action]) => <Link key={key} to={action.href} className={btn.secondary}>{actionLabels[key]}</Link>)}</div>
         <ul className="mt-4 space-y-2 text-sm text-slate-500">{Object.entries(data.capabilities).filter(([key, action]) => !action.enabled && (data.viewer.role === 'BUYER' ? key !== 'confirmPayment' && key !== 'rejectOrder' : key === 'confirmPayment' || key === 'rejectOrder' || key === 'chat')).map(([key, action]) => <li key={key}>{actionLabels[key]}: {action.reason}</li>)}</ul>
       </Card>

@@ -23,6 +23,9 @@ import { getAccessToken, rememberPostLoginUrl } from '../lib/auth'
 import { isD01DemoEnabled } from '../lib/d01Demo'
 import { estimateDeliveryFee } from '../services/deliveryFeeApi'
 import { createOrder, getOrderPreview } from '../services/orderApi'
+import { formatDecimalMoney } from '../lib/format'
+import { addAmounts, quoteSelectionKey } from '../services/D12_UocTinhPhiGiaoHang/quoteState'
+import DeliveryQuotePanel from '../components/D12_UocTinhPhiGiaoHang/DeliveryQuotePanel'
 
 const inputClass = 'mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15 disabled:cursor-not-allowed disabled:bg-slate-100'
 const conditionLabels = {
@@ -37,11 +40,7 @@ function D01DemoNotice() {
   return <p role="status" className="bg-amber-50 px-4 py-3 text-center text-sm text-amber-900">Chế độ test D01: đơn hàng sử dụng tài khoản demo của nhóm, không phải phiên đăng nhập.</p>
 }
 
-const formatCurrency = (value) => new Intl.NumberFormat('vi-VN', {
-  style: 'currency',
-  currency: 'VND',
-  maximumFractionDigits: 0,
-}).format(Number(value) || 0)
+const formatCurrency = formatDecimalMoney
 
 const formatDateTime = (value) => new Intl.DateTimeFormat('vi-VN', {
   year: 'numeric',
@@ -78,7 +77,7 @@ function OrderSkeleton() {
   return (
     <div className="mx-auto max-w-6xl animate-pulse px-4 py-10 sm:px-6 lg:px-8">
       <div className="h-9 w-72 rounded-lg bg-slate-200" />
-      <div className="mt-8 grid overflow-hidden rounded-2xl border border-slate-200 bg-white lg:grid-cols-[0.88fr_1.12fr]">
+      <div className="mt-8 grid grid-cols-1 overflow-hidden rounded-2xl border border-slate-200 bg-white lg:grid-cols-[0.88fr_1.12fr]">
         <div className="space-y-5 bg-slate-50 p-6 sm:p-8">
           <div className="aspect-[4/3] rounded-2xl bg-slate-200" />
           <div className="h-7 w-4/5 rounded bg-slate-200" />
@@ -119,6 +118,7 @@ function OrderCreatePage() {
   const submitLock = useRef(false)
   const expirationToastShown = useRef(false)
   const quoteRequest = useRef(0)
+  const quoteAbort = useRef(null)
   const [preview, setPreview] = useState(null)
   const [loading, setLoading] = useState(true)
   const [reloadKey, setReloadKey] = useState(0)
@@ -128,6 +128,7 @@ function OrderCreatePage() {
   const [submitError, setSubmitError] = useState('')
   const [errors, setErrors] = useState({})
   const [quote, setQuote] = useState(null)
+  const [quoteAccepted, setQuoteAccepted] = useState(false)
   const [success, setSuccess] = useState(null)
   const [nowMs, setNowMs] = useState(0)
   const [form, setForm] = useState({
@@ -135,6 +136,8 @@ function OrderCreatePage() {
     receiverPhone: '',
     receiverAddress: '',
     deliveryMethod: 'PICKUP',
+    deliveryArea: '',
+    vehicleType: '',
     note: '',
   })
 
@@ -156,6 +159,8 @@ function OrderCreatePage() {
 
     const controller = new AbortController()
     const load = async () => {
+      quoteRequest.current++; quoteAbort.current?.abort()
+      setQuote(null); setQuoteAccepted(false); setEstimating(false)
       try {
         const data = await getOrderPreview(listingId, { signal: controller.signal })
         if (controller.signal.aborted) return
@@ -184,7 +189,7 @@ function OrderCreatePage() {
       }
     }
     void load()
-    return () => controller.abort()
+    return () => { controller.abort(); quoteRequest.current++; quoteAbort.current?.abort() }
   }, [listingId, redirectToLogin, reloadKey])
 
   useLayoutEffect(() => {
@@ -206,17 +211,17 @@ function OrderCreatePage() {
     return () => window.clearInterval(timer)
   }, [quote, success])
 
-  const quoteValid = Boolean(
+  const quoteFresh = Boolean(
     quote?.quoteId
     && preview?.delivery?.available
     && Number.isFinite(new Date(quote.expiresAt).getTime())
-    && new Date(quote.expiresAt).getTime() > nowMs,
+    && quote.validUntilMs > nowMs
+    && quote.selectionKey === quoteSelectionKey(listingId, form),
   )
-  const productAmount = Number(preview?.listing?.price) || 0
-  const deliveryFee = form.deliveryMethod === 'DELIVERY' && quoteValid
-    ? Number(quote.amount) || 0
-    : 0
-  const totalAmount = productAmount + deliveryFee
+  const quoteValid = quoteFresh && quoteAccepted
+  const productAmount = String(preview?.listing?.price ?? '0.00')
+  const deliveryFee = form.deliveryMethod === 'DELIVERY' ? (quoteFresh ? quote.amount : null) : '0.00'
+  const totalAmount = deliveryFee === null ? null : addAmounts(productAmount, deliveryFee)
   const normalizedPhone = form.receiverPhone.trim().replace(/[.\s-]/g, '')
   const hasRequiredFields = Boolean(
     form.receiverName.trim()
@@ -231,7 +236,7 @@ function OrderCreatePage() {
     && preview?.listing?.isAvailable
     && !preview?.listing?.isOwnListing
     && form.note.trim().length <= 500
-    && !submitting,
+    && !submitting && !estimating,
   )
 
   useEffect(() => {
@@ -262,16 +267,20 @@ function OrderCreatePage() {
     setForm((current) => ({ ...current, [field]: value }))
     setErrors((current) => ({ ...current, [field]: '', deliveryQuote: '' }))
     setSubmitError('')
-    if (field === 'receiverAddress') {
+    if (['receiverAddress', 'deliveryArea', 'vehicleType'].includes(field)) {
+      toast.dismiss('delivery-estimate-error')
       quoteRequest.current += 1
-      setQuote(null)
+      quoteAbort.current?.abort(); setEstimating(false)
+      setQuote(null); setQuoteAccepted(false)
     }
   }
 
   const handleMethodChange = (deliveryMethod) => {
+    toast.dismiss('delivery-estimate-error')
     quoteRequest.current += 1
+    quoteAbort.current?.abort(); setEstimating(false)
     setForm((current) => ({ ...current, deliveryMethod }))
-    setQuote(null)
+    setQuote(null); setQuoteAccepted(false)
     setErrors((current) => ({
       ...current,
       receiverAddress: '',
@@ -281,6 +290,7 @@ function OrderCreatePage() {
   }
 
   const handleEstimate = async () => {
+    if (quoteAbort.current && !quoteAbort.current.signal.aborted) return
     if (!preview.delivery.available) {
       toast.info('Dịch vụ ước tính phí giao hàng chưa sẵn sàng; hãy chọn tự đến lấy.', {
         toastId: 'delivery-service-unavailable',
@@ -292,15 +302,23 @@ function OrderCreatePage() {
       return
     }
 
+    if (!form.deliveryArea.trim() || !form.vehicleType || !preview.delivery.pickup) { setErrors(current => ({ ...current, deliveryQuote: 'Vui lòng chọn đầy đủ khu vực giao nhận và phương tiện.' })); return }
     const requestId = ++quoteRequest.current
-    setEstimating(true)
+    toast.dismiss('delivery-estimate-error')
+    quoteAbort.current?.abort()
+    const controller = quoteAbort.current = new AbortController()
+    setEstimating(true); setQuote(null); setQuoteAccepted(false); setSubmitError('')
     try {
       const result = await estimateDeliveryFee({
         listingId: Number(listingId),
         receiverAddress: form.receiverAddress.trim(),
-      })
+        deliveryArea: form.deliveryArea.trim(), vehicleType: form.vehicleType,
+      }, { signal: controller.signal })
       if (requestId !== quoteRequest.current) return
+      const remaining = new Date(result.expiresAt).getTime() - new Date(result.serverNow).getTime()
+      if (!Number.isFinite(remaining) || remaining <= 0 || !/^\d+(?:\.\d{1,2})?$/.test(String(result.amount))) throw new Error('INVALID_QUOTE_RESPONSE')
       setQuote({
+        ...result, selectionKey: quoteSelectionKey(listingId, form), validUntilMs: Date.now() + remaining,
         quoteId: result.quoteId || result.signedQuoteToken || result.token,
         amount: result.amount,
         deliveryFeeRuleId: result.deliveryFeeRuleId,
@@ -310,15 +328,17 @@ function OrderCreatePage() {
       setErrors((current) => ({ ...current, deliveryQuote: '' }))
     } catch (error) {
       if (requestId !== quoteRequest.current) return
+      if (error.code === 'ERR_CANCELED') return
+      if (error.response?.status === 401) { redirectToLogin(); return }
       const code = getErrorCode(error)
       if (code === 'DELIVERY_ROUTE_UNSUPPORTED') {
         setSubmitError('Chưa hỗ trợ tuyến giao này; hãy chọn tự đến lấy.')
       } else {
         setSubmitError(getErrorMessage(error))
       }
-      toast.error(getErrorMessage(error), { toastId: `delivery-${code || 'error'}` })
+      toast.error(getErrorMessage(error), { toastId: 'delivery-estimate-error' })
     } finally {
-      setEstimating(false)
+      if (requestId === quoteRequest.current) { setEstimating(false); quoteAbort.current = null }
     }
   }
 
@@ -367,13 +387,9 @@ function OrderCreatePage() {
         }))
         setSubmitError('Sản phẩm hiện không còn khả dụng.')
         toast.error('Sản phẩm hiện không còn khả dụng.', { toastId: 'listing-unavailable' })
-      } else if (code === 'DELIVERY_QUOTE_EXPIRED') {
-        setQuote(null)
-        setSubmitError('Báo giá giao hàng đã hết hạn. Vui lòng tính lại phí.')
-        toast.error('Báo giá giao hàng đã hết hạn. Vui lòng tính lại phí.', { toastId: 'delivery-quote-expired' })
-      } else if (code === 'DELIVERY_ROUTE_UNSUPPORTED') {
-        setSubmitError('Chưa hỗ trợ tuyến giao này; hãy chọn tự đến lấy.')
-        toast.error('Chưa hỗ trợ tuyến giao này; hãy chọn tự đến lấy.', { toastId: 'delivery-route-unsupported' })
+      } else if (code?.startsWith('DELIVERY_')) {
+        setQuote(null); setQuoteAccepted(false)
+        setSubmitError(getErrorMessage(error)); toast.error(getErrorMessage(error), { toastId: code })
       } else {
         const message = error.response
           ? getErrorMessage(error)
@@ -430,7 +446,7 @@ function OrderCreatePage() {
         <Header />
         <D01DemoNotice />
         <main className="mx-auto grid min-h-[620px] max-w-3xl place-items-center px-4 py-12 sm:px-6">
-          <section className="w-full rounded-2xl border border-emerald-200 bg-white p-6 text-center shadow-lg shadow-emerald-900/5 sm:p-10" aria-live="polite">
+          <section className="min-w-0 w-full break-words rounded-2xl border border-emerald-200 bg-white p-6 text-center shadow-lg shadow-emerald-900/5 sm:p-10" aria-live="polite">
             <span className="mx-auto grid size-18 place-items-center rounded-full bg-emerald-100 text-emerald-700">
               <CheckCircle2 size={38} />
             </span>
@@ -504,8 +520,8 @@ function OrderCreatePage() {
           <p className="mt-2 text-sm text-slate-500">Kiểm tra sản phẩm và thông tin nhận hàng trước khi xác nhận.</p>
         </div>
 
-        <div className="mt-7 grid overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-900/5 lg:grid-cols-[0.88fr_1.12fr]">
-          <section className="border-b border-slate-200 bg-slate-50/80 p-5 sm:p-7 lg:border-b-0 lg:border-r">
+        <div className="mt-7 grid grid-cols-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-900/5 lg:grid-cols-[0.88fr_1.12fr]">
+          <section className="min-w-0 border-b border-slate-200 bg-slate-50/80 p-5 sm:p-7 lg:border-b-0 lg:border-r">
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
               <img
                 src={listing.imageUrl || '/product-placeholder.svg'}
@@ -521,29 +537,29 @@ function OrderCreatePage() {
               <span className="rounded-lg bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-800">Còn hàng</span>
               <span className="rounded-lg bg-white px-2.5 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">{conditionLabels[listing.condition] || listing.condition}</span>
             </div>
-            <h2 className="mt-4 text-xl font-black leading-7 text-slate-900">{listing.title}</h2>
+            <h2 className="mt-4 break-words text-xl font-black leading-7 text-slate-900">{listing.title}</h2>
             <p className="mt-2 text-2xl font-black text-emerald-700">{formatCurrency(listing.price)}</p>
             <div className="mt-5 space-y-3 border-t border-slate-200 pt-5 text-sm text-slate-600">
               <p className="flex items-center gap-2"><MapPin size={17} className="shrink-0 text-emerald-600" /> {listing.location || 'Chưa cập nhật khu vực'}</p>
               <p className="flex items-center gap-2">
                 <UserRound size={17} className="shrink-0 text-emerald-600" />
-                <span>{listing.seller.name}</span>
+                <span className="min-w-0 break-words">{listing.seller.name}</span>
                 {listing.seller.verified && <BadgeCheck size={17} className="fill-sky-500 text-white" aria-label="Người bán đã xác minh" />}
               </p>
             </div>
           </section>
 
-          <form onSubmit={handleSubmit} className="p-5 sm:p-7" noValidate>
+          <form onSubmit={handleSubmit} className="min-w-0 p-5 sm:p-7" noValidate>
             <h2 className="text-xl font-black text-slate-900">Thông tin người nhận</h2>
             <div className="mt-5 grid gap-5 sm:grid-cols-2">
               <label className="block text-sm font-bold text-slate-700" htmlFor="receiver-name">
                 Họ và tên người nhận <span className="text-rose-600">*</span>
-                <input id="receiver-name" value={form.receiverName} onChange={(event) => updateField('receiverName', event.target.value)} className={inputClass} maxLength={100} autoComplete="name" aria-invalid={Boolean(errors.receiverName)} aria-describedby={errors.receiverName ? 'receiver-name-error' : undefined} />
+                <input id="receiver-name" disabled={submitting} value={form.receiverName} onChange={(event) => updateField('receiverName', event.target.value)} className={inputClass} maxLength={100} autoComplete="name" aria-invalid={Boolean(errors.receiverName)} aria-describedby={errors.receiverName ? 'receiver-name-error' : undefined} />
                 <FieldError id="receiver-name-error">{errors.receiverName}</FieldError>
               </label>
               <label className="block text-sm font-bold text-slate-700" htmlFor="receiver-phone">
                 Số điện thoại <span className="text-rose-600">*</span>
-                <input id="receiver-phone" type="tel" value={form.receiverPhone} onChange={(event) => updateField('receiverPhone', event.target.value)} className={inputClass} maxLength={15} autoComplete="tel" aria-invalid={Boolean(errors.receiverPhone)} aria-describedby={errors.receiverPhone ? 'receiver-phone-error' : undefined} />
+                <input id="receiver-phone" disabled={submitting} type="tel" value={form.receiverPhone} onChange={(event) => updateField('receiverPhone', event.target.value)} className={inputClass} maxLength={15} autoComplete="tel" aria-invalid={Boolean(errors.receiverPhone)} aria-describedby={errors.receiverPhone ? 'receiver-phone-error' : undefined} />
                 <FieldError id="receiver-phone-error">{errors.receiverPhone}</FieldError>
               </label>
             </div>
@@ -556,7 +572,7 @@ function OrderCreatePage() {
                   { value: 'DELIVERY', label: 'Giao hàng tận nơi', icon: Truck, description: preview.delivery.available ? 'Phí theo báo giá giao hàng' : preview.delivery.message },
                 ].map(({ value, label, icon: Icon, description }) => (
                   <label key={value} className={`flex cursor-pointer gap-3 rounded-xl border p-4 transition focus-within:ring-2 focus-within:ring-emerald-500 ${form.deliveryMethod === value ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 hover:border-emerald-200'}`}>
-                    <input type="radio" name="deliveryMethod" value={value} checked={form.deliveryMethod === value} onChange={() => handleMethodChange(value)} className="mt-1 accent-emerald-600" />
+                    <input type="radio" disabled={submitting} name="deliveryMethod" value={value} checked={form.deliveryMethod === value} onChange={() => handleMethodChange(value)} className="mt-1 accent-emerald-600" />
                     <span><span className="flex items-center gap-2 text-sm font-black text-slate-800"><Icon size={17} /> {label}</span><span className="mt-1 block text-xs text-slate-500">{description}</span></span>
                   </label>
                 ))}
@@ -567,7 +583,7 @@ function OrderCreatePage() {
               <div className="mt-5">
                 <label className="block text-sm font-bold text-slate-700" htmlFor="receiver-address">
                   Địa chỉ nhận hàng <span className="text-rose-600">*</span>
-                  <input id="receiver-address" value={form.receiverAddress} onChange={(event) => updateField('receiverAddress', event.target.value)} className={inputClass} maxLength={255} autoComplete="street-address" aria-invalid={Boolean(errors.receiverAddress)} aria-describedby={errors.receiverAddress ? 'receiver-address-error' : undefined} />
+                  <input id="receiver-address" disabled={submitting} value={form.receiverAddress} onChange={(event) => updateField('receiverAddress', event.target.value)} className={inputClass} maxLength={255} autoComplete="street-address" aria-invalid={Boolean(errors.receiverAddress)} aria-describedby={errors.receiverAddress ? 'receiver-address-error' : undefined} />
                   <FieldError id="receiver-address-error">{errors.receiverAddress}</FieldError>
                 </label>
                 {!preview.delivery.available ? (
@@ -576,26 +592,23 @@ function OrderCreatePage() {
                     <span>Dịch vụ ước tính phí giao hàng chưa sẵn sàng; hãy chọn tự đến lấy.</span>
                   </div>
                 ) : (
-                  <button type="button" disabled={estimating || !form.receiverAddress.trim()} onClick={handleEstimate} className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl border border-emerald-600 px-4 text-sm font-bold text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50">
-                    {estimating ? <LoaderCircle size={17} className="animate-spin" /> : <RefreshCw size={17} />}
-                    {estimating ? 'Đang tính phí...' : 'Tính phí giao hàng'}
-                  </button>
+                  <DeliveryQuotePanel context={preview.delivery} area={form.deliveryArea} vehicle={form.vehicleType} onChange={updateField} quote={quote} fresh={quoteFresh} accepted={quoteAccepted} estimating={estimating} disabled={submitting} onEstimate={handleEstimate} onAccept={() => { if (quoteFresh) setQuoteAccepted(true) }} />
                 )}
                 <FieldError id="delivery-quote-error">{errors.deliveryQuote}</FieldError>
-                {quote && !quoteValid && <p className="mt-2 text-sm font-medium text-rose-600">Báo giá giao hàng đã hết hạn. Vui lòng tính lại phí.</p>}
               </div>
             )}
 
             <label className="mt-5 block text-sm font-bold text-slate-700" htmlFor="buyer-note">
               Ghi chú <span className="font-normal text-slate-400">(không bắt buộc)</span>
-              <textarea id="buyer-note" value={form.note} onChange={(event) => updateField('note', event.target.value)} className="mt-2 min-h-24 w-full resize-y rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15" maxLength={500} placeholder="Ví dụ: Gọi điện trước khi giao" aria-invalid={Boolean(errors.note)} aria-describedby="buyer-note-help" />
+              <textarea id="buyer-note" disabled={submitting} value={form.note} onChange={(event) => updateField('note', event.target.value)} className="mt-2 min-h-24 w-full resize-y rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15" maxLength={500} placeholder="Ví dụ: Gọi điện trước khi giao" aria-invalid={Boolean(errors.note)} aria-describedby="buyer-note-help" />
               <span id="buyer-note-help" className="mt-1 flex justify-between text-xs font-normal text-slate-400"><span>{errors.note || 'Thông tin thêm cho người bán'}</span><span>{form.note.length}/500</span></span>
             </label>
 
             <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
               <div className="flex items-center justify-between gap-4 text-sm text-slate-600"><span>Tiền sản phẩm</span><strong className="text-slate-900">{formatCurrency(productAmount)}</strong></div>
-              <div className="mt-3 flex items-center justify-between gap-4 text-sm text-slate-600"><span>Phí giao hàng</span><strong className="text-slate-900">{form.deliveryMethod === 'DELIVERY' && !quoteValid ? 'Chưa có báo giá' : formatCurrency(deliveryFee)}</strong></div>
-              <div className="mt-4 flex items-end justify-between gap-4 border-t border-slate-200 pt-4"><span className="font-bold text-slate-800">Tổng thanh toán</span><strong className="text-2xl font-black text-emerald-700">{formatCurrency(totalAmount)}</strong></div>
+              <div className="mt-3 flex items-center justify-between gap-4 text-sm text-slate-600"><span>Phí giao hàng</span><strong data-testid="order-delivery-fee" className="text-slate-900">{deliveryFee === null ? 'Chưa có báo giá' : formatCurrency(deliveryFee)}</strong></div>
+              <div className="mt-4 flex items-end justify-between gap-4 border-t border-slate-200 pt-4"><span className="font-bold text-slate-800">Tổng chi phí</span><strong data-testid="order-total" className="text-2xl font-black text-emerald-700">{totalAmount === null ? 'Chưa xác định' : formatCurrency(totalAmount)}</strong></div>
+              <p className="mt-3 text-xs text-slate-600">Chuyển tiền sản phẩm cho người bán; phí giao trả trực tiếp cho tài xế. Chưa thu tiền tại bước giữ món.</p>
             </div>
 
             <div className="mt-4 flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">

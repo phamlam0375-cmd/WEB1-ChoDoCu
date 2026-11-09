@@ -101,7 +101,7 @@ function Profile() {
             {errors[key] && <span id={`error-${key}`} className="text-rose-700">{errors[key]}</span>}
           </label>)}</div>
           <datalist id="driver-vehicles">{data.vehicleTypes.map(type => <option key={type} value={type} />)}</datalist>
-          <p className="text-sm text-slate-600">Nhập mã phương tiện và khu vực khớp với tuyến đã cấu hình. Bán kính để trống nghĩa là không giới hạn theo hồ sơ; bán kính có giá trị chỉ lọc được chuyến đã có khoảng cách tuyến tin cậy. Dịch vụ báo giá và tuyến mới chưa sẵn sàng.</p>
+          <p className="text-sm text-slate-600">Nhập mã phương tiện và khu vực khớp với tuyến đã cấu hình. Bán kính để trống nghĩa là không giới hạn theo hồ sơ; bán kính có giá trị chỉ lọc được chuyến đã có khoảng cách tuyến tin cậy. Báo giá theo khu vực không cung cấp số km.</p>
           <section aria-label="QR nhận phí"><p className="font-semibold">QR nhận phí (JPG/PNG, tối đa 5MB)</p>
             <p className="text-sm">Chỉ cần bộ ngân hàng đầy đủ hoặc QR. Hệ thống kiểm tra file và quyền tải lên; chưa xác minh chủ tài khoản hay nội dung thanh toán trong QR.</p>
             {!removeQr && (qr || (data.qrValid && data.profile?.QrImageUrl)) && <PrivateQr file={qr} url={data.profile?.QrImageUrl} />}

@@ -5,7 +5,7 @@ const getStoreByOwnerId = (ownerId) => {
 };
 
 const updateStore = (ownerId, data) => {
-    return api.patch(`/stores/${ownerId}`, data);
+    return api.patch(`/stores/${ownerId}`, data, { sessionOnly: true });
 };
 
 const uploadQrImage = (file) => {

@@ -8,9 +8,9 @@ module.exports = {
   create: (values, transaction) => DriverProfiles.create(values, { transaction }),
   update: (userId, values, transaction) => DriverProfiles.update(values, { where: { UserId: userId }, transaction }),
   referenced: url => DriverProfiles.count({ where: { QrImageUrl: url } }),
-  // D12 chưa có danh mục/enum. Gợi ý mã thực tế, không tạo enum riêng cho UI.
+  // Dùng mã bảng phí D12 cùng các mã cũ đang lưu; không tạo enum riêng ở frontend.
   vehicleTypes: async () => {
-    const [rows] = await sequelize.query('SELECT DISTINCT VehicleType FROM DriverProfiles UNION SELECT DISTINCT VehicleType FROM Deliveries WHERE VehicleType IS NOT NULL');
+    const [rows] = await sequelize.query("SELECT DISTINCT VehicleType FROM DriverProfiles UNION SELECT DISTINCT VehicleType FROM Deliveries WHERE VehicleType IS NOT NULL UNION SELECT VehicleType FROM DeliveryFeeRules WHERE Status = 'ACTIVE'");
     return [...new Set(rows.map(r => r.VehicleType?.trim()).filter(Boolean))].sort();
   },
 };

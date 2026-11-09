@@ -6,10 +6,11 @@ const {
     updateStore,
 } = require('../controllers/store.controller');
 const router = express.Router();
+const { requireTokenAuth } = require('../middlewares/auth.middleware');
 
 
 router.get("/", getAllStore);
 router.get("/:ownerId", getStore);
-router.patch("/:ownerId", updateStore);
+router.patch("/:ownerId", requireTokenAuth, updateStore);
 
 module.exports = router;

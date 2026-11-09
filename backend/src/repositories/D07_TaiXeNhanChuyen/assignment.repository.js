@@ -2,6 +2,7 @@
 const { QueryTypes, Transaction, Op } = require('sequelize');
 const { sequelize, Users, PartnerApplications, DriverProfiles, Deliveries, Orders, Payments, StatusHistories } = require('../../models');
 const { notify } = require('../../services/notification.service');
+const { key: routeKey } = require('../../validators/D12_UocTinhPhiGiaoHang/fee.validator');
 
 const withTransaction = work => sequelize.transaction({ isolationLevel: Transaction.ISOLATION_LEVELS.READ_COMMITTED }, work);
 const select = (sql, replacements, transaction) => sequelize.query(sql, { replacements, type: QueryTypes.SELECT, transaction });
@@ -41,18 +42,19 @@ const ELIGIBLE = `d.Status = 'AVAILABLE' AND d.DriverId IS NULL AND d.AcceptedAt
   AND d.ReadyForPickupAt >= p.ConfirmedAt AND d.ReadyForPickupAt <= CURRENT_TIMESTAMP
   AND LENGTH(TRIM(d.PickupAddress)) > 0 AND LENGTH(TRIM(d.DeliveryAddress)) > 0
   AND d.DriverFee = o.DeliveryFee AND d.DriverFee >= 0
-  AND LOWER(TRIM(d.PickupArea)) = LOWER(:serviceArea) AND LOWER(TRIM(d.DeliveryArea)) = LOWER(:serviceArea)
-  AND LOWER(TRIM(d.VehicleType)) = LOWER(:vehicleType)
+  AND CAST(LOWER(TRIM(d.PickupArea)) AS BINARY) = CAST(:serviceArea AS BINARY)
+  AND CAST(LOWER(TRIM(d.DeliveryArea)) AS BINARY) = CAST(:serviceArea AS BINARY)
+  AND CAST(LOWER(TRIM(d.VehicleType)) AS BINARY) = CAST(:vehicleType AS BINARY)
   AND (:maxDistance IS NULL OR (d.RouteDistanceKm IS NOT NULL AND d.RouteDistanceKm >= 0 AND d.RouteDistanceKm <= :maxDistance))
   AND NOT EXISTS (SELECT 1 FROM RefundRequests r WHERE r.OrderId = o.OrderId AND r.Status <> 'REJECTED')`;
 const FROM = 'FROM Deliveries d JOIN Orders o ON o.OrderId = d.OrderId JOIN Payments p ON p.OrderId = o.OrderId';
 async function eligible(profile, filter, transaction) {
-  const replacements = { serviceArea: profile.ServiceArea.trim(), vehicleType: profile.VehicleType.trim(), maxDistance: profile.MaxDistanceKm ?? null,
+  const replacements = { serviceArea: routeKey(profile.ServiceArea), vehicleType: routeKey(profile.VehicleType), maxDistance: profile.MaxDistanceKm ?? null,
     limit: filter.limit ?? 1, offset: filter.offset ?? 0 };
   let where = ELIGIBLE;
   if (filter.id) { where += ' AND d.DeliveryId = :id'; replacements.id = filter.id; }
   for (const [key, column] of [['pickupArea', 'PickupArea'], ['deliveryArea', 'DeliveryArea'], ['vehicleType', 'VehicleType']]) {
-    if (filter[key]) { where += ` AND LOWER(TRIM(d.${column})) = LOWER(:filter_${key})`; replacements[`filter_${key}`] = filter[key]; }
+    if (filter[key]) { where += ` AND CAST(LOWER(TRIM(d.${column})) AS BINARY) = CAST(:filter_${key} AS BINARY)`; replacements[`filter_${key}`] = routeKey(filter[key]); }
   }
   const direction = filter.sort === 'newest' ? 'DESC' : 'ASC';
   const rows = await select(`SELECT d.DeliveryId AS deliveryId, d.OrderId AS orderId, d.PickupArea AS pickupArea,

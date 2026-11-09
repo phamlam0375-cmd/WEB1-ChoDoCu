@@ -1,5 +1,11 @@
 const TOKEN_KEYS = ['accessToken', 'token']
 
+function notifyAuthSessionChanged() {
+  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+    window.dispatchEvent(new Event('auth-session-changed'))
+  }
+}
+
 // Không để đăng xuất xong vẫn gửi accessToken vào D07. Guard tránh phản hồi
 // 401 của request cũ xóa nhầm phiên vừa đăng nhập ở tab hiện tại.
 export function clearSession(expectedToken) {
@@ -7,6 +13,7 @@ export function clearSession(expectedToken) {
   try {
     for (const key of [...TOKEN_KEYS, 'user', 'choDoCu.devUserId']) window.localStorage.removeItem(key)
   } catch { return false }
+  notifyAuthSessionChanged()
   return true
 }
 
@@ -58,6 +65,7 @@ export function completeLogin(session, { storage, redirectStorage, queryReturnTo
   storage.removeItem('token')
   clearDevIdentity()
   redirectStorage.removeItem('postLoginRedirect')
+  notifyAuthSessionChanged()
   navigate(returnTo, { replace: true })
 }
 

@@ -12,7 +12,8 @@ async function readState(orderId, deliveryId, tx, lock = false) {
   return state;
 }
 async function change(d, updates, tx) {
-  const [count] = await Deliveries.update({ ...updates, D10Revision: Number(d.D10Revision) + 1 }, { where: { DeliveryId: d.DeliveryId, DriverId: d.DriverId, Status: d.Status, D10Revision: d.D10Revision }, transaction: tx, logging: false });
+  // Mã của lần giao cũ không được sống lại sau FAILED -> RETRY; giữ hash để cấp mã khác.
+  const [count] = await Deliveries.update({ ...updates, ...(updates.Status ? { CompletionCodeExpiresAt: null } : {}), D10Revision: Number(d.D10Revision) + 1 }, { where: { DeliveryId: d.DeliveryId, DriverId: d.DriverId, Status: d.Status, D10Revision: d.D10Revision }, transaction: tx, logging: false });
   return count;
 }
 async function settleDriver(id, deliveryId, tx, now) {

@@ -4,6 +4,7 @@ const { matchesAmount, snapshotBank } = require('../../validators/D03_ThanhToan/
 const { refundEligibility } = require('../../controllers/refunds.controller');
 const v = require('../../validators/D06_XacNhanNhanHang/receipt.validator');
 const defaultRepository = require('../../repositories/D06_XacNhanNhanHang/receipt.repository');
+const { verifiedDelivery } = require('../D13_XacThucGiaoHangOTP/verification.policy');
 
 const SUCCESS = 'Đã xác nhận nhận hàng; đơn đã hoàn tất.';
 const date = value => value ? new Date(value).getTime() : NaN;
@@ -23,9 +24,7 @@ function receiptPolicy({ order: o, payment: p, deliveries = [], refunds = [], re
   }
   const d = deliveries.length === 1 ? deliveries[0] : null;
   if (!d || Number(d.OrderId) !== Number(o.OrderId) || !Number.isSafeInteger(Number(d.DriverId)) || Number(d.DriverId) < 1
-      || d.Status !== 'DELIVERED' || d.ReturnedAt || !proof(d.ProofUrl)
-      || !Number.isFinite(date(d.VerifiedAt)) || date(d.VerifiedAt) > now.getTime()
-      || !Number.isFinite(date(d.DeliveredAt)) || date(d.DeliveredAt) > now.getTime()) {
+      || !verifiedDelivery(d, now)) {
     return blocked('DELIVERY_NOT_VERIFIED', 'Chuyến giao chưa có đủ xác thực giao thành công và ảnh bàn giao.');
   }
   return { canConfirm: true, code: 'READY', reason: null };

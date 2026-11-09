@@ -52,6 +52,7 @@ function createAssignmentService({ repository = defaultRepository, clock = () =>
         acceptedAt: state.active.AcceptedAt, trackingUrl: `/orders/${state.active.OrderId}/tracking`,
         pickupUrl: state.active.Status === 'ACCEPTED' && state.active.OrderStatus === 'PAID' ? `/driver/deliveries/${state.active.DeliveryId}/pickup` : null,
         progressUrl: ['PICKED_UP', 'DELIVERING'].includes(state.active.Status) && ['PAID', 'IN_DELIVERY'].includes(state.active.OrderStatus) ? `/driver/deliveries/${state.active.DeliveryId}/progress` : null,
+        completionUrl: state.active.Status === 'DELIVERING' && state.active.OrderStatus === 'IN_DELIVERY' ? `/driver/deliveries/${state.active.DeliveryId}/complete` : null,
         orderStatus: state.active.OrderStatus,
         failureUrl: ['DELIVERING', 'FAILED', 'RETURNING'].includes(state.active.Status) ? `/driver/deliveries/${state.active.DeliveryId}/failure` : null,
         blocked: !['PAID', 'IN_DELIVERY'].includes(state.active.OrderStatus),
@@ -59,7 +60,7 @@ function createAssignmentService({ repository = defaultRepository, clock = () =>
         preparation: 'C07 xác nhận chuẩn bị đơn PAID và tạo chuyến từ snapshot đã chốt; không tự tạo chuyến khi thanh toán.',
         routing: 'D12 chốt phí/tuyến/phương tiện trên đơn. Chưa có dịch vụ khoảng cách; hồ sơ có bán kính chỉ thấy chuyến đã có số km tin cậy.',
         profile: 'D11: cập nhật hồ sơ và bật nhận chuyến tại /driver/profile. Không tự tạo hồ sơ hoặc bật AVAILABLE.',
-        nextStep: 'D08 xác nhận lấy hàng sau bàn giao; D09 bắt đầu giao và ghi chú tiến độ. D13 chưa triển khai; không tự xác thực giao thành công.',
+        nextStep: 'D08 xác nhận lấy hàng sau bàn giao; D09 bắt đầu giao. D13 xác thực mã người mua và ảnh bàn giao; người mua kiểm tra rồi xác nhận D06.',
       } };
     });
   }

@@ -97,7 +97,7 @@ function createPickupService({ repository = defaultRepository, storage = default
       canIssueCode: role === 'SELLER' && base.allowed && (!nextIssueAt || nextIssueAt <= now),
       canConfirm: role === 'DRIVER' && base.allowed && codes.allowed,
       progress: role === 'DRIVER' && d ? { href: `/driver/deliveries/${d.DeliveryId}/progress`, ...progressPolicy(state, driver, now) } : null,
-      trackingUrl: `/orders/${state.order.OrderId}/tracking`, nextStep: 'D09 cập nhật tiến độ sau lấy hàng. D13 chưa triển khai; không tự xác thực giao thành công hoặc hoàn tất đơn.', serverNow: now.toISOString() };
+      trackingUrl: `/orders/${state.order.OrderId}/tracking`, nextStep: 'D09 bắt đầu giao, D13 xác thực mã và ảnh bàn giao. Người mua kiểm tra sản phẩm rồi xác nhận nhận hàng qua D06.', serverNow: now.toISOString() };
   }
   async function getDriverPreview(deliveryId, user) {
     const id = v.id(deliveryId), userId = identity(user), located = await repository.locate(id);
@@ -222,4 +222,5 @@ function createPickupService({ repository = defaultRepository, storage = default
   }
   return { getDriverPreview, getSellerPreview, issueCode, confirm, getProof };
 }
-module.exports = { ...createPickupService(), createPickupService, businessPolicy, codePolicy, handoverValid, CODE_TTL_SECONDS, RESEND_SECONDS, MAX_ATTEMPTS };
+module.exports = { ...createPickupService(), createPickupService, businessPolicy, codePolicy, handoverValid, CODE_TTL_SECONDS, RESEND_SECONDS, MAX_ATTEMPTS,
+  matchesPickupCode: (id, code, hash) => bcrypt.compare(secretInput(id, code), hash) };

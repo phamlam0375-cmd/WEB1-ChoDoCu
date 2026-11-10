@@ -12,17 +12,18 @@ const LINKS = [
   { to: '/refunds', label: 'Hoàn tiền' },
   { to: '/seller/fees', label: 'Phí & hoa hồng (người bán)' },
   { to: '/seller/payments', label: 'Xác nhận nhận tiền' },
+  { to: '/credit/packages', label: 'Mua Credit' },
 ]
 
 // Khung cho các trang phân hệ B phía người dùng: báo cáo vi phạm, hoàn tiền, phí người bán.
-export default function AccountShell() {
+export default function AccountShell({ hideNavigation = false }) {
   const { userId, me, loading, error } = useDevAccount()
 
   return (
     <div className="flex min-h-screen flex-col bg-green-100">
       <Header savedCount={0} onShowSaved={() => {}} onUnavailable={() => {}} />
       <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:px-6">
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        {!hideNavigation && <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <nav className="flex flex-wrap gap-1" aria-label="Tài khoản">
             {LINKS.map((link) => (
               <NavLink
@@ -37,7 +38,7 @@ export default function AccountShell() {
             ))}
           </nav>
           <DevAccountSwitcher compact />
-        </div>
+        </div>}
         {userId && loading ? (
           <Loading />
         ) : me ? (

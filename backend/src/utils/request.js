@@ -69,7 +69,15 @@ const optionalUrl = (value, label) => {
   return url;
 };
 
-const clientIp = (req) => (req.ip || req.socket?.remoteAddress || "").slice(0, 45) || null;
+// API chạy sau nginx nên req.ip là IP của nginx. nginx luôn ghi đè X-Real-IP bằng IP người truy cập,
+// nên chỉ tin header này khi request đến từ mạng nội bộ (proxy); gọi thẳng vào API thì không giả được.
+const PRIVATE_ADDRESS = /^(::ffff:)?(127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)|^::1$|^f[cd]/i;
+const clientIp = (req) => {
+  const socketIp = req.socket?.remoteAddress || req.ip || "";
+  const realIp = req.get?.("x-real-ip");
+  const ip = realIp && PRIVATE_ADDRESS.test(socketIp) ? realIp.trim() : socketIp;
+  return ip.replace(/^::ffff:/, "").slice(0, 45) || null;
+};
 
 module.exports = {
   APP_UTC_OFFSET,

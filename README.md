@@ -44,7 +44,18 @@ Theo dõi quá trình khởi động nếu cần: `docker compose logs -f api`.
 
 ### Tài khoản thử nghiệm
 
-Đăng nhập, đăng ký và xác thực email dùng tài khoản thật. Bộ chọn **"Tài khoản thử nghiệm"** vẫn có thể dùng để kiểm tra riêng các trang quản trị và tài khoản demo: nhập mã tài khoản rồi bấm **Đổi**.
+Đăng nhập, đăng ký và xác thực email dùng tài khoản thật. Bộ chọn tài khoản thử nghiệm tắt mặc định; không dùng tài khoản trong snapshot để đăng nhập khi chấm. Các API quản trị kiểm tra role `ADMIN` từ database, tài khoản mới đăng ký chỉ có role `USER`. Database Docker và tài khoản/role được cấp trên đó là riêng trên từng máy, không được chia sẻ qua `git pull`.
+
+Để tự kiểm tra phân quyền trên máy mới:
+
+1. Chạy `docker compose up -d --build`, sau đó mở web trên URL Vite in ra ở terminal (cổng có thể là `5173`, `5174`, ...) hoặc `http://localhost:8081`.
+2. Đăng ký bằng email thật của mình. Compose development mặc định ghi OTP trong log; chạy `docker compose logs -f api`, tìm `[OTP][development]` rồi nhập mã xác minh.
+3. Mở PowerShell ở thư mục gốc repo và chạy `docker compose exec api pnpm run admin:grant -- --email email-cua-ban@example.com --confirm`, thay bằng email vừa xác minh. Lệnh chỉ cấp `ADMIN` cho user đang tồn tại, đã xác minh và hoạt động trên database local; không tạo email/mật khẩu hay dùng tài khoản mẫu.
+4. Đăng xuất rồi đăng nhập lại, mở `/admin`. Tài khoản khác chưa được cấp `ADMIN` sẽ bị chặn. Mỗi bạn muốn thử admin trên database máy mình cần cấp role riêng bằng lệnh này.
+
+Không cần file `.env` hay SMTP chỉ để thử phân quyền. Muốn gửi OTP qua email thật, tạo `backend/.env` từ `.env.example`, cấu hình `MAIL_USER`/`MAIL_PASS` rồi đặt `OTP_DELIVERY_MODE=email` trong shell hoặc `.env` ở thư mục gốc. Không commit thông tin SMTP.
+
+Các mã tài khoản liệt kê bên dưới chỉ dành cho dữ liệu minh họa khi phát triển, không dùng khi chấm đồ án.
 
 | Mã | Dùng để thử |
 |---|---|
@@ -151,7 +162,7 @@ Repo có cấu hình Docker Compose production cho VPS Linux. Cấu hình này c
 
 ## Phát triển giao diện (tự cập nhật khi sửa code)
 
-Bản ở cổng 8081 là bản build sẵn. Khi sửa frontend, chạy thêm Vite (cần Node.js 20+ và pnpm):
+Bản ở cổng 8081 là bản build sẵn. Khi sửa frontend, chạy thêm Vite (cần Node.js 20+ và pnpm 10.34.5; pnpm được ghim phiên bản giống backend):
 
 ```bash
 cd frontend
@@ -199,8 +210,120 @@ docker compose up -d --build
 | Máy từng chạy bản cũ của dự án, trang báo lỗi hoặc thiếu bảng | `git pull` rồi `docker compose up -d --build`; vẫn lỗi thì `docker compose down -v` rồi chạy lại (xóa dữ liệu cũ trên máy đó) |
 | Máy khác không thấy dữ liệu mới của mình | Làm theo mục "Chia sẻ dữ liệu giữa các máy" |
 | Trang báo "Lỗi server" ngay sau khi khởi động | Chờ API chạy xong migration (xem `docker compose logs -f api`) |
-| Trang quản trị chỉ hiện "Khu vực dành cho quản trị viên" | Nhập mã tài khoản 2 ở ô "Tài khoản thử nghiệm"; nếu dùng cổng 5173 thì khởi động lại `pnpm dev` |
+| Trang quản trị chỉ hiện "Khu vực dành cho quản trị viên" | Đăng ký/xác minh tài khoản thật, cấp role bằng lệnh `admin:grant`, rồi đăng xuất và đăng nhập lại |
 | Sửa frontend nhưng cổng 8081 không đổi | Chạy `docker compose up -d --build nginx` |
+
+## Phân hệ B: Quản trị và doanh thu
+
+Phân hệ B gồm 12 chức năng B01–B12: quản trị viên quản lý tài khoản, kiểm duyệt nội dung, xử lý hoàn tiền, thu hoa hồng và theo dõi doanh thu. Toàn bộ API quản trị nằm dưới `/api/v1/admin/*` và **chỉ vai trò ADMIN** gọi được; API phía người mua và người bán nằm dưới `/api/v1/*` và chỉ cần đăng nhập.
+
+### Cách mở thử
+
+1. Chạy web theo mục [Chạy nhanh](#chạy-nhanh-máy-mới) rồi mở http://localhost:8081/admin.
+2. Đăng nhập bằng tài khoản thật đã đăng ký/xác minh và được cấp vai trò `ADMIN` theo mục [Tài khoản thử nghiệm](#tài-khoản-thử-nghiệm). Tài khoản thường không có quyền vào trang quản trị.
+3. Menu bên trái có các trang B01–B12 như bảng dưới. Số cạnh menu là việc đang chờ xử lý (hồ sơ chờ duyệt, tin chờ duyệt, báo cáo mở, hoàn tiền chờ xử lý, hoa hồng quá hạn, phí chờ đối soát).
+
+### Danh sách chức năng
+
+| Mã | Chức năng | Trang giao diện | API chính |
+|---|---|---|---|
+| B01 | Quản lý tài khoản và phân quyền: xem, khóa/mở khóa, gán vai trò USER, ADMIN, SELLER, DRIVER | `/admin/users` | `GET/PATCH /admin/users/:id` |
+| B02 | Duyệt đăng ký đối tác: duyệt, từ chối hoặc yêu cầu bổ sung hồ sơ, xem ảnh giấy tờ | `/admin/partner-applications` | `GET/PATCH /admin/partner-applications/:id` |
+| B03 | Quản lý danh mục và lựa chọn tình trạng sản phẩm | `/admin/categories` | `/admin/categories`, `/admin/conditions` |
+| B04 | Tiếp nhận báo cáo vi phạm (người dùng gửi, admin tiếp nhận) | `/reports`, `/reports/new`, `/admin/reports` | `POST /reports`, `GET /admin/reports` |
+| B05 | Kiểm duyệt tin: duyệt, từ chối, ẩn, gỡ, khôi phục; có gợi ý của AI | `/admin/listings` | `PATCH /admin/listings/:id/review`, `POST /admin/listings/:id/ai-review` |
+| B06 | Gửi và tiếp nhận yêu cầu hoàn tiền | `/orders/:id/refund`, `/refunds`, `/admin/refunds` | `POST /orders/:id/refund-requests` |
+| B07 | Giải quyết hoàn tiền (admin, người bán, người mua) | `/admin/refunds` | `PATCH /refund-requests/:id` |
+| B08 | Hoa hồng theo đơn | `/admin/commissions`, `/seller/fees` | `GET /admin/commissions`, `GET /seller/commissions` |
+| B09 | Thu và đối soát phí | `/admin/fee-payments`, `/seller/fees` | `PATCH /admin/fee-payments/:id`, `POST /seller/fee-payments` |
+| B10 | Thống kê doanh thu và hoạt động | `/admin` | `GET /admin/statistics` |
+| B11 | Nhật ký thao tác quản trị (chỉ đọc, có xuất file) | `/admin/audit-logs` | `GET /admin/audit-logs`, `/audit-logs/export` |
+| B12 | Cấu hình quy tắc hệ thống | `/admin/settings` | `GET/PUT /admin/settings` |
+
+### Quy tắc nghiệp vụ chính
+
+**Báo cáo vi phạm (B04, B05).** Trạng thái đi từ `PENDING` (chờ) sang `PROCESSING` (đang xử lý), rồi kết thúc ở `RESOLVED` (có vi phạm) hoặc `REJECTED` (không vi phạm). Khi kết luận có vi phạm, admin có thể ẩn hoặc gỡ tin bị báo cáo và khóa người dùng; bắt buộc nhập lý do.
+
+**Kiểm duyệt tin (B05).** Tin `PENDING` có thể được duyệt hoặc từ chối. Tin đang hiển thị có thể bị ẩn hoặc gỡ; tin bị đình chỉ có thể khôi phục. Từ chối, ẩn và gỡ đều bắt buộc có lý do và người bán nhận thông báo.
+
+**Hoàn tiền (B06, B07).** Chỉ đơn đã thanh toán và còn trong hạn hoàn tiền (cấu hình `REFUND_WINDOW_DAYS`, mặc định 7 ngày sau khi hoàn tất) mới gửi được yêu cầu, và mỗi đơn chỉ có một yêu cầu đang mở. Các bước xử lý:
+
+| Bước | Ai làm | Từ trạng thái | Sang trạng thái |
+|---|---|---|---|
+| Tiếp nhận | Admin | `PENDING` | `REVIEWING` |
+| Chấp nhận (có thể sửa số tiền hoàn) | Admin | `PENDING`, `REVIEWING`, `DISPUTED` | `APPROVED` |
+| Từ chối (bắt buộc lý do, trả đơn về trạng thái cũ) | Admin | `PENDING`, `REVIEWING`, `DISPUTED` | `REJECTED` |
+| Người bán chuyển trả tiền (mã giao dịch hoặc ảnh chuyển khoản) | Người bán | `APPROVED` | `SELLER_TRANSFERRED` |
+| Người mua xác nhận đã nhận | Người mua | `SELLER_TRANSFERRED` | `COMPLETED` |
+| Người mua báo chưa nhận được | Người mua | `SELLER_TRANSFERRED` | `DISPUTED` |
+| Admin xác nhận hoàn tất khi tranh chấp | Admin | `SELLER_TRANSFERRED`, `DISPUTED` | `COMPLETED` |
+
+Khi hoàn tiền xong, đơn chuyển sang `REFUNDED` và hoa hồng của đơn được giảm theo tỷ lệ tiền hoàn trên giá sản phẩm.
+
+**Hoa hồng (B08).** Khi đơn hoàn tất, hệ thống ghi đúng một khoản hoa hồng cho đơn đó: `giá sản phẩm x tỷ lệ`, làm tròn về đồng. Tỷ lệ được chốt trên từng đơn lúc đặt, nên đổi cấu hình sau đó không ảnh hưởng đơn cũ. Mã nội dung chuyển khoản có dạng `HH` cộng mã đơn đủ 6 chữ số (ví dụ `HH000007`). Hoa hồng bằng 0 đồng được ghi là `WAIVED`. Khi hoàn tiền, khoản chưa thu được giảm tương ứng; khoản đã thu (`PAID`) hoặc đã miễn (`WAIVED`) không tự sửa mà để ghi chú cho admin đối soát tay. API `POST /admin/commissions/sync` tạo hoa hồng còn thiếu cho các đơn đã hoàn tất (trang quản trị không có nút gọi API này), nút **Nhắc các khoản quá hạn** gửi nhắc cho người bán có khoản quá hạn.
+
+**Thu và đối soát phí (B09).**
+
+| Trạng thái | Ý nghĩa |
+|---|---|
+| `UNPAID` | Người bán còn nợ |
+| `ADJUSTED` | Còn nợ sau khi điều chỉnh do hoàn tiền |
+| `REPORTED` | Người bán đã báo nộp, chờ admin đối soát |
+| `PAID` | Admin đã xác nhận thu |
+| `WAIVED` | Được miễn |
+
+Người bán báo nộp tối đa 50 khoản mỗi lần; số tiền phải khớp đúng tổng các khoản đã chọn và chỉ báo nộp được khoản của chính mình. Admin xác nhận đã thu, từ chối (khoản quay lại còn nợ, bắt buộc lý do) hoặc miễn (bắt buộc lý do), có thể xác nhận hàng loạt. Hệ thống tính tổng nợ của người bán và đánh dấu `overLimit` khi khoản chưa báo nộp vượt `SELLER_DEBT_LIMIT` (khoản đã báo nộp, đang chờ đối soát, không bị tính). Thông tin này hiện ở trang phí của người bán và hồ sơ người dùng. Hàm `isSellerOverDebtLimit` để phần đăng tin (C) chặn người bán nợ quá ngưỡng đã có sẵn nhưng **chưa được nơi nào gọi**, nên hiện chưa tự chặn đăng tin.
+
+**Thống kê (B10).** Mặc định 30 ngày gần nhất, chọn được khoảng ngày. Gồm số đơn hoàn tất và bị hủy, tổng giá trị đơn, hoa hồng phải thu và đã thu, phí tin VIP, tiền hoàn, người dùng và tin đăng mới. Doanh thu bằng hoa hồng đã thu cộng phí tin VIP.
+
+**Nhật ký thao tác (B11).** Các thao tác quan trọng của admin (duyệt, từ chối, hoàn tiền, đối soát, danh mục, hoa hồng...) được ghi cùng giá trị cũ, giá trị mới và ghi chú. Trang này chỉ đọc, xuất được file CSV, không có API sửa hay xóa nhật ký.
+
+**Cấu hình quy tắc (B12).**
+
+| Khóa | Ý nghĩa | Mặc định |
+|---|---|---|
+| `COMMISSION_RATE` | Tỷ lệ hoa hồng (%) | 5 |
+| `COMMISSION_DUE_DAYS` | Số ngày hạn nộp hoa hồng | 7 |
+| `SELLER_DEBT_LIMIT` | Ngưỡng nợ phí của người bán (đồng) | 5.000.000 |
+| `VIP_FEE` | Phí tin VIP (đồng) | 40.000 |
+| `RESERVATION_HOURS` | Thời gian giữ món (giờ) | 24 |
+| `REFUND_WINDOW_DAYS` | Hạn yêu cầu hoàn tiền (ngày) | 7 |
+| `FEE_BANK_CODE`, `FEE_BANK_ACCOUNT_NUMBER`, `FEE_BANK_ACCOUNT_HOLDER` | Tài khoản ngân hàng nhận phí (hiện mã QR cho người bán) | Dữ liệu minh họa |
+
+### Kiểm thử phần B
+
+Test chạy không cần MySQL (dùng model giả):
+
+```bash
+cd backend
+node --test tests/b05.listingAiReview.test.js tests/b07.refundCommission.test.js tests/b08.commission.test.js tests/b09.feePayment.test.js
+```
+
+| File | Kiểm tra |
+|---|---|
+| `b05.listingAiReview.test.js` | Gợi ý kiểm duyệt tin của AI |
+| `b07.refundCommission.test.js` | Điều chỉnh hoa hồng khi hoàn tiền |
+| `b08.commission.test.js` | Tính hoa hồng, hạn nộp, tổng nợ và hạn mức nợ |
+| `b09.feePayment.test.js` | Người bán báo nộp phí, admin đối soát |
+
+### Kiểm thử đăng nhập bằng database thật
+
+`frontend/tests/auth.test.js` là unit test cho logic token và điều hướng; nó mock phản hồi HTTP nên không phụ thuộc dữ liệu mẫu hoặc tài khoản thật. Để kiểm tra luồng thật, API đang chạy và database có tài khoản đã đăng ký/xác minh, đặt `AUTH_TEST_EMAIL`, `AUTH_TEST_PASSWORD`, `AUTH_TEST_EXPECT_ROLE` (`USER` hoặc `ADMIN`) và tùy chọn `AUTH_TEST_BASE_URL` (mặc định `http://localhost:3000`), rồi chạy:
+
+```bash
+cd frontend
+pnpm run test:auth:integration
+```
+
+Integration test đăng nhập vào API thật, xác minh `/me` trả đúng tài khoản/role từ database và kiểm tra quyền `/admin/my-activity`; test không tạo, sửa hay xóa dữ liệu. Không commit thông tin đăng nhập vào repository.
+
+Phần B đã được quét bằng OWASP ZAP trên bản chạy local: trang web và API quản trị không còn cảnh báo mức High, Medium hay Low. Khi chạy Docker Compose phát triển hiện tại, xác thực vẫn yêu cầu JWT thật; không dùng header thử nghiệm `x-user-id`.
+
+### Lưu ý khi chạy và nộp
+
+- Header `x-user-id` chỉ là cơ chế phát triển cũ; Compose hiện tại đặt `AUTH_DEV_HEADER=false`, còn production đặt `NODE_ENV=production`. Khi chấm, đăng nhập bằng tài khoản thật và JWT.
+- Lệnh `POST /admin/commissions/sync` và `POST /admin/commissions/remind-overdue` thay đổi dữ liệu thật; chỉ chạy khi cần.
+- Tính năng duyệt tin bằng AI cần khóa API AI trong `.env`; không có khóa thì chỉ phần AI không chạy, các chức năng khác vẫn dùng bình thường.
 
 ## Cơ sở dữ liệu
 

@@ -32,7 +32,7 @@ function ReceiptDetail({ orderId }) {
 
   useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
   useEffect(() => {
-    const token = getAccessToken()
+    const token = getAccessToken({ sessionOnly: true })
     if (!token) { login(); return undefined }
     const controller = new AbortController()
     getReceiptPreview(orderId, { signal: controller.signal }).then(result => {
@@ -49,7 +49,7 @@ function ReceiptDetail({ orderId }) {
     event.preventDefault()
     if (lock.current || !data?.policy.canConfirm) return
     if (!checked) { setError('Vui lòng xác nhận bạn đã nhận sản phẩm.'); return }
-    const token = getAccessToken()
+    const token = getAccessToken({ sessionOnly: true })
     if (!token) { login(); return }
     lock.current = true; setBusy(true); setError('')
     try {

@@ -5,6 +5,8 @@ import { useNavigate } from 'react-router-dom'
 
 function ProductCard({ product, isSaved, onToggleSave, onView, onBuy }) {
   const navigate = useNavigate()
+  const isAvailable = product.status === 'ACTIVE'
+  const availabilityLabel = product.status === 'RESERVED' ? 'Đã có người đặt' : 'Đã bán'
   const conditionStyle = product.condition === 'Như mới'
     ? 'bg-emerald-100 text-emerald-800'
     : product.condition === 'Cần sửa chữa nhẹ'
@@ -29,6 +31,7 @@ function ProductCard({ product, isSaved, onToggleSave, onView, onBuy }) {
         <div className="absolute left-3 top-3 flex max-w-[calc(100%-64px)] flex-wrap gap-1.5">
           {product.isVip && <span className="rounded-lg bg-amber-400 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-amber-950 shadow-sm">VIP</span>}
           <span className={`rounded-lg px-2.5 py-1 text-[10px] font-bold shadow-sm ${conditionStyle}`}>{product.condition}</span>
+          {!isAvailable && <span className="rounded-lg bg-slate-800/90 px-2.5 py-1 text-[10px] font-bold text-white shadow-sm">{availabilityLabel}</span>}
         </div>
         <button
           type="button"
@@ -92,10 +95,11 @@ function ProductCard({ product, isSaved, onToggleSave, onView, onBuy }) {
           <button
             type="button"
             onClick={() => onBuy(product)}
-            className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-2 text-xs font-bold text-white transition hover:bg-emerald-700"
+            disabled={!isAvailable}
+            className={`inline-flex h-10 items-center justify-center gap-1.5 rounded-xl px-2 text-xs font-bold transition ${isAvailable ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'cursor-not-allowed bg-slate-200 text-slate-500'}`}
           >
             <ShoppingBag size={15} />
-            Mua ngay
+            {isAvailable ? 'Mua ngay' : availabilityLabel}
           </button>
         </div>
       </div>

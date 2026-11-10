@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { api } from '../src/lib/api.js'
 import { getPaymentInfo, reportPayment } from '../src/services/D03_ThanhToan/paymentApi.js'
 
+// D03 GET/POST v1: demo scoped, signal, multipart file thật, tiền sản phẩm và envelope
 test('D03 GET/POST v1: demo scoped, signal, multipart file thật, tiền sản phẩm và envelope', async t => {
   const previous = api.defaults.adapter
   t.after(() => { api.defaults.adapter = previous })

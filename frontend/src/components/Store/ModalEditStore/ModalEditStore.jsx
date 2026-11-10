@@ -19,6 +19,7 @@ export default function ModalEditStore({
     const [storeName, setStoreName] = useState("");
     const [description, setDescription] = useState("");
     const [address, setAddress] = useState("");
+    const [pickupArea, setPickupArea] = useState('');
     const [longitude, setLongitude] = useState("");
     const [latitude, setLatitude] = useState("");
     const [isDemoLocation, setIsDemoLocation] = useState(false);
@@ -56,6 +57,7 @@ export default function ModalEditStore({
             setStoreName(store?.StoreName || "");
             setDescription(store?.Description || "");
             setAddress(store?.Address || "");
+            setPickupArea(store?.PickupArea || '');
             setLongitude(store?.Longitude ?? "");
             setLatitude(store?.Latitude ?? "");
             setIsDemoLocation(Boolean(store?.IsDemoLocation));
@@ -260,6 +262,7 @@ export default function ModalEditStore({
 
                 Address:
                     address.trim() || null,
+                PickupArea: pickupArea.trim() || null,
 
                 Longitude:
                     longitude === ""
@@ -357,6 +360,10 @@ export default function ModalEditStore({
                                 storeNameRef={storeNameRef}
                             />
 
+                            <label className="block text-sm font-medium text-slate-700" htmlFor="store-pickup-area">Khu vực lấy hàng
+                                <input id="store-pickup-area" className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3" maxLength={100} value={pickupArea} onChange={event => setPickupArea(event.target.value)} />
+                                <span className="mt-1 block text-xs text-slate-500">Dùng đúng tên hoặc mã khu vực của bảng phí. Địa chỉ chi tiết nhập bên dưới; hệ thống không tự đoán khu vực từ bản đồ.</span>
+                            </label>
                             <StoreLocationForm
                                 address={address}
                                 setAddress={setAddress}

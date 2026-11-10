@@ -97,6 +97,7 @@ const updateStore = async (req, res) => {
             })
         }
 
+        if (Number(req.user?.UserId) !== ownerIdResult.data) return res.status(403).json({ success: false, message: 'Chỉ chủ cửa hàng được cập nhật địa điểm và thông tin cửa hàng.' });
         await store.update(bodyResult.data);
         return res.status(200).json({
             success: true,

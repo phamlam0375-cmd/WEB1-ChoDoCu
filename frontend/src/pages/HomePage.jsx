@@ -11,12 +11,13 @@ import ProductGrid from '../components/ProductGrid'
 import SearchBar from '../components/SearchBar'
 import WhyChooseUs from '../components/WhyChooseUs'
 import { categories as fallbackCategories, conditions as fallbackConditions, locations as fallbackLocations } from '../data/mockProducts'
-import { getAllListing } from '../services/listingApi'
+import { getAllListing, getListingById, searchListings } from '../services/listingApi'
+import { getAccessToken } from '../lib/auth'
 import ListingDetail from './listing/ListingDetail'
 import { useListingStore } from '../store/useListing'
 import { matchesProductCategory } from '../utils/productFilters'
-import { searchProducts } from '../utils/searchEngine'
 import { clearSearchHistory, getSearchHistory, saveSearchHistory } from '../utils/searchHistory'
+import useSavedListings from '../hooks/useSavedListings'
 
 const defaultFilters = {
   category: 'all',
@@ -25,6 +26,18 @@ const defaultFilters = {
   condition: 'all',
   location: 'all',
   sort: 'newest',
+}
+
+function getListingImage(media) {
+  const imageUrl = media?.find((item) => item.MediaType === 'IMAGE')?.MediaUrl
+  if (!imageUrl) return '/product-placeholder.svg'
+  if (imageUrl.startsWith('/demo/listings/')) {
+    return `/api/v1/uploads/listings/${imageUrl.slice('/demo/listings/'.length)}`
+  }
+  if (imageUrl.startsWith('/listings/')) {
+    return `/api/v1/uploads${imageUrl}`
+  }
+  return imageUrl
 }
 
 function HomePage() {
@@ -37,11 +50,12 @@ function HomePage() {
   const [loading, setLoading] = useState(true)
   const [keyword, setKeyword] = useState('')
   const [appliedKeyword, setAppliedKeyword] = useState('')
+  const [searchResults, setSearchResults] = useState(null)
   const [searchCategory, setSearchCategory] = useState('all')
   const [searchLocation, setSearchLocation] = useState('all')
   const [draftFilters, setDraftFilters] = useState(defaultFilters)
   const [appliedFilters, setAppliedFilters] = useState(defaultFilters)
-  const [savedIds, setSavedIds] = useState(() => new Set())
+  const { savedIds, toggleSaved } = useSavedListings()
   const [savedOnly, setSavedOnly] = useState(false)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const [searchHistory, setSearchHistory] = useState(() => getSearchHistory())
@@ -52,10 +66,15 @@ function HomePage() {
 
     const loadListings = async () => {
       try {
-        const response = await getAllListing(1, 100)
+        const firstPage = await getAllListing(1, 100)
         if (cancelled) return
-
-        const rows = response.data || []
+        const rows = Array.isArray(firstPage.data) ? [...firstPage.data] : []
+        const totalPages = Number(firstPage.pagination?.totalPages) || 1
+        for (let page = 2; page <= totalPages; page += 1) {
+          const response = await getAllListing(page, 100)
+          if (Array.isArray(response.data)) rows.push(...response.data)
+        }
+        if (cancelled) return
         const categoryRows = [...new Map(
           rows
             .filter((item) => item.Category)
@@ -82,7 +101,7 @@ function HomePage() {
     return () => { cancelled = true }
   }, [setListing])
 
-  const products = useMemo(() => listing.map((item, index) => ({
+  const products = useMemo(() => (searchResults ?? listing).map((item, index) => ({
     id: item.ListingId,
     name: item.Title,
     price: Number(item.Price),
@@ -100,11 +119,99 @@ function HomePage() {
     sellerAvatar: item.Seller?.AvatarUrl || '',
     verified: Boolean(item.Seller?.EmailVerified),
     isVip: false,
-    isFeatured: index < 3,
-    image: item.Media?.find((media) => media.MediaType === 'IMAGE')?.MediaUrl || '/product-placeholder.svg',
-  })), [listing])
+    isFeatured: item.Status === 'ACTIVE' && index < 3,
+    image: getListingImage(item.Media),
+  })), [listing, searchResults])
+
+  useEffect(() => {
+    const q = appliedKeyword.trim();
+
+    if (!q) return;
+
+    let cancelled = false;
+
+    const loadSearch = async () => {
+      try {
+        const response = await searchListings(q, 1, 100);
+
+        if (!cancelled) {
+          setSearchResults(response.data || []);
+        }
+      } catch (error) {
+        console.error("Lỗi Elasticsearch:", error);
+
+        if (!cancelled) {
+          toast.error("Không thể tìm kiếm sản phẩm");
+          setSearchResults([]);
+        }
+      }
+    };
+
+    loadSearch();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [appliedKeyword]);
+
+  // Lắng nghe sự kiện xem chi tiết sản phẩm từ chatbox
+  useEffect(() => {
+    const handleViewListingFromChat = async (e) => {
+      const { listingId, listing: chatListing } = e.detail || {}
+      if (!listingId) return
+
+      // Thử tìm trong danh sách products đã load
+      const found = products.find((p) => Number(p.id) === Number(listingId))
+      if (found) {
+        setSelectedProduct(found)
+        return
+      }
+
+      // Nếu không có sẵn trong products, gọi API lấy chi tiết
+      try {
+        const res = await getListingById(listingId)
+        const item = res.data || res
+        setSelectedProduct({
+          id: item.ListingId,
+          name: item.Title,
+          price: Number(item.Price),
+          category: String(item.CategoryId),
+          categoryName: item.Category?.CategoryName || '',
+          description: item.Description || '',
+          knownDefects: item.KnownDefects || '',
+          status: item.Status || '',
+          condition: { NEW: 'Như mới', LIKE_NEW: 'Như mới', GOOD: 'Đã sử dụng', FAIR: 'Đã sử dụng', POOR: 'Cần sửa chữa nhẹ' }[item.ConditionLevel] || item.ConditionLevel,
+          location: item.Location || 'Chưa cập nhật',
+          postedAt: new Date(item.CreatedAt).toLocaleDateString('vi-VN'),
+          seller: item.Seller?.FullName || `Người bán #${item.SellerId}`,
+          sellerId: item.SellerId,
+          sellerAvatar: item.Seller?.AvatarUrl || '',
+          image: item.Media?.find((m) => m.MediaType === 'IMAGE')?.MediaUrl || '/product-placeholder.svg',
+        })
+      } catch {
+        // Fallback dùng tạm dữ liệu từ chat
+        if (chatListing) {
+          setSelectedProduct({
+            id: chatListing.ListingId,
+            name: chatListing.Title,
+            price: Number(chatListing.Price),
+            condition: chatListing.ConditionLevel || 'Đã sử dụng',
+            location: chatListing.Location || 'Chưa cập nhật',
+            status: chatListing.Status || '',
+            image: chatListing.Media?.[0]?.MediaUrl || '/product-placeholder.svg',
+          })
+        }
+      }
+    }
+
+    window.addEventListener('view-listing-detail', handleViewListingFromChat)
+    return () => window.removeEventListener('view-listing-detail', handleViewListingFromChat)
+  }, [products])
 
   const filteredProducts = useMemo(() => {
+    if (appliedKeyword.trim() && searchResults === null) {
+      return []
+    }
     const minPrice = Number(appliedFilters.minPrice) || 0
     const maxPrice = Number(appliedFilters.maxPrice) || Number.POSITIVE_INFINITY
     const matchesFilters = (product) => {
@@ -127,15 +234,18 @@ function HomePage() {
         })
     }
 
-    return searchProducts(products, appliedKeyword)
-      .filter(({ product }) => matchesFilters(product))
+    return products
+      .filter(matchesFilters)
       .sort((first, second) => {
-        if (appliedFilters.sort === 'price-asc') return first.product.price - second.product.price || second.score - first.score
-        if (appliedFilters.sort === 'price-desc') return second.product.price - first.product.price || second.score - first.score
-        return second.score - first.score || second.product.createdOrder - first.product.createdOrder
+        if (appliedFilters.sort === 'price-asc')
+          return first.price - second.price
+
+        if (appliedFilters.sort === 'price-desc')
+          return second.price - first.price
+
+        return 0
       })
-      .map(({ product }) => product)
-  }, [appliedFilters, appliedKeyword, categories, products, savedIds, savedOnly])
+  }, [appliedFilters, appliedKeyword, categories, products, savedIds, savedOnly, searchResults])
 
   const featuredProducts = useMemo(() => products.filter((product) => product.isFeatured), [products])
 
@@ -150,6 +260,7 @@ function HomePage() {
 
   const handleSearch = (event) => {
     event.preventDefault()
+    setSearchResults(null)
     setAppliedKeyword(keyword)
     setSearchHistory(saveSearchHistory(keyword))
     syncQuickFilters(searchCategory, searchLocation)
@@ -159,6 +270,7 @@ function HomePage() {
 
   const handleHistorySelect = (query) => {
     setKeyword(query)
+    setSearchResults(null)
     setAppliedKeyword(query)
     setSearchHistory(saveSearchHistory(query))
     syncQuickFilters(searchCategory, searchLocation)
@@ -192,6 +304,7 @@ function HomePage() {
 
   const handleResetFilters = () => {
     setKeyword('')
+    setSearchResults(null)
     setAppliedKeyword('')
     setSearchCategory('all')
     setSearchLocation('all')
@@ -202,18 +315,23 @@ function HomePage() {
   }
 
   const handleToggleSave = (productId) => {
+    if (!getAccessToken({ sessionOnly: true })) {
+      toast.info('Vui lòng đăng nhập để sử dụng tính năng này')
+      return
+    }
+
     const product = products.find((item) => item.id === productId)
     const isCurrentlySaved = savedIds.has(productId)
 
-    setSavedIds((current) => {
-      const next = new Set(current)
-      if (next.has(productId)) next.delete(productId)
-      else next.add(productId)
-      return next
-    })
+    try {
+      toggleSaved(productId)
+    } catch {
+      toast.error('Không thể cập nhật danh sách yêu thích.')
+      return
+    }
 
     toast[isCurrentlySaved ? 'info' : 'success'](
-      isCurrentlySaved ? `Đã bỏ lưu “${product.name}”` : `Đã lưu “${product.name}”`,
+      isCurrentlySaved ? `Đã bỏ lưu “${product?.name || 'sản phẩm'}”` : `Đã lưu “${product?.name || 'sản phẩm'}”`,
     )
   }
 

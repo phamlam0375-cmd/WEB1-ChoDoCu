@@ -11,6 +11,11 @@ const STATUSES = ["ACTIVE", "INACTIVE"];
 
 // Bỏ khoảng trắng thừa ở đầu, cuối và giữa các từ.
 const normalizeName = (value) => (typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "");
+// Tên hiển thị khắp website (form đăng tin, bộ lọc) nên không nhận thẻ HTML.
+const rejectHtml = (value, label) => {
+  if (/[<>]/.test(value)) throw badRequest(`${label} không được chứa ký tự < hoặc >`);
+  return value;
+};
 
 const listingCountAttributes = [
   [sequelize.literal("(SELECT COUNT(*) FROM `Listings` l WHERE l.`CategoryId` = `Categories`.`CategoryId`)"), "ListingCount"],
@@ -29,7 +34,7 @@ const readCategoryInput = (body, { partial }) => {
     const name = normalizeName(body.CategoryName);
     if (!name) throw badRequest("Vui lòng nhập tên danh mục");
     if (name.length > 100) throw badRequest("Tên danh mục tối đa 100 ký tự");
-    data.CategoryName = name;
+    data.CategoryName = rejectHtml(name, "Tên danh mục");
   }
   if (body.Description !== undefined) {
     data.Description = text(body.Description, "mô tả", { max: 300 });
@@ -203,7 +208,7 @@ const readConditionInput = (body, { partial }) => {
     const label = normalizeName(body.Label);
     if (!label) throw badRequest("Vui lòng nhập tên tình trạng");
     if (label.length > 60) throw badRequest("Tên tình trạng tối đa 60 ký tự");
-    data.Label = label;
+    data.Label = rejectHtml(label, "Tên tình trạng");
   }
   if (body.Description !== undefined) data.Description = text(body.Description, "mô tả", { max: 200 });
   if (body.Status !== undefined) data.Status = oneOf(body.Status, STATUSES, "Trạng thái");

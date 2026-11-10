@@ -1,6 +1,7 @@
 const express = require("express");
 
 const { requireAuth, requireRole } = require("../middlewares/auth.middleware");
+const { ensureBody } = require("../middlewares/ensureBody");
 const users = require("../controllers/adminUsers.controller");
 const partners = require("../controllers/adminPartnerApplications.controller");
 const categories = require("../controllers/categories.controller");
@@ -12,10 +13,11 @@ const commissions = require("../controllers/commissions.controller");
 const statistics = require("../controllers/statistics.controller");
 const auditLogs = require("../controllers/auditLogs.controller");
 const settings = require("../controllers/settings.controller");
+const credit = require("../controllers/credit.controller");
 
 // Phân hệ B: mọi API /api/v1/admin/* yêu cầu đăng nhập và vai trò ADMIN.
 const router = express.Router();
-router.use(requireAuth, requireRole("ADMIN"));
+router.use(requireAuth, requireRole("ADMIN"), ensureBody);
 
 // B01 Quản lý tài khoản và phân quyền
 // Tìm kiếm nhanh trên thanh tiêu đề
@@ -80,5 +82,9 @@ router.get("/my-activity", auditLogs.getMyActivity);
 // B12 Cấu hình quy tắc hệ thống
 router.get("/settings", settings.getSettings);
 router.put("/settings", settings.saveSettings);
+
+//C05
+router.get("/credit-deposits", credit.listPendingDeposits);
+router.patch("/credit-deposits/:id", credit.reviewDeposit);
 
 module.exports = router;

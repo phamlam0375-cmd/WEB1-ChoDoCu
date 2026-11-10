@@ -3,6 +3,7 @@ import { test } from 'node:test'
 import { api } from '../src/lib/api.js'
 import { cancelOrder, getCancellationPreview } from '../src/services/D02_HuyDonHang/cancellationApi.js'
 
+// D02 GET/PATCH dùng đúng ID, opt-in demo cùng D01, signal và envelope chuẩn
 test('D02 GET/PATCH dùng đúng ID, opt-in demo cùng D01, signal và envelope chuẩn', async t => {
   const adapter = api.defaults.adapter
   t.after(() => { api.defaults.adapter = adapter })

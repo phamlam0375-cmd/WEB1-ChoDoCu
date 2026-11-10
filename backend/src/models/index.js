@@ -1,7 +1,9 @@
 "use strict";
 
 // Nạp các model và khai báo quan hệ ở một chỗ để include giữa các bảng dùng được ở mọi controller.
+const { DataTypes } = require("sequelize");
 const sequelize = require("../database");
+const DeliveryFeeRules = require('./D12_UocTinhPhiGiaoHang/DeliveryFeeRules.model');
 const Users = require("./Users.model");
 const Roles = require("./Roles.model");
 const UserRoles = require("./UserRoles.model");
@@ -25,6 +27,13 @@ const VerificationCodes = require("./VerificationCodes.model");
 const Store = require("./Store.model");
 const DriverProfiles = require("./DriverProfiles.model");
 const Deliveries = require("./Deliveries.model");
+const Conversations = require("./Conversations.model");
+const ConversationParticipants = require("./ConversationParticipants.model");
+const Messages = require("./Messages.model");
+const CreditPackages = require("./CreditPackaged.model")(sequelize, DataTypes);
+const UserCredits = require("./UserCredit.model")(sequelize, DataTypes);
+const PromotionOrders = require("./PromotionOrder.model")(sequelize, DataTypes);
+const CreditTransactions = require("./CreditTransaction.model")(sequelize, DataTypes);
 
 Users.belongsToMany(Roles, { through: UserRoles, foreignKey: "UserId", otherKey: "RoleId", as: "Roles" });
 Roles.belongsToMany(Users, { through: UserRoles, foreignKey: "RoleId", otherKey: "UserId", as: "Users" });
@@ -68,7 +77,30 @@ AdminAuditLogs.belongsTo(Users, { foreignKey: "AdminId", as: "Admin" });
 SystemSettings.belongsTo(Users, { foreignKey: "UpdatedBy", as: "Updater" });
 VerificationCodes.belongsTo(Users, { foreignKey: "UserId", as: "User" });
 
+Conversations.belongsTo(Listings, { foreignKey: "ListingId", as: "Listing" });
+Conversations.belongsTo(Orders, { foreignKey: "OrderId", as: "Order" });
+Conversations.belongsTo(Users, { foreignKey: "BuyerId", as: "Buyer" });
+Conversations.belongsTo(Users, { foreignKey: "CreatedBy", as: "Creator" });
+Conversations.hasMany(Messages, { foreignKey: "ConversationId", as: "Messages" });
+Conversations.hasMany(ConversationParticipants, { foreignKey: "ConversationId", as: "Participants" });
+
+ConversationParticipants.belongsTo(Conversations, { foreignKey: "ConversationId", as: "Conversation" });
+ConversationParticipants.belongsTo(Users, { foreignKey: "UserId", as: "User" });
+ConversationParticipants.belongsTo(Messages, { foreignKey: "LastReadMessageId", as: "LastReadMessage" });
+
+Messages.belongsTo(Conversations, { foreignKey: "ConversationId", as: "Conversation" });
+Messages.belongsTo(Users, { foreignKey: "SenderId", as: "Sender" });
+
+CreditPackages.hasMany(CreditTransactions, { foreignKey: "PackageId", as: "transactions" });
+UserCredits.belongsTo(Users, { foreignKey: "UserId", as: "user" });
+PromotionOrders.belongsTo(Users, { foreignKey: "BuyerId", as: "buyer" });
+PromotionOrders.hasMany(CreditTransactions, { foreignKey: "PromotionOrderId", as: "transactions" });
+CreditTransactions.belongsTo(Users, { foreignKey: "UserId", as: "user" });
+CreditTransactions.belongsTo(CreditPackages, { foreignKey: "PackageId", as: "package" });
+CreditTransactions.belongsTo(PromotionOrders, { foreignKey: "PromotionOrderId", as: "promotionOrder" });
+
 module.exports = {
+  DeliveryFeeRules,
   sequelize,
   Users,
   Roles,
@@ -93,4 +125,11 @@ module.exports = {
   Store,
   DriverProfiles,
   Deliveries,
+  Conversations,
+  ConversationParticipants,
+  Messages,
+  CreditPackages,
+  UserCredits,
+  PromotionOrders,
+  CreditTransactions,
 };

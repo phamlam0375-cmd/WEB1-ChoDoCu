@@ -27,6 +27,7 @@ function jwt() {
 }
 
 async function fixture(t) {
+  t.mock.method(require('../src/services/deliveryFee.service'), 'getContext', async () => ({ available: true, pickup: null, routes: [], vehicleTypes: [] }));
   const keys = ['NODE_ENV', 'AUTH_DEV_HEADER', 'JWT_SECRET'];
   const saved = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
   Object.assign(process.env, { NODE_ENV: 'development', AUTH_DEV_HEADER: 'true', JWT_SECRET: SECRET });
@@ -82,7 +83,7 @@ test('preview JWT o hai prefix den controller/service that va tra contract front
     assert.equal(result.body.data.listing.isOwnListing, false);
     assert.equal(result.body.data.listing.isAvailable, true);
     assert.deepEqual(result.body.data.buyer, { fullName: buyer.FullName, phone: buyer.Phone, address: buyer.Address });
-    assert.equal(result.body.data.delivery.available, false);
+    assert.equal(result.body.data.delivery.available, true);
     assert.ok(result.body.data.reservationMinutes > 0);
   }
   assert.equal(previewLookup.mock.callCount(), 2);

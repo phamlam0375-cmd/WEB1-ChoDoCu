@@ -38,7 +38,8 @@ async function person(label, { application = 'APPROVED', driver = true, profile 
     PasswordHash: await bcrypt.hash(password, 4), Status: 'ACTIVE', EmailVerified: true, PhoneVerified: true });
   if (driver) await UserRoles.create({ UserId: user.UserId, RoleId: (await Roles.findOne({ where: { RoleName: 'DRIVER' } })).RoleId });
   if (application) await PartnerApplications.create({ UserId: user.UserId, PartnerType: application === 'SELLER' ? 'SELLER' : 'DRIVER', Status: application === 'SELLER' ? 'APPROVED' : application });
-  if (profile) await DriverProfiles.create({ UserId: user.UserId, VehicleType: 'MOTORBIKE', VehiclePlate: 'FIXTURE', ServiceArea: 'AREA_1', MaxDistanceKm: maxDistance, AvailabilityStatus: availability });
+  if (profile) await DriverProfiles.create({ UserId: user.UserId, VehicleType: 'MOTORBIKE', VehiclePlate: 'FIXTURE', ServiceArea: 'AREA_1', MaxDistanceKm: maxDistance, AvailabilityStatus: availability,
+    BankName: 'TEST BANK', BankAccountNumber: '0012345678', BankAccountHolder: 'TEST DRIVER' });
   const login = await request('/api/auth/login', { method: 'POST', body: { email: user.Email, password } });
   assert.equal(login.status, 200, 'Đăng nhập bằng API thật');
   tokens.set(user.UserId, login.body.token);
@@ -149,7 +150,19 @@ async function main() {
     for (const user of [own, buyer, seller]) {
       const response = await request(`/api/v1/orders/${sample.order.OrderId}/tracking`, { user }); assert.equal(response.status, 200);
       assert.equal(response.body.data.deliveries[0].driver.userId, own.UserId); assert.ok(response.body.data.histories.some(h => h.group === 'DELIVERY' && h.status === 'ACCEPTED'));
-      assert.ok(!/CodeHash|PickupCode|CompletionCode|ProofUrl|BankAccountSnapshot/.test(JSON.stringify(response.body.data)));
+      // D08 thêm pickupProofUrl (endpoint có kiểm tra quyền), kể cả null. Không coi
+      // tên endpoint/capability là mã hoặc file bí mật bị rò rỉ.
+      const forbidden = /CodeHash|PasswordHash|BankAccountSnapshot|BankAccountNumber|BankAccountHolder|QrImageUrl|PickupProofKey|^ProofUrl$|^CompletionCode$/i;
+      function verifyPrivate(value, parent = '') {
+        if (!value || typeof value !== 'object') return;
+        for (const [key, child] of Object.entries(value)) {
+          assert.equal(forbidden.test(key), false, `Không lộ trường bí mật ${key}`);
+          if (key.toLowerCase() === 'pickupcode') assert.ok(parent === 'capabilities' && child && typeof child === 'object' && typeof child.enabled === 'boolean', 'Chỉ cho capability, không trả mã lấy hàng');
+          if (key === 'pickupProofUrl') assert.ok(child === null || child === `/api/v1/orders/${sample.order.OrderId}/deliveries/${current.DeliveryId}/pickup-proof`, 'Chỉ trả endpoint bằng chứng được phân quyền');
+          verifyPrivate(child, key);
+        }
+      }
+      verifyPrivate(response.body.data);
     }
     assert.equal((await request(`/api/v1/orders/${sample.order.OrderId}/tracking`, { user: other })).status, 403);
     assert.equal((await request(`/api/v1/orders/${sample.order.OrderId}/tracking`, { headers: { 'x-user-id': String(own.UserId) } })).status, 401, 'Không được giả danh assigned driver bằng header dev');

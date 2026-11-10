@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { RefreshCw } from 'lucide-react'
 import { Card, ErrorState, Loading, PageHeader } from '../../components/admin/AdminUi'
+import PrepareDeliveryPanel from '../../components/D12_UocTinhPhiGiaoHang/PrepareDeliveryPanel'
 import { btn } from '../../components/admin/styles'
 import TrackingTimeline from '../../components/D05_TheoDoiDonHang/TrackingTimeline'
 import ReservationCountdown from '../../components/D05_TheoDoiDonHang/ReservationCountdown'
@@ -9,9 +10,13 @@ import { useTrackingResource } from '../../components/D05_TheoDoiDonHang/useTrac
 import { getOrderTracking } from '../../services/D05_TheoDoiDonHang/trackingApi'
 import { formatDateTime, formatDecimalMoney } from '../../lib/format'
 import { ORDER_STATUS, PAYMENT_STATUS, DELIVERY_STATUS, REFUND_STATUS } from '../../lib/labels'
+import PickupProof from '../../components/D08_XacNhanLayHang/PickupProof'
+import CompletionProof from '../../components/D13_XacThucGiaoHangOTP/CompletionProof'
+import BuyerCodePanel from '../../components/D13_XacThucGiaoHangOTP/BuyerCodePanel'
 
 const load = ({ orderId, historyPage }, signal) => getOrderTracking(orderId, { historyPage, historyLimit: 20 }, { signal })
-const actionLabels = { cancel: 'Hủy đơn', payment: 'Thanh toán / Báo chuyển tiền', confirmPayment: 'Xác nhận nhận tiền', rejectOrder: 'Từ chối đơn hàng', refund: 'Yêu cầu hoàn tiền', receive: 'Xác nhận nhận hàng', chat: 'Liên hệ tài xế' }
+const actionLabels = { cancel: 'Hủy đơn', payment: 'Thanh toán / Báo chuyển tiền', confirmPayment: 'Xác nhận nhận tiền', rejectOrder: 'Từ chối đơn hàng', refund: 'Yêu cầu hoàn tiền', receive: 'Xác nhận nhận hàng', chat: 'Liên hệ tài xế', pickup: 'Xác nhận đã lấy hàng', pickupCode: 'Bàn giao và cấp mã lấy hàng', deliveryProgress: 'Cập nhật tiến độ giao hàng' }
+actionLabels.deliveryFailure = 'Giao thất bại / Chuyển hoàn'
 function TrackingDetail({ orderId }) {
   const [historyPage, setHistoryPage] = useState(1)
   const { data, loading, error, notice, refresh } = useTrackingResource(load, JSON.stringify({ orderId, historyPage }), true)
@@ -65,17 +70,27 @@ function TrackingDetail({ orderId }) {
               {d.driver && <p>Tài xế: {d.driver.name || 'Đã phân công'}{d.driver.phone ? ` · ${d.driver.phone}` : ''}</p>}
               <p className="break-words">Lấy hàng: {d.pickupAddress}</p><p className="break-words">Giao đến: {d.deliveryAddress}</p>
               <p>Phí chuyến đã lưu: {formatDecimalMoney(d.driverFee)}</p>
+              <p>Thất bại đã ghi nhận: {d.failureCount || 0} · Đã bắt đầu giao lại: {d.retryCount || 0}</p>
+              {d.scheduledAt && <p>Lịch giao lại đã lưu: {formatDateTime(d.scheduledAt)} (chưa tự bắt đầu)</p>}
+              {['RETURNING', 'RETURNED'].includes(d.status) && <p className="text-amber-800">{d.refundHandoff?.message}</p>}
+              {d.refundHandoff?.href && <Link className={btn.secondary} to={d.refundHandoff.href}>Tiếp tục yêu cầu hoàn tiền B06</Link>}
               {[[d.acceptedAt, 'Nhận chuyến'], [d.pickedUpAt, 'Lấy hàng'], [d.deliveredAt, 'Giao thành công'], [d.returnedAt, 'Trả hàng']].filter(([at]) => at).map(([at, label]) => <p key={label}>{label}: {formatDateTime(at)}</p>)}
               {d.failureReason && <p className="whitespace-pre-wrap text-rose-700">Lý do giao chưa thành công: {d.failureReason}</p>}
+              {d.pickupProofUrl && <PickupProof orderId={data.orderId} deliveryId={d.deliveryId} />}
+              {d.verifiedAt && <p>Xác thực giao hàng: {formatDateTime(d.verifiedAt)}</p>}
+              {d.completionProofUrl && <CompletionProof orderId={data.orderId} deliveryId={d.deliveryId} />}
+              {data.viewer.role === 'DRIVER' && d.status === 'DELIVERING' && <Link className={btn.primary} to={`/driver/deliveries/${d.deliveryId}/complete`}>Xác thực giao hàng</Link>}
             </section>)}
           </>}
           {data.buyerNote && <p className="mt-4 whitespace-pre-wrap break-words text-sm text-slate-600">Ghi chú đặt hàng: {data.buyerNote}</p>}
         </Card>
       </div>
+      {data.viewer.role === 'BUYER' && data.deliveryMethod === 'DELIVERY' && ['IN_DELIVERY', 'DELIVERED'].includes(data.orderStatus) && <BuyerCodePanel orderId={data.orderId} onVerified={data.orderStatus === 'IN_DELIVERY' ? refresh : undefined} />}
       {data.cancelReason && <Card className="mt-5 p-5"><h2 className="font-bold">Lý do hủy</h2><p className="mt-2 whitespace-pre-wrap break-words text-sm">{data.cancelReason}</p></Card>}
       {!!data.refunds.length && <Card className="mt-5 p-5"><h2 className="font-bold">Hoàn tiền</h2>{data.refunds.map(r => <div key={r.refundId} className="mt-4 text-sm"><p className="font-semibold">Yêu cầu #{r.refundId} · {REFUND_STATUS[r.status]?.label || 'Trạng thái khác'}</p><p>{formatDecimalMoney(r.amount)} · {formatDateTime(r.requestedAt)}</p><p className="mt-1 whitespace-pre-wrap break-words">{r.reason}</p></div>)}</Card>}
       <Card className="mt-5 p-5">
         <h2 className="font-bold">Thao tác liên quan</h2>
+        {data.viewer.role === 'SELLER' && data.deliveryMethod === 'DELIVERY' && data.orderStatus === 'PAID' && !data.deliveries.length && <PrepareDeliveryPanel orderId={data.orderId} onSaved={refresh} />}
         <div className="mt-4 flex flex-wrap gap-3">{Object.entries(data.capabilities).filter(([, action]) => action.enabled && action.href).map(([key, action]) => <Link key={key} to={action.href} className={btn.secondary}>{actionLabels[key]}</Link>)}</div>
         <ul className="mt-4 space-y-2 text-sm text-slate-500">{Object.entries(data.capabilities).filter(([key, action]) => !action.enabled && (data.viewer.role === 'BUYER' ? key !== 'confirmPayment' && key !== 'rejectOrder' : key === 'confirmPayment' || key === 'rejectOrder' || key === 'chat')).map(([key, action]) => <li key={key}>{actionLabels[key]}: {action.reason}</li>)}</ul>
       </Card>

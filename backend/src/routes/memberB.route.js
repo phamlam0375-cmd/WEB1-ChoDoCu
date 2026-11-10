@@ -1,12 +1,14 @@
 const express = require("express");
 
 const { requireAuth } = require("../middlewares/auth.middleware");
+const { ensureBody } = require("../middlewares/ensureBody");
 const uploads = require("../controllers/uploads.controller");
 const banks = require("../controllers/banks.controller");
 const categories = require("../controllers/categories.controller");
 const reports = require("../controllers/reports.controller");
 const refunds = require("../controllers/refunds.controller");
 const commissions = require("../controllers/commissions.controller");
+const profile = require("../controllers/profile.controller");
 
 // Phân hệ B — các API phía người dùng/người bán (không cần quyền ADMIN).
 const router = express.Router();
@@ -19,8 +21,16 @@ router.post(
   uploads.uploadImage
 );
 
+// Các API JSON bên dưới: request không có body thì coi như {} (trả 400 thay vì lỗi 500).
+router.use(ensureBody);
+
 // Thông tin tài khoản đang đăng nhập (vai trò) để giao diện hiển thị đúng menu.
-router.get("/me", requireAuth, (req, res) => res.status(200).json({ success: true, data: req.user }));
+// Chỉ trả thông tin tài khoản, không trả các claim của token (iat, exp, sub).
+const ME_FIELDS = ["userId", "UserId", "FullName", "Email", "Phone", "Address", "AvatarUrl", "Status", "roles"];
+router.get("/me", requireAuth, (req, res) =>
+  res.status(200).json({ success: true, data: Object.fromEntries(ME_FIELDS.map((key) => [key, req.user[key]])) })
+);
+router.patch("/me", requireAuth, profile.updateProfile);
 
 // B03 Danh mục và tình trạng sản phẩm dùng chung
 router.get("/categories", categories.listActiveCategories);

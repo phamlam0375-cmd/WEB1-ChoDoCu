@@ -41,6 +41,7 @@ const Store = sequelize.define(
         type: DataTypes.STRING(255),
         allowNull: true,
       },
+      PickupArea: { type: DataTypes.STRING(100), allowNull: true },
 
       Latitude: {
         type: DataTypes.DECIMAL(10, 7),

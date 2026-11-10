@@ -26,6 +26,13 @@ import SellerStore from './pages/Store/SellerStore'
 import { ToastContainer } from 'react-toastify'
 import VerifyEmail from './pages/VerifyEmail'
 import AvailableDeliveriesPage from './pages/D07_TaiXeNhanChuyen/AvailableDeliveriesPage'
+import PickupPage from './pages/D08_XacNhanLayHang/PickupPage'
+import DeliveryProgressPage from './pages/D09_CapNhatTienDoGiaoHang/DeliveryProgressPage'
+import DeliveryCompletePage from './pages/D13_XacThucGiaoHangOTP/DeliveryCompletePage'
+import OrderReceivedPage from './pages/D06_XacNhanNhanHang/OrderReceivedPage'
+import DeliveryFailurePage from './pages/D10_ThatBai_HoanTra/DeliveryFailurePage'
+import DriverProfilePage from './pages/D11_HoSoVanHanhTaiXe/DriverProfilePage'
+import ChatWidget from './components/Chat/ChatWidget'
 
 // Phân hệ B: quản trị và doanh thu (tải khi cần để không làm nặng trang chủ)
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'))
@@ -42,6 +49,7 @@ const AdminAuditLogsPage = lazy(() => import('./pages/admin/AdminAuditLogsPage')
 const AdminSettingsPage = lazy(() => import('./pages/admin/AdminSettingsPage'))
 const AdminProfilePage = lazy(() => import('./pages/admin/AdminProfilePage'))
 const AccountShell = lazy(() => import('./pages/account/AccountShell'))
+const ProfilePage = lazy(() => import('./pages/account/ProfilePage'))
 const ReportCreatePage = lazy(() => import('./pages/account/ReportCreatePage'))
 const MyReportsPage = lazy(() => import('./pages/account/MyReportsPage'))
 const RefundCreatePage = lazy(() => import('./pages/account/RefundCreatePage'))
@@ -69,10 +77,17 @@ function App() {
         <Route path="/orders/create/:listingId" element={<OrderCreatePage />} />
         <Route path="/orders/:orderId/cancel" element={<OrderCancelPage />} />
         <Route path="/orders/:orderId/payment" element={<OrderPaymentPage />} />
+        <Route path="/orders/:orderId/received" element={<OrderReceivedPage />} />
         <Route path="/seller/orders/:orderId/reject" element={<OrderRejectPage />} />
 
         <Route path="/partner-application" element={<RegisterApplication />} />
         <Route path="/driver/deliveries" element={<AvailableDeliveriesPage />} />
+        <Route path="/driver/profile" element={<DriverProfilePage />} />
+        <Route path="/driver/deliveries/:deliveryId/pickup" element={<PickupPage />} />
+        <Route path="/driver/deliveries/:deliveryId/progress" element={<DeliveryProgressPage />} />
+        <Route path="/driver/deliveries/:deliveryId/complete" element={<DeliveryCompletePage />} />
+        <Route path="/driver/deliveries/:deliveryId/failure" element={<DeliveryFailurePage />} />
+        <Route path="/seller/orders/:orderId/pickup-code" element={<PickupPage seller />} />
         <Route path="store/:ownerId" element={<PublicStore />} />
         <Route path="/seller/store" element={<SellerStore />} />
         
@@ -110,6 +125,7 @@ function App() {
             <Route path="/orders/:orderId/tracking" element={<OrderTrackingPage />} />
           </Route>
           <Route element={<AccountShell />}>
+            <Route path="/profile" element={<ProfilePage />} />
             <Route path="/seller/payments" element={<SellerPaymentsPage />} />
             <Route path="/seller/orders/:orderId/payment" element={<SellerPaymentPage />} />
             <Route path="/reports" element={<MyReportsPage />} />
@@ -133,6 +149,8 @@ function App() {
         newestOnTop
         theme="light"
       />
+
+      <ChatWidget />
     </>
   )
 }

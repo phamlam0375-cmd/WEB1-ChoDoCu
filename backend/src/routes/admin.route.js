@@ -13,6 +13,7 @@ const commissions = require("../controllers/commissions.controller");
 const statistics = require("../controllers/statistics.controller");
 const auditLogs = require("../controllers/auditLogs.controller");
 const settings = require("../controllers/settings.controller");
+const credit = require("../controllers/credit.controller");
 
 // Phân hệ B: mọi API /api/v1/admin/* yêu cầu đăng nhập và vai trò ADMIN.
 const router = express.Router();
@@ -81,5 +82,9 @@ router.get("/my-activity", auditLogs.getMyActivity);
 // B12 Cấu hình quy tắc hệ thống
 router.get("/settings", settings.getSettings);
 router.put("/settings", settings.saveSettings);
+
+//C05
+router.get("/credit-deposits", credit.listPendingDeposits);
+router.patch("/credit-deposits/:id", credit.reviewDeposit);
 
 module.exports = router;

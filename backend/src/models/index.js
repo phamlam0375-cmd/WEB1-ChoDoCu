@@ -30,6 +30,7 @@ const Deliveries = require("./Deliveries.model");
 const Conversations = require("./Conversations.model");
 const ConversationParticipants = require("./ConversationParticipants.model");
 const Messages = require("./Messages.model");
+const Reviews = require("./Reviews.model");
 const CreditPackages = require("./CreditPackaged.model")(sequelize, DataTypes);
 const UserCredits = require("./UserCredit.model")(sequelize, DataTypes);
 const PromotionOrders = require("./PromotionOrder.model")(sequelize, DataTypes);
@@ -91,6 +92,11 @@ ConversationParticipants.belongsTo(Messages, { foreignKey: "LastReadMessageId", 
 Messages.belongsTo(Conversations, { foreignKey: "ConversationId", as: "Conversation" });
 Messages.belongsTo(Users, { foreignKey: "SenderId", as: "Sender" });
 
+Orders.hasMany(Reviews, { foreignKey: "OrderId", as: "Reviews" });
+Reviews.belongsTo(Orders, { foreignKey: "OrderId", as: "Order" });
+Reviews.belongsTo(Users, { foreignKey: "ReviewerId", as: "reviewer" });
+Reviews.belongsTo(Users, { foreignKey: "TargetUserId", as: "target" });
+
 CreditPackages.hasMany(CreditTransactions, { foreignKey: "PackageId", as: "transactions" });
 UserCredits.belongsTo(Users, { foreignKey: "UserId", as: "user" });
 PromotionOrders.belongsTo(Users, { foreignKey: "BuyerId", as: "buyer" });
@@ -128,6 +134,7 @@ module.exports = {
   Conversations,
   ConversationParticipants,
   Messages,
+  Reviews,
   CreditPackages,
   UserCredits,
   PromotionOrders,

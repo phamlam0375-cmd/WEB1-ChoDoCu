@@ -9,6 +9,7 @@ const reports = require("../controllers/reports.controller");
 const refunds = require("../controllers/refunds.controller");
 const commissions = require("../controllers/commissions.controller");
 const profile = require("../controllers/profile.controller");
+const reviews = require("../controllers/reviews.controller");
 
 // Phân hệ B — các API phía người dùng/người bán (không cần quyền ADMIN).
 const router = express.Router();
@@ -58,5 +59,9 @@ router.get("/seller/commissions", requireAuth, commissions.listSellerCommissions
 router.get("/fee-account", requireAuth, banks.getFeeAccount);
 router.get("/seller/fee-payments", requireAuth, commissions.getSellerFeeOverview);
 router.post("/seller/fee-payments", requireAuth, commissions.reportFeePayment);
+
+router.get("/orders/:orderId/reviews", requireAuth, reviews.listOrderReviews);
+router.post("/orders/:orderId/reviews", requireAuth, reviews.createReview);
+router.patch("/reviews/:reviewId/reply", requireAuth, reviews.replyReview);
 
 module.exports = router;

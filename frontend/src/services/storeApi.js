@@ -8,8 +8,8 @@ const updateStore = (ownerId, data) => {
     return api.patch(`/stores/${ownerId}`, data, { sessionOnly: true });
 };
 
-const uploadQrImage = (file) => {
-    return api.post("/v1/uploads", file, {
+const uploadQrImage = (ownerId, file) => {
+    return api.post(`/stores/${encodeURIComponent(ownerId)}/qr`, file, {
         headers: {
             "Content-Type": file.type,
         },

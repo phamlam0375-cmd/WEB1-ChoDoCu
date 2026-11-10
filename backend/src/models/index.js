@@ -92,10 +92,8 @@ ConversationParticipants.belongsTo(Messages, { foreignKey: "LastReadMessageId", 
 Messages.belongsTo(Conversations, { foreignKey: "ConversationId", as: "Conversation" });
 Messages.belongsTo(Users, { foreignKey: "SenderId", as: "Sender" });
 
-Orders.hasMany(Reviews, { foreignKey: "OrderId", as: "Reviews" });
-Reviews.belongsTo(Orders, { foreignKey: "OrderId", as: "Order" });
-Reviews.belongsTo(Users, { foreignKey: "ReviewerId", as: "reviewer" });
-Reviews.belongsTo(Users, { foreignKey: "TargetUserId", as: "target" });
+Store.belongsTo(Users, { foreignKey: "OwnerId", as: "Owner" });
+Users.hasOne(Store, { foreignKey: "OwnerId", as: "Store" });
 
 CreditPackages.hasMany(CreditTransactions, { foreignKey: "PackageId", as: "transactions" });
 UserCredits.belongsTo(Users, { foreignKey: "UserId", as: "user" });

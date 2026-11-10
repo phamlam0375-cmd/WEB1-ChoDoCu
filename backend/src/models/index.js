@@ -30,6 +30,7 @@ const Deliveries = require("./Deliveries.model");
 const Conversations = require("./Conversations.model");
 const ConversationParticipants = require("./ConversationParticipants.model");
 const Messages = require("./Messages.model");
+const Reviews = require("./Reviews.model");
 const CreditPackages = require("./CreditPackaged.model")(sequelize, DataTypes);
 const UserCredits = require("./UserCredit.model")(sequelize, DataTypes);
 const PromotionOrders = require("./PromotionOrder.model")(sequelize, DataTypes);
@@ -131,6 +132,7 @@ module.exports = {
   Conversations,
   ConversationParticipants,
   Messages,
+  Reviews,
   CreditPackages,
   UserCredits,
   PromotionOrders,

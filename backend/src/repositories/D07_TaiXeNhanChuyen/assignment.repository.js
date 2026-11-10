@@ -2,11 +2,12 @@
 const { QueryTypes, Transaction, Op } = require('sequelize');
 const { sequelize, Users, PartnerApplications, DriverProfiles, Deliveries, Orders, Payments, StatusHistories } = require('../../models');
 const { notify } = require('../../services/notification.service');
+const { key: routeKey } = require('../../validators/D12_UocTinhPhiGiaoHang/fee.validator');
 
 const withTransaction = work => sequelize.transaction({ isolationLevel: Transaction.ISOLATION_LEVELS.READ_COMMITTED }, work);
 const select = (sql, replacements, transaction) => sequelize.query(sql, { replacements, type: QueryTypes.SELECT, transaction });
 const activeWhere = userId => ({ DriverId: userId, Status: { [Op.notIn]: ['DELIVERED', 'RETURNED'] } });
-async function driver(userId, transaction, lock = false) {
+async function driver(userId, transaction, lock = false, { lockActive = true } = {}) {
   const options = { transaction, raw: true, ...(lock ? { lock: transaction.LOCK.UPDATE } : {}) };
   // Mutex USER -> USER_ROLE -> PROFILE: một tài xế không thể đồng thời nhận hai đơn.
   const user = await Users.findByPk(userId, { ...options, attributes: ['UserId', 'Status'] });
@@ -19,10 +20,11 @@ async function driver(userId, transaction, lock = false) {
   const application = await PartnerApplications.findOne({ where: { UserId: userId, PartnerType: 'DRIVER' },
     attributes: ['ApplicationId', 'Status', 'ReviewNote', 'SubmittedAt', 'ReviewedAt'], order: [['SubmittedAt', 'DESC'], ['ApplicationId', 'DESC']], transaction, raw: true });
   const profile = await DriverProfiles.findOne({ where: { UserId: userId }, ...options });
-  const active = await Deliveries.findOne({ where: activeWhere(userId), attributes: ['DeliveryId', 'OrderId', 'Status', 'AcceptedAt'], order: [['DeliveryId', 'DESC']], ...options });
+  const active = await Deliveries.findOne({ where: activeWhere(userId), attributes: ['DeliveryId', 'OrderId', 'Status', 'AcceptedAt'], order: [['DeliveryId', 'DESC']], ...options, ...(!lockActive ? { lock: undefined } : {}) });
   // Không khóa ORDER sau USER: các thao tác nhận/hủy/hoàn tiền lấy ORDER trước.
   if (active) active.OrderStatus = (await Orders.findByPk(active.OrderId, { attributes: ['Status'], transaction, raw: true }))?.Status || null;
-  return { user, hasRole: roles.length > 0, application, profile, active };
+  const qrValid = await require('../../services/D11_HoSoVanHanhTaiXe/qr.storage').valid(userId, profile?.QrImageUrl);
+  return { user, hasRole: roles.length > 0, application, profile, active, qrValid };
 }
 
 // Một predicate SQL dùng CHUNG cho GET và PATCH, không phân trang xong mới lọc JS.
@@ -40,18 +42,19 @@ const ELIGIBLE = `d.Status = 'AVAILABLE' AND d.DriverId IS NULL AND d.AcceptedAt
   AND d.ReadyForPickupAt >= p.ConfirmedAt AND d.ReadyForPickupAt <= CURRENT_TIMESTAMP
   AND LENGTH(TRIM(d.PickupAddress)) > 0 AND LENGTH(TRIM(d.DeliveryAddress)) > 0
   AND d.DriverFee = o.DeliveryFee AND d.DriverFee >= 0
-  AND LOWER(TRIM(d.PickupArea)) = LOWER(:serviceArea) AND LOWER(TRIM(d.DeliveryArea)) = LOWER(:serviceArea)
-  AND LOWER(TRIM(d.VehicleType)) = LOWER(:vehicleType)
+  AND CAST(LOWER(TRIM(d.PickupArea)) AS BINARY) = CAST(:serviceArea AS BINARY)
+  AND CAST(LOWER(TRIM(d.DeliveryArea)) AS BINARY) = CAST(:serviceArea AS BINARY)
+  AND CAST(LOWER(TRIM(d.VehicleType)) AS BINARY) = CAST(:vehicleType AS BINARY)
   AND (:maxDistance IS NULL OR (d.RouteDistanceKm IS NOT NULL AND d.RouteDistanceKm >= 0 AND d.RouteDistanceKm <= :maxDistance))
   AND NOT EXISTS (SELECT 1 FROM RefundRequests r WHERE r.OrderId = o.OrderId AND r.Status <> 'REJECTED')`;
 const FROM = 'FROM Deliveries d JOIN Orders o ON o.OrderId = d.OrderId JOIN Payments p ON p.OrderId = o.OrderId';
 async function eligible(profile, filter, transaction) {
-  const replacements = { serviceArea: profile.ServiceArea.trim(), vehicleType: profile.VehicleType.trim(), maxDistance: profile.MaxDistanceKm ?? null,
+  const replacements = { serviceArea: routeKey(profile.ServiceArea), vehicleType: routeKey(profile.VehicleType), maxDistance: profile.MaxDistanceKm ?? null,
     limit: filter.limit ?? 1, offset: filter.offset ?? 0 };
   let where = ELIGIBLE;
   if (filter.id) { where += ' AND d.DeliveryId = :id'; replacements.id = filter.id; }
   for (const [key, column] of [['pickupArea', 'PickupArea'], ['deliveryArea', 'DeliveryArea'], ['vehicleType', 'VehicleType']]) {
-    if (filter[key]) { where += ` AND LOWER(TRIM(d.${column})) = LOWER(:filter_${key})`; replacements[`filter_${key}`] = filter[key]; }
+    if (filter[key]) { where += ` AND CAST(LOWER(TRIM(d.${column})) AS BINARY) = CAST(:filter_${key} AS BINARY)`; replacements[`filter_${key}`] = routeKey(filter[key]); }
   }
   const direction = filter.sort === 'newest' ? 'DESC' : 'ASC';
   const rows = await select(`SELECT d.DeliveryId AS deliveryId, d.OrderId AS orderId, d.PickupArea AS pickupArea,

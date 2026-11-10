@@ -5,7 +5,8 @@ const { HttpError } = require('../utils/httpError');
 const PHONE_PATTERN = /^(?:\+84|84|0)(?:3|5|7|8|9)\d{8}$/;
 const FORBIDDEN_FIELDS = [
   'buyerId', 'sellerId', 'productAmount', 'deliveryFee', 'totalAmount',
-  'commissionRate', 'status', 'reservedUntil'
+  'commissionRate', 'status', 'reservedUntil',
+  'deliveryFeeRuleId', 'pickupArea', 'deliveryArea', 'vehicleType', 'expiresAt', 'amount', 'DeliveryQuoteSnapshot'
 ];
 
 function trimmed(value) {
@@ -54,6 +55,7 @@ function validateCreateOrder(payload = {}) {
   if (receiverAddress.length > 255) fields.receiverAddress = 'Địa chỉ tối đa 255 ký tự.';
   if (note.length > 500) fields.note = 'Ghi chú tối đa 500 ký tự.';
   if (deliveryMethod === 'DELIVERY' && !deliveryQuoteId) fields.deliveryQuoteId = 'Vui lòng tính phí giao hàng trước khi đặt.';
+  if (deliveryQuoteId.length > 8192) fields.deliveryQuoteId = 'Báo giá không hợp lệ.';
 
   if (Object.keys(fields).length) throw validationError(fields);
   return {

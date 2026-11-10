@@ -71,6 +71,7 @@ function DriverDeliveries() {
     {loading && !status ? <Loading /> : error ? <ErrorState message={error} onRetry={refresh} /> : status && <>
       <Card className="mb-5 space-y-3 p-5">
         <h2 className="text-lg font-bold">Trạng thái tài xế</h2>
+        <Link className={btn.secondary} to="/driver/profile">Hồ sơ tài xế</Link>
         <p>{status.application ? applicationLabels[status.application.Status] || status.application.Status : 'Chưa đăng ký DRIVER tại C01'}</p>
         {status.application?.ReviewNote && <p className="whitespace-pre-wrap text-sm">Phản hồi B02: {status.application.ReviewNote}</p>}
         {status.profile && <p>{status.profile.availabilityStatus} · {status.profile.vehicleType} · {status.profile.serviceArea}{status.profile.maxDistanceKm ? ` · Bán kính tối đa ${status.profile.maxDistanceKm} km` : ''}</p>}
@@ -79,6 +80,8 @@ function DriverDeliveries() {
         {status.activeDelivery && <Link className={btn.primary} to={status.activeDelivery.trackingUrl}>Theo dõi chuyến #{status.activeDelivery.deliveryId} · {status.activeDelivery.status}</Link>}
         {status.activeDelivery?.pickupUrl && <Link className={`${btn.secondary} ml-2`} to={status.activeDelivery.pickupUrl}>Xác nhận đã lấy hàng</Link>}
         {status.activeDelivery?.progressUrl && <Link className={`${btn.secondary} ml-2`} to={status.activeDelivery.progressUrl}>Cập nhật tiến độ giao hàng</Link>}
+        {status.activeDelivery?.completionUrl && <Link className={`${btn.primary} ml-2`} to={status.activeDelivery.completionUrl}>Xác thực giao hàng</Link>}
+        {status.activeDelivery?.failureUrl && <Link className={`${btn.secondary} ml-2`} to={status.activeDelivery.failureUrl}>Giao không thành công / Chuyển hoàn</Link>}
         {status.activeDelivery?.blocked && <p role="alert" className="font-semibold text-rose-700">Đơn đang {status.activeDelivery.orderStatus}. Tạm dừng thực hiện chuyến và theo dõi xử lý; không tự xác nhận lấy/giao hàng hoặc chuyển AVAILABLE.</p>}
         <details className="text-sm text-slate-600"><summary className="cursor-pointer font-semibold">Các chức năng còn chờ tích hợp</summary><ul className="mt-3 space-y-2">{Object.entries(status.dependencies).map(([key, message]) => <li key={key}>{message}</li>)}</ul></details>
       </Card>

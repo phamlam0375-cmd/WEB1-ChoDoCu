@@ -16,7 +16,10 @@ async function readRelated(order, transaction, lock = false) {
   // REFUND -> ORDER, khóa ngược lại sẽ gây deadlock. SELECT snapshot đầu tiên
   // chỉ chạy sau khi đã lấy ORDER mutex nên thấy refund đã commit trước đó.
   const payment = await Payments.findOne({ where: { OrderId: id }, attributes: ['PaymentId', 'OrderId', 'PayerId', 'PayeeId', 'Amount', 'Status', 'ProofUrl', 'ReportedAt', 'ConfirmedBy', 'ConfirmedAt', 'BankName', 'BankAccountSnapshot', 'BankAccountHolderSnapshot', 'TransferContent'], transaction, ...(lock ? { lock: transaction.LOCK.UPDATE } : {}), raw: true });
-  const deliveries = await sequelize.query(`SELECT DeliveryId, OrderId, DriverId, Status, VerifiedAt, DeliveredAt, ReturnedAt, ProofUrl FROM Deliveries WHERE OrderId = :id${lock ? ' FOR UPDATE' : ''}`, { replacements: { id }, type: QueryTypes.SELECT, transaction });
+  const deliveries = await sequelize.query(`SELECT DeliveryId, OrderId, DriverId, Status, VerifiedAt, DeliveredAt, ReturnedAt, ProofUrl,
+    CompletionCodeDriverId, CompletionCodeSession, CompletionCodeIssuedAt, CompletionCodeExpiresAt, CompletionCodeUsedAt, CompletionProofKey, CompletionProofDigest
+    FROM Deliveries WHERE OrderId = :id${lock ? ' FOR UPDATE' : ''}`, { replacements: { id }, type: QueryTypes.SELECT, transaction, logging: false });
+  await require('../D13_XacThucGiaoHangOTP/completion.repository').hydrateVerification(deliveries, transaction);
   const refunds = await RefundRequests.findAll({ where: { OrderId: id }, attributes: ['Status'], transaction, raw: true });
   const listing = await Listings.findByPk(order.ListingId, { attributes: ['ListingId', 'SellerId', 'Title', 'Status'], transaction, ...(lock ? { lock: transaction.LOCK.UPDATE } : {}), raw: true });
   const refundWindowDays = order.CompletedAt ? await getSettingAt('REFUND_WINDOW_DAYS', order.CreatedAt, { transaction }) : undefined;

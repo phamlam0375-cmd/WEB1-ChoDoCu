@@ -2,6 +2,7 @@
 
 // Nạp các model và khai báo quan hệ ở một chỗ để include giữa các bảng dùng được ở mọi controller.
 const sequelize = require("../database");
+const DeliveryFeeRules = require('./D12_UocTinhPhiGiaoHang/DeliveryFeeRules.model');
 const Users = require("./Users.model");
 const Roles = require("./Roles.model");
 const UserRoles = require("./UserRoles.model");
@@ -86,6 +87,7 @@ Messages.belongsTo(Conversations, { foreignKey: "ConversationId", as: "Conversat
 Messages.belongsTo(Users, { foreignKey: "SenderId", as: "Sender" });
 
 module.exports = {
+  DeliveryFeeRules,
   sequelize,
   Users,
   Roles,

@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { BadgeInfo, MapPin, Store, Tag, X } from 'lucide-react'
+import { BadgeInfo, MapPin, MessageCircle, Store, Tag, X } from 'lucide-react'
 
 import { formatPrice } from '../../data/mockProducts'
 
@@ -73,6 +73,32 @@ function ListingDetail({ product, onClose }) {
             <p className="mt-4 text-3xl font-black text-emerald-700">
               {formatPrice(product.price)}
             </p>
+
+            <button
+              type="button"
+              onClick={() => {
+                window.dispatchEvent(
+                  new CustomEvent("open-listing-chat", {
+                    detail: {
+                      listingId: product.id,
+                      listing: {
+                        ListingId: product.id,
+                        Title: product.name,
+                        Price: product.price,
+                        ConditionLevel: product.condition,
+                        Location: product.location,
+                        Status: product.status,
+                        Media: product.image ? [{ MediaUrl: product.image }] : [],
+                      },
+                    },
+                  })
+                );
+              }}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 font-bold text-white shadow-lg shadow-emerald-600/20 transition hover:bg-emerald-700 active:scale-[0.99]"
+            >
+              <MessageCircle size={18} />
+              <span>Chat với người bán về món này</span>
+            </button>
 
             <div className="mt-6 grid gap-4 border-t border-slate-100 pt-5 text-sm text-slate-600 sm:grid-cols-2">
               <div className="flex items-start gap-3">

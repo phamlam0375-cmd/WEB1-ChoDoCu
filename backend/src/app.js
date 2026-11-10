@@ -13,6 +13,7 @@ const trackingRoutes = require('./routes/D05_TheoDoiDonHang/tracking.route');
 const driverAssignmentRoutes = require('./routes/D07_TaiXeNhanChuyen/assignment.route');
 const pickupRoutes = require('./routes/D08_XacNhanLayHang/pickup.route');
 const progressRoutes = require('./routes/D09_CapNhatTienDoGiaoHang/progress.route');
+const failureRoutes = require('./routes/D10_ThatBai_HoanTra/failure.route');
 const { requireAuth } = require('./middlewares/auth.middleware');
 const AppError = require('./errors/AppError');
 const partnerApplicationRoutes = require('./routes/partnerApplication.route');
@@ -57,6 +58,7 @@ app.get('/api/test', (_request, response) => {
 });
 
 app.use('/api/health', healthRouter);
+app.use('/api/v1/delivery-fees', require('./routes/D12_UocTinhPhiGiaoHang/fee.route'));
 app.use('/api/auth', authRoutes);
 app.use('/api/auth', passwordResetRoutes);
 app.use('/api/orders', orderRoutes);
@@ -65,10 +67,14 @@ app.use('/api/v1/orders', cancellationRoutes);
 app.use('/api/orders', require('./routes/C06_TuChoiDonHang/rejection.route'));
 app.use('/api/v1/orders', paymentRoutes);
 app.use('/api/v1/orders', trackingRoutes);
+app.use('/api/v1/orders', require('./routes/D06_XacNhanNhanHang/receipt.route'));
+app.use('/api/v1', require('./routes/D13_XacThucGiaoHangOTP/completion.route'));
 app.use('/api/v1/seller/orders', confirmationRoutes);
 app.use('/api/v1/driver', driverAssignmentRoutes);
 app.use('/api/v1', pickupRoutes);
 app.use('/api/v1/driver', progressRoutes);
+app.use('/api/v1/driver', failureRoutes);
+app.use('/api/v1/driver', require('./routes/D11_HoSoVanHanhTaiXe/profile.route'));
 
 
 app.use("/api/partner-applications", partnerApplicationRoutes);

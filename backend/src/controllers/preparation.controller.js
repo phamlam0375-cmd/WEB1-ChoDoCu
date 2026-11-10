@@ -1,72 +1,20 @@
 'use strict'
 
-const { Orders, Deliveries, Listings } = require('../models');
-const crypto = require('crypto');
+const { Orders, Deliveries } = require('../models');
 const bcrypt = require('bcrypt');
-const { string } = require('zod');
+const { HttpError } = require('../utils/httpError');
 
 const createDelivery = async (req, res) => {
     try {
-        const orderId = Number(req.params.id);
-        const sellerId = req.user.UserId;
-
-        const order = await Orders.findOne({
-            where: { OrderId: orderId }
-        })
-        if (!order)
-            return res.status(404).json({
-                success: false,
-                message: "không tìm thấy đơn hàng",
-            });
-
-        if (order.SellerId !== sellerId)
-            return res.status(400).json({
-                success: false,
-                message: "Bạn không phải người bán",
-            });
-
-        const exsited = await Deliveries.findOne({
-            where: { OrderId: orderId }
-        })
-        if (exsited)
-            return res.status(409).json({
-                success: false,
-                message: "Đơn hàng này đã đóng gói ",
-            });
-
-        const listing = await Listings.findByPk(order.ListingId);
-        if (!listing || !listing.Location)
-            return res.status(400).json({
-                success: false,
-                message: "Không có địa chỉ lấy hàng",
-            });
-        const { pickupAdress } = listing.Location;
-
-        const pickupCode = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
-        const pickupCodeHash = await bcrypt.hash(pickupCode, 10);
-
-        const delivery = await Deliveries.create({
-            OrderId: orderId,
-            PickupAddress: pickupAdress,
-            DeliveryAddress: order.ReceiverAddress,
-            DriverFee: order.DeliveryFee,
-            PickupCodeHash: pickupCodeHash,
-            Status: 'AVAILABLE'
-        })
-
-        return res.status(201).json({
-            success: true,
-            data: delivery,
-            message: "Tạo delivery thành công"
-        });
+        // C07 dùng transaction chung D07/D12; mã bàn giao do D08 quản lý sau khi nhận chuyến.
+        const delivery = await require('../services/D12_UocTinhPhiGiaoHang/preparation.service').prepare(req.params.id, req.body, req.user);
+        return res.status(201).json({ success: true, data: delivery, message: 'Đã xác nhận chuẩn bị hàng và tạo chuyến theo phí đã chốt.' });
+    } catch (error) {
+        if (error instanceof HttpError) throw error;
+        console.error('C07 preparation failure:', error.original?.code || error.code || error.name);
+        throw new HttpError(500, 'Không thể xác nhận chuẩn bị hàng.', null, 'PREPARATION_FAILED');
     }
-    catch (error) {
-        return res.status(500).json({
-            success: false,
-            message: "Lỗi server, ", error,
-        });
-    }
-}
+};
 
 const patchPickupOrder = async (req, res) => {
     try {

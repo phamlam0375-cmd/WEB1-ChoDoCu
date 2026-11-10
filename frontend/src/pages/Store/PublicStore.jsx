@@ -114,11 +114,15 @@ export default function PublicStore() {
                                 <div className="flex items-start justify-between gap-4">
                                     <div className="flex items-start gap-4">
                                         {/* STORE ICON */}
-                                        <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-emerald-100">
-                                            <StoreIcon
-                                                size={36}
-                                                className="text-emerald-600"
-                                            />
+                                        <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-emerald-100">
+                                            {store.Owner?.AvatarUrl ? (
+                                                <img src={store.Owner.AvatarUrl} alt="" className="h-full w-full object-cover" />
+                                            ) : (
+                                                <StoreIcon
+                                                    size={36}
+                                                    className="text-emerald-600"
+                                                />
+                                            )}
                                         </div>
 
                                         <div>

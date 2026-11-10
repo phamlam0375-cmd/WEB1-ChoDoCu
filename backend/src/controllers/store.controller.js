@@ -1,4 +1,4 @@
-const { Store } = require("../models");
+const { Store, Users } = require("../models");
 const {
     ownerIdSchema,
     updateStoreSchema,
@@ -41,9 +41,8 @@ const getStore = async (req, res) => {
         }
 
         const store = await Store.findOne({
-            where: {
-                OwnerId: ownerIdResult.data,
-            }
+            where: { OwnerId: ownerIdResult.data },
+            include: [{ model: Users, as: "Owner", attributes: ["UserId", "FullName", "AvatarUrl"] }],
 
         });
 

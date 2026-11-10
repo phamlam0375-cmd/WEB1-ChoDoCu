@@ -1,4 +1,4 @@
-import { Eye, Package } from "lucide-react";
+import { Package } from "lucide-react";
 
 import DetailListing from "./DetailListing";
 import { useState } from "react";
@@ -109,7 +109,21 @@ const [openDetail, setOpenDetail] = useState(false);
                                         product.ListingId ||
                                         product.id
                                     }
-                                    className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-md"
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={() => {
+                                        setSelectedDetail(product);
+                                        setOpenDetail(true);
+                                    }}
+                                    onKeyDown={(event) => {
+                                        if (event.key === "Enter" || event.key === " ") {
+                                            event.preventDefault();
+                                            setSelectedDetail(product);
+                                            setOpenDetail(true);
+                                        }
+                                    }}
+                                    aria-label={`Xem chi tiết ${product.Title || product.Name || "sản phẩm"}`}
+                                    className="group cursor-pointer overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                                 >
 
                                     {/* IMAGE */}
@@ -153,16 +167,6 @@ const [openDetail, setOpenDetail] = useState(false);
                                             </p>
                                         )}
 
-                                       <button
-                                            onClick={() => {
-                                                setSelectedDetail(product);
-                                                setOpenDetail(true);
-                                            }}
-                                            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-600 hover:text-white"
-                                        >
-                                            <Eye size={14} />
-                                            Chi tiết
-                                        </button>
                                     </div>
                                 </div>
                             );

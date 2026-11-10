@@ -30,7 +30,10 @@ export default function BuyerOrdersPage() {
             <p className="mt-3 font-semibold">{order.progress.label}</p>
             <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-600"><span>{order.deliveryMethod === 'PICKUP' ? 'Tự đến lấy' : 'Giao tận nơi'}</span><span>Đơn: {ORDER_STATUS[order.orderStatus] || 'Trạng thái khác'}</span><span>Thanh toán: {PAYMENT_STATUS[order.paymentStatus] || 'Chưa có giao dịch'}</span>{order.deliveryMethod === 'DELIVERY' && <span>Giao nhận: {DELIVERY_STATUS[order.deliveryStatus] || 'Chưa có chuyến giao'}</span>}</div>
             <dl className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm"><div><dt className="text-slate-500">Tiền sản phẩm</dt><dd className="font-semibold">{formatDecimalMoney(order.productAmount)}</dd></div><div><dt className="text-slate-500">Phí giao hàng</dt><dd>{formatDecimalMoney(order.deliveryFee)}</dd></div><div><dt className="text-slate-500">Tổng chi phí</dt><dd className="font-bold text-emerald-700">{formatDecimalMoney(order.totalAmount)}</dd></div></dl>
-            <Link to={`/orders/${order.orderId}/tracking`} className={`${btn.secondary} mt-4 inline-flex`}>Xem chi tiết</Link>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Link to={`/orders/${order.orderId}/tracking`} className={`${btn.secondary} inline-flex`}>Xem chi tiết</Link>
+              {order.orderStatus === 'COMPLETED' && <Link to={`/orders/${order.orderId}/reviews`} className={`${btn.primary} inline-flex`}>Đánh giá đơn hàng</Link>}
+            </div>
           </div>
         </div>
       </Card>)}</div>

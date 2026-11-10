@@ -1,6 +1,7 @@
 "use strict";
 
 // Nạp các model và khai báo quan hệ ở một chỗ để include giữa các bảng dùng được ở mọi controller.
+const { DataTypes } = require("sequelize");
 const sequelize = require("../database");
 const DeliveryFeeRules = require('./D12_UocTinhPhiGiaoHang/DeliveryFeeRules.model');
 const Users = require("./Users.model");
@@ -29,6 +30,11 @@ const Deliveries = require("./Deliveries.model");
 const Conversations = require("./Conversations.model");
 const ConversationParticipants = require("./ConversationParticipants.model");
 const Messages = require("./Messages.model");
+const Reviews = require("./Reviews.model");
+const CreditPackages = require("./CreditPackaged.model")(sequelize, DataTypes);
+const UserCredits = require("./UserCredit.model")(sequelize, DataTypes);
+const PromotionOrders = require("./PromotionOrder.model")(sequelize, DataTypes);
+const CreditTransactions = require("./CreditTransaction.model")(sequelize, DataTypes);
 
 Users.belongsToMany(Roles, { through: UserRoles, foreignKey: "UserId", otherKey: "RoleId", as: "Roles" });
 Roles.belongsToMany(Users, { through: UserRoles, foreignKey: "RoleId", otherKey: "UserId", as: "Users" });
@@ -86,6 +92,19 @@ ConversationParticipants.belongsTo(Messages, { foreignKey: "LastReadMessageId", 
 Messages.belongsTo(Conversations, { foreignKey: "ConversationId", as: "Conversation" });
 Messages.belongsTo(Users, { foreignKey: "SenderId", as: "Sender" });
 
+Orders.hasMany(Reviews, { foreignKey: "OrderId", as: "Reviews" });
+Reviews.belongsTo(Orders, { foreignKey: "OrderId", as: "Order" });
+Reviews.belongsTo(Users, { foreignKey: "ReviewerId", as: "reviewer" });
+Reviews.belongsTo(Users, { foreignKey: "TargetUserId", as: "target" });
+
+CreditPackages.hasMany(CreditTransactions, { foreignKey: "PackageId", as: "transactions" });
+UserCredits.belongsTo(Users, { foreignKey: "UserId", as: "user" });
+PromotionOrders.belongsTo(Users, { foreignKey: "BuyerId", as: "buyer" });
+PromotionOrders.hasMany(CreditTransactions, { foreignKey: "PromotionOrderId", as: "transactions" });
+CreditTransactions.belongsTo(Users, { foreignKey: "UserId", as: "user" });
+CreditTransactions.belongsTo(CreditPackages, { foreignKey: "PackageId", as: "package" });
+CreditTransactions.belongsTo(PromotionOrders, { foreignKey: "PromotionOrderId", as: "promotionOrder" });
+
 module.exports = {
   DeliveryFeeRules,
   sequelize,
@@ -115,4 +134,9 @@ module.exports = {
   Conversations,
   ConversationParticipants,
   Messages,
+  Reviews,
+  CreditPackages,
+  UserCredits,
+  PromotionOrders,
+  CreditTransactions,
 };

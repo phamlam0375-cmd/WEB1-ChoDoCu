@@ -77,6 +77,7 @@ function capabilities(state, role, user, now) {
     pickup: action(role === 'DRIVER' && Boolean(accepted), `/driver/deliveries/${accepted?.DeliveryId}/pickup`, 'Chỉ đúng tài xế đã nhận chuyến được xác nhận lấy hàng sau bàn giao.'),
     pickupCode: action(seller && Boolean(accepted), `/seller/orders/${id}/pickup-code`, 'Cần đơn giao hàng đã PAID, chuẩn bị và có tài xế nhận chuyến.'),
     deliveryProgress: action(role === 'DRIVER' && !user.d01Demo && Boolean(progressing), `/driver/deliveries/${progressing?.DeliveryId}/progress`, 'Chỉ tài xế được phân công cập nhật tiến độ sau D08.'),
+    review: action(buyer && state.order.Status === 'COMPLETED', `/orders/${id}/reviews`, 'Chỉ đánh giá sau khi đơn hoàn tất.'),
     chat: action(false, null, state.order.DeliveryMethod === 'PICKUP' ? 'Đơn tự đến lấy không có tài xế.' : state.deliveries.some(d => d.DriverId) ? 'Trò chuyện theo đơn chưa sẵn sàng.' : 'Chưa thể mở trò chuyện với tài xế khi chưa được phân công.'),
   };
 }

@@ -30,6 +30,7 @@ import PickupPage from './pages/D08_XacNhanLayHang/PickupPage'
 import DeliveryProgressPage from './pages/D09_CapNhatTienDoGiaoHang/DeliveryProgressPage'
 import DeliveryCompletePage from './pages/D13_XacThucGiaoHangOTP/DeliveryCompletePage'
 import OrderReceivedPage from './pages/D06_XacNhanNhanHang/OrderReceivedPage'
+import OrderReviewsPage from './pages/OrderReviewsPage'
 import DeliveryFailurePage from './pages/D10_ThatBai_HoanTra/DeliveryFailurePage'
 import DriverProfilePage from './pages/D11_HoSoVanHanhTaiXe/DriverProfilePage'
 import ChatWidget from './components/Chat/ChatWidget'
@@ -123,6 +124,7 @@ function App() {
           <Route element={<TrackingLayout />}>
             <Route path="/orders" element={<BuyerOrdersPage />} />
             <Route path="/orders/:orderId/tracking" element={<OrderTrackingPage />} />
+            <Route path="/orders/:orderId/reviews" element={<OrderReviewsPage />} />
           </Route>
           <Route element={<AccountShell />}>
             <Route path="/profile" element={<ProfilePage />} />

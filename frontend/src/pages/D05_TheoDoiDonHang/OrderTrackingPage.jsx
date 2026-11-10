@@ -15,7 +15,7 @@ import CompletionProof from '../../components/D13_XacThucGiaoHangOTP/CompletionP
 import BuyerCodePanel from '../../components/D13_XacThucGiaoHangOTP/BuyerCodePanel'
 
 const load = ({ orderId, historyPage }, signal) => getOrderTracking(orderId, { historyPage, historyLimit: 20 }, { signal })
-const actionLabels = { cancel: 'Hủy đơn', payment: 'Thanh toán / Báo chuyển tiền', confirmPayment: 'Xác nhận nhận tiền', rejectOrder: 'Từ chối đơn hàng', refund: 'Yêu cầu hoàn tiền', receive: 'Xác nhận nhận hàng', chat: 'Liên hệ tài xế', pickup: 'Xác nhận đã lấy hàng', pickupCode: 'Bàn giao và cấp mã lấy hàng', deliveryProgress: 'Cập nhật tiến độ giao hàng' }
+const actionLabels = { cancel: 'Hủy đơn', payment: 'Thanh toán / Báo chuyển tiền', confirmPayment: 'Xác nhận nhận tiền', rejectOrder: 'Từ chối đơn hàng', refund: 'Yêu cầu hoàn tiền', receive: 'Xác nhận nhận hàng', review: 'Đánh giá đơn hàng', chat: 'Liên hệ tài xế', pickup: 'Xác nhận đã lấy hàng', pickupCode: 'Bàn giao và cấp mã lấy hàng', deliveryProgress: 'Cập nhật tiến độ giao hàng' }
 actionLabels.deliveryFailure = 'Giao thất bại / Chuyển hoàn'
 function TrackingDetail({ orderId }) {
   const [historyPage, setHistoryPage] = useState(1)

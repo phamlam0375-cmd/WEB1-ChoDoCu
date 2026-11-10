@@ -14,7 +14,8 @@ import {
 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import ColorThemePicker from './ColorThemePicker'
-import { clearSession } from '../lib/auth'
+import { clearSession, getAccessToken } from '../lib/auth'
+import { api } from '../lib/api'
 
 const readStoredUser = () => {
   try {
@@ -54,11 +55,33 @@ function Header({
 
   const navigate = useNavigate()
   const isAdmin = user?.roles?.includes('ADMIN') || user?.Roles?.includes('ADMIN')
+  const isSeller = user?.roles?.includes('SELLER') || user?.Roles?.includes('SELLER')
 
   useEffect(() => {
     const syncUser = (event) => setUser(event.detail || readStoredUser())
     window.addEventListener('profile-updated', syncUser)
-    return () => window.removeEventListener('profile-updated', syncUser)
+    const syncSession = async () => {
+      if (!getAccessToken({ sessionOnly: true })) {
+        setUser(readStoredUser())
+        return
+      }
+      try {
+        const response = await api.get('/me', { sessionOnly: true })
+        const freshUser = response.data?.data
+        if (freshUser) {
+          setUser(current => ({ ...current, ...freshUser }))
+          window.localStorage.setItem('user', JSON.stringify({ ...readStoredUser(), ...freshUser }))
+        }
+      } catch {
+        setUser(readStoredUser())
+      }
+    }
+    window.addEventListener('auth-session-changed', syncSession)
+    syncSession()
+    return () => {
+      window.removeEventListener('profile-updated', syncUser)
+      window.removeEventListener('auth-session-changed', syncSession)
+    }
   }, [])
 
   const closeMenu = () => {
@@ -86,9 +109,9 @@ function Header({
   const renderUserAvatar = (className = 'size-10') => (
     <span className={`relative grid ${className} shrink-0 place-items-center overflow-hidden rounded-full bg-emerald-100 text-sm font-bold text-emerald-800`}>
       {getUserInitials(user?.FullName)}
-      {user?.AvatarUrl && (
+      {(user?.AvatarUrl || user?.avatarUrl) && (
         <img
-          src={user.AvatarUrl}
+          src={user.AvatarUrl || user.avatarUrl}
           alt=""
           className="absolute inset-0 size-full object-cover"
           onError={(event) => {
@@ -114,6 +137,17 @@ function Header({
           <UserRound size={17} />
           Hồ sơ cá nhân
         </Link>
+        {isSeller && (
+          <Link
+            to="/seller/store"
+            onClick={closeMenu}
+            role="menuitem"
+            className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-800"
+          >
+            <Store size={17} />
+            Cửa hàng của tôi
+          </Link>
+        )}
         {isAdmin && (
           <Link
             to="/admin"

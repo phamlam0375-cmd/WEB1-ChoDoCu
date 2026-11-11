@@ -56,6 +56,7 @@ export default function CrudListing() {
     const statusLabels = {
         PENDING: "Chờ duyệt",
         ACTIVE: "Đang bán",
+        RESERVED: "Đã đặt",
         HIDDEN: "Đã ẩn",
         SOLD: "Đã bán",
         REJECTED: "Bị từ chối",

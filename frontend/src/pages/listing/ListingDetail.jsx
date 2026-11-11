@@ -1,20 +1,9 @@
 import { useEffect } from 'react'
-import { BadgeInfo, MapPin, MessageCircle, Store, Tag, X } from 'lucide-react'
+import { MapPin, MessageCircle, Store, X } from 'lucide-react'
 
 import { formatPrice } from '../../data/mockProducts'
 
 function ListingDetail({ product, onClose }) {
-  const statusLabels = {
-    DRAFT: 'Bản nháp',
-    PENDING: 'Chờ duyệt',
-    ACTIVE: 'Đang bán',
-    RESERVED: 'Đã giữ món',
-    SOLD: 'Đã bán',
-    HIDDEN: 'Đã ẩn',
-    REJECTED: 'Bị từ chối',
-    DELETED: 'Đã xóa',
-  }
-
   useEffect(() => {
     const handleEscape = (event) => {
       if (event.key === 'Escape') onClose()
@@ -62,10 +51,6 @@ function ListingDetail({ product, onClose }) {
           </div>
 
           <div className="flex flex-col">
-            <span className="w-fit rounded-lg bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
-              {product.condition}
-            </span>
-
             <h2 id="listing-detail-title" className="mt-4 text-2xl font-extrabold leading-tight text-slate-900">
               {product.name}
             </h2>
@@ -102,22 +87,6 @@ function ListingDetail({ product, onClose }) {
 
             <div className="mt-6 grid gap-4 border-t border-slate-100 pt-5 text-sm text-slate-600 sm:grid-cols-2">
               <div className="flex items-start gap-3">
-                <Tag size={18} className="mt-0.5 shrink-0 text-emerald-600" />
-                <div>
-                  <p className="text-xs text-slate-400">Mã sản phẩm</p>
-                  <p className="mt-1 font-medium text-slate-700">#{product.id}</p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <BadgeInfo size={18} className="mt-0.5 shrink-0 text-emerald-600" />
-                <div>
-                  <p className="text-xs text-slate-400">Danh mục</p>
-                  <p className="mt-1 font-medium text-slate-700">{product.categoryName || 'Chưa cập nhật'}</p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
                 <MapPin size={18} className="mt-0.5 shrink-0 text-emerald-600" />
                 <div>
                   <p className="text-xs text-slate-400">Địa điểm</p>
@@ -133,15 +102,6 @@ function ListingDetail({ product, onClose }) {
                 </div>
               </div>
 
-              <div className="flex items-start gap-3">
-                <BadgeInfo size={18} className="mt-0.5 shrink-0 text-emerald-600" />
-                <div>
-                  <p className="text-xs text-slate-400">Trạng thái</p>
-                  <p className="mt-1 font-medium text-slate-700">
-                    {statusLabels[product.status] || product.status || 'Chưa cập nhật'}
-                  </p>
-                </div>
-              </div>
             </div>
 
             <div className="mt-6 space-y-5 border-t border-slate-100 pt-5">

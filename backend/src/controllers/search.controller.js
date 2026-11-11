@@ -7,7 +7,8 @@ const {
     Listings,
     Categories,
     Users,
-    ListingMedia
+    ListingMedia,
+    ListingPromotions
 } = require('../models');
 
 
@@ -133,6 +134,17 @@ const searchListings = async (req, res) => {
                     attributes: ['MediaId', 'MediaUrl', 'MediaType', 'SortOrder'],
                     separate: true,
                     order: [['SortOrder', 'ASC']]
+                },
+                {
+                    model: ListingPromotions,
+                    as: 'Promotions',
+                    attributes: ['PromotionId', 'StartsAt', 'EndsAt'],
+                    required: false,
+                    where: {
+                        Status: 'ACTIVE',
+                        StartsAt: { [Op.lte]: new Date() },
+                        EndsAt: { [Op.gt]: new Date() },
+                    },
                 }
             ]
         });

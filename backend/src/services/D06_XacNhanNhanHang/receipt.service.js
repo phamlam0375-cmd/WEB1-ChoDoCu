@@ -38,7 +38,7 @@ function receiptView(state, now, alreadyCompleted = false) {
     deliveries: o.DeliveryMethod === 'DELIVERY' ? state.deliveries.map(d => ({ deliveryId: d.DeliveryId, status: d.Status, deliveredAt: d.DeliveredAt, verifiedAt: d.VerifiedAt })) : [],
     policy: receiptPolicy(state, now), capabilities: {
       refund: { enabled: r.enabled, href: r.enabled ? `/orders/${o.OrderId}/refund` : null, reason: r.reason || null },
-      review: { enabled: false, href: null, reason: 'Chức năng đánh giá sau giao dịch chưa sẵn sàng.' },
+      review: { enabled: o.Status === 'COMPLETED', href: o.Status === 'COMPLETED' ? `/orders/${o.OrderId}/reviews` : null, reason: o.Status === 'COMPLETED' ? null : 'Chỉ đánh giá sau khi đơn hoàn tất.' },
     }, serverNow: now.toISOString() };
 }
 function createReceiptService({ repository = defaultRepository, clock = () => new Date() } = {}) {

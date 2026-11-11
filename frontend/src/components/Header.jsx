@@ -5,16 +5,19 @@ import {
   Menu,
   ClipboardList,
   Truck,
-  PlusCircle,
+  Bell,
   Store,
   ShieldCheck,
   UserPlus,
   UserRound,
+  Wallet,
   X,
 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import ColorThemePicker from './ColorThemePicker'
-import { clearSession } from '../lib/auth'
+import { clearSession, getAccessToken } from '../lib/auth'
+import { api } from '../lib/api'
+import creditApi from '../services/apiClient'
 
 const readStoredUser = () => {
   try {
@@ -46,20 +49,167 @@ function Header({
   savedCount = 0,
   savedOnly = false,
   onShowSaved = () => {},
-  onUnavailable = () => {},
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
   const [user, setUser] = useState(readStoredUser)
+  const [creditBalance, setCreditBalance] = useState(0)
+  const [creditLoading, setCreditLoading] = useState(false)
+  const [notifications, setNotifications] = useState([])
+  const [unreadNotifications, setUnreadNotifications] = useState(0)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [notificationsLoading, setNotificationsLoading] = useState(false)
 
   const navigate = useNavigate()
   const isAdmin = user?.roles?.includes('ADMIN') || user?.Roles?.includes('ADMIN')
+  const isSeller = user?.roles?.includes('SELLER') || user?.Roles?.includes('SELLER')
 
   useEffect(() => {
     const syncUser = (event) => setUser(event.detail || readStoredUser())
     window.addEventListener('profile-updated', syncUser)
-    return () => window.removeEventListener('profile-updated', syncUser)
+    const syncSession = async () => {
+      if (!getAccessToken({ sessionOnly: true })) {
+        setUser(readStoredUser())
+        setCreditBalance(0)
+        return
+      }
+      try {
+        const response = await api.get('/me', { sessionOnly: true })
+        const freshUser = response.data?.data
+        if (freshUser) {
+          setUser(current => ({ ...current, ...freshUser }))
+          window.localStorage.setItem('user', JSON.stringify({ ...readStoredUser(), ...freshUser }))
+        }
+      } catch {
+        setUser(readStoredUser())
+      }
+    }
+    window.addEventListener('auth-session-changed', syncSession)
+    syncSession()
+    return () => {
+      window.removeEventListener('profile-updated', syncUser)
+      window.removeEventListener('auth-session-changed', syncSession)
+    }
   }, [])
+
+  useEffect(() => {
+    let active = true
+    const refreshBalance = () => {
+      if (!user || !getAccessToken({ sessionOnly: true })) {
+        setCreditBalance(0)
+        return
+      }
+      setCreditLoading(true)
+      creditApi.get('/credit/balance', { sessionOnly: true })
+        .then((response) => {
+          if (active) setCreditBalance(response.data?.data?.balance ?? 0)
+        })
+        .catch(() => {
+          if (active) setCreditBalance(0)
+        })
+        .finally(() => {
+          if (active) setCreditLoading(false)
+        })
+    }
+
+    refreshBalance()
+    window.addEventListener('credit-balance-updated', refreshBalance)
+
+    return () => {
+      active = false
+      window.removeEventListener('credit-balance-updated', refreshBalance)
+    }
+  }, [user])
+
+  useEffect(() => {
+    let active = true
+    const refreshNotifications = async () => {
+      if (!user) {
+        setNotifications([])
+        setUnreadNotifications(0)
+        return
+      }
+      setNotificationsLoading(true)
+      try {
+        const response = await api.get('/notifications?limit=20')
+        if (active) {
+          setNotifications(response.data?.data?.notifications || [])
+          setUnreadNotifications(Number(response.data?.data?.unreadCount || 0))
+        }
+      } catch {
+        console.error('Không thể tải thông báo.')
+        if (active) setNotifications([])
+      } finally {
+        if (active) setNotificationsLoading(false)
+      }
+    }
+
+    refreshNotifications()
+    const timer = window.setInterval(refreshNotifications, 30000)
+    window.addEventListener('notifications-updated', refreshNotifications)
+    return () => {
+      active = false
+      window.clearInterval(timer)
+      window.removeEventListener('notifications-updated', refreshNotifications)
+    }
+  }, [user])
+
+  const markNotificationRead = async (notification) => {
+    if (notification.IsRead) return
+    try {
+      await api.patch(`/notifications/${notification.NotificationId}/read`, {})
+      setNotifications((current) => current.map((item) => item.NotificationId === notification.NotificationId
+        ? { ...item, IsRead: true }
+        : item))
+      setUnreadNotifications((count) => Math.max(0, count - 1))
+    } catch {
+      console.error('Không thể đánh dấu thông báo đã đọc.')
+    }
+  }
+
+  const markAllNotificationsRead = async () => {
+    if (!unreadNotifications) return
+    try {
+      await api.patch('/notifications/read-all', {})
+      setNotifications((current) => current.map((item) => ({ ...item, IsRead: true })))
+      setUnreadNotifications(0)
+    } catch {
+      console.error('Không thể đánh dấu toàn bộ thông báo đã đọc.')
+    }
+  }
+
+  const getNotificationUrl = (notification) => {
+    const referenceId = Number(notification.ReferenceId)
+    if (!Number.isSafeInteger(referenceId) || referenceId <= 0) return null
+
+    switch (String(notification.ReferenceType || '').toUpperCase()) {
+      case 'ORDER':
+        return isSeller
+          ? '/seller/orders'
+          : `/orders/${referenceId}/tracking`
+      case 'PAYMENT':
+        return `/orders/${referenceId}/payment`
+      case 'REFUND_REQUEST':
+        return '/refunds'
+      case 'COMMISSION':
+        return '/seller/fees'
+      case 'PARTNER_APPLICATION':
+        return '/partner-application'
+      case 'LISTING':
+        return '/seller/listings'
+      default:
+        return null
+    }
+  }
+
+  const handleNotificationClick = async (notification) => {
+    await markNotificationRead(notification)
+    const url = getNotificationUrl(notification)
+    if (url) {
+      setNotificationsOpen(false)
+      navigate(url)
+    }
+  }
 
   const closeMenu = () => {
     setMenuOpen(false)
@@ -86,9 +236,9 @@ function Header({
   const renderUserAvatar = (className = 'size-10') => (
     <span className={`relative grid ${className} shrink-0 place-items-center overflow-hidden rounded-full bg-emerald-100 text-sm font-bold text-emerald-800`}>
       {getUserInitials(user?.FullName)}
-      {user?.AvatarUrl && (
+      {(user?.AvatarUrl || user?.avatarUrl) && (
         <img
-          src={user.AvatarUrl}
+          src={user.AvatarUrl || user.avatarUrl}
           alt=""
           className="absolute inset-0 size-full object-cover"
           onError={(event) => {
@@ -114,6 +264,17 @@ function Header({
           <UserRound size={17} />
           Hồ sơ cá nhân
         </Link>
+        {isSeller && (
+          <Link
+            to="/seller/store"
+            onClick={closeMenu}
+            role="menuitem"
+            className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-800"
+          >
+            <Store size={17} />
+            Cửa hàng của tôi
+          </Link>
+        )}
         {isAdmin && (
           <Link
             to="/admin"
@@ -125,6 +286,21 @@ function Header({
             Trang quản trị
           </Link>
         )}
+        <div className="mt-1 flex items-center gap-2 border-t border-slate-100 px-3 py-2.5 text-sm text-slate-600">
+          <Wallet size={17} className="text-emerald-600" />
+          <span>Credit:</span>
+          <strong className="ml-auto text-emerald-700">
+            {creditLoading ? '...' : Number(creditBalance || 0).toLocaleString('vi-VN')}
+          </strong>
+        </div>
+        <Link
+          to="/credit/packages"
+          onClick={closeMenu}
+          role="menuitem"
+          className="flex items-center justify-center rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100"
+        >
+          Nạp thêm
+        </Link>
       </div>
     )
   )
@@ -203,15 +379,50 @@ function Header({
             )}
           </button>
 
-          {/* Đăng tin */}
-          <button
-            type="button"
-            onClick={() => onUnavailable('Đăng tin')}
-            className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-emerald-600 px-3.5 text-sm font-bold text-white shadow-md shadow-emerald-600/20 transition hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-lg hover:shadow-emerald-600/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
-          >
-            <PlusCircle size={17} />
-            Đăng tin
-          </button>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setNotificationsOpen((open) => !open)}
+              className={`${utilityButtonClass} relative size-10 shrink-0 p-0`}
+              aria-label={`Thông báo${unreadNotifications ? `, ${unreadNotifications} chưa đọc` : ''}`}
+              title="Thông báo"
+            >
+              <Bell size={19} />
+              {unreadNotifications > 0 && (
+                <span className="absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-4 text-white">
+                  {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                </span>
+              )}
+            </button>
+            {notificationsOpen && (
+              <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+                <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                  <strong className="text-sm text-slate-800">Thông báo</strong>
+                  <button type="button" onClick={markAllNotificationsRead} className="text-xs font-semibold text-emerald-700 hover:underline">
+                    Đánh dấu đã đọc
+                  </button>
+                </div>
+                <div className="max-h-96 overflow-y-auto">
+                  {notificationsLoading ? (
+                    <p className="px-4 py-6 text-center text-sm text-slate-500">Đang tải...</p>
+                  ) : notifications.length ? notifications.map((notification) => (
+                    <button
+                      type="button"
+                      key={notification.NotificationId}
+                      onClick={() => handleNotificationClick(notification)}
+                      className={`block w-full border-b border-slate-100 px-4 py-3 text-left hover:bg-emerald-50 ${notification.IsRead ? 'bg-white' : 'bg-emerald-50/60'}`}
+                    >
+                      <p className="text-sm font-semibold text-slate-800">{notification.Title}</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-600">{notification.Message}</p>
+                      <p className="mt-1 text-[11px] text-slate-400">{new Date(notification.CreatedAt).toLocaleString('vi-VN')}</p>
+                    </button>
+                  )) : (
+                    <p className="px-4 py-8 text-center text-sm text-slate-500">Chưa có thông báo.</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
           {user ? (
             <div className="flex items-center gap-2">
@@ -325,16 +536,20 @@ function Header({
               <ColorThemePicker />
             </div>
 
-            {/* Đăng tin */}
             <button
               type="button"
               onClick={() => {
-                onUnavailable('Đăng tin')
-                closeMenu()
+                setNotificationsOpen(true)
               }}
-              className="rounded-xl bg-emerald-600 px-3 py-2.5 text-sm font-semibold text-white"
+              className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700"
             >
-              Đăng tin
+              <Bell size={17} />
+              Thông báo
+              {unreadNotifications > 0 && (
+                <span className="grid min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[10px] leading-5 text-white">
+                  {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                </span>
+              )}
             </button>
 
             {user ? (

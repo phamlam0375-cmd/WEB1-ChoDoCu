@@ -1,8 +1,11 @@
 import { useEffect } from "react";
+import { ShoppingBag } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useListingStore } from "../../store/useListing";
 
-export default function DetailListing({ product, listingId, onClose }) {
+export default function DetailListing({ product, listingId, onClose, onBuy }) {
     const listing = useListingStore((state) => state.listing);
+    const navigate = useNavigate();
 
     const item =
         product ||
@@ -10,6 +13,16 @@ export default function DetailListing({ product, listingId, onClose }) {
             (listingItem) =>
                 Number(listingItem.ListingId) === Number(listingId)
         );
+    const handleBuy = (event) => {
+        if (onBuy) {
+            onBuy(event);
+            return;
+        }
+        const id = Number(item?.ListingId);
+        if (Number.isSafeInteger(id) && id > 0) {
+            navigate(`/orders/create/${id}`);
+        }
+    };
 
     const conditionLabels = {
         LIKE_NEW: "Như mới",
@@ -239,6 +252,19 @@ export default function DetailListing({ product, listingId, onClose }) {
 
                 {/* Footer modal */}
                 <div className="flex shrink-0 justify-end border-t border-slate-100 bg-white px-5 py-4 sm:px-7">
+                    <button
+                        type="button"
+                        onClick={handleBuy}
+                        disabled={!item || item.Status !== "ACTIVE"}
+                        className={`mr-3 inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition ${
+                            item?.Status === "ACTIVE"
+                                ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                                : "cursor-not-allowed bg-slate-100 text-slate-400"
+                        }`}
+                    >
+                        <ShoppingBag size={16} />
+                        {item?.Status === "ACTIVE" ? "Mua hàng" : "Không khả dụng"}
+                    </button>
                     <button
                         type="button"
                         onClick={onClose}

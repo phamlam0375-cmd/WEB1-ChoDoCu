@@ -27,7 +27,9 @@ const authRoutes = require('./routes/register.route');
 const passwordResetRoutes = require('./routes/passwordReset.route');
 const sellerOrder = require('./routes/sellerOrder.route');
 const preparation = require('./routes/preparation.route');
-const conversations = require('./routes/conversations.route')
+const conversations = require('./routes/conversations.route');
+const credit = require('./routes/credit.route');
+const notificationRoutes = require('./routes/notifications.route');
 
 const app = express();
 
@@ -83,6 +85,8 @@ app.use("/api/seller/listing", listingRoutes);
 app.use('/api/seller/store/order', sellerOrder)
 app.use('/api/seller/orders', preparation)
 app.use('/api/conversations', conversations)
+app.use('/api/credit', credit)
+app.use('/api/v1/notifications', notificationRoutes)
 
 
 // PHÂN HỆ B: QUẢN TRỊ VÀ DOANH THU

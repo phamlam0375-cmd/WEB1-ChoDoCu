@@ -246,7 +246,7 @@ export default function ModalEditStore({
                 }
 
                 const uploadResponse =
-                    await uploadQrImage(qrFile);
+                    await uploadQrImage(store.OwnerId, qrFile);
 
                 nextQrImageUrl =
                     uploadResponse.data.data.url;

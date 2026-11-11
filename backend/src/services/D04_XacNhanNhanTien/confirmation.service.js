@@ -117,7 +117,7 @@ function createConfirmationService({ repository = defaultRepository, clock = () 
       const message = input.action === 'CONFIRM' ? `Đã xác nhận nhận tiền cho đơn #${id}.` : 'Đã thông báo cho người mua kiểm tra lại giao dịch.';
       await repository.notifyBuyer(state.order.BuyerId, { type: 'PAYMENT', title: input.action === 'CONFIRM' ? 'Người bán đã nhận đủ tiền' : 'Người bán chưa nhận được tiền',
         message: input.action === 'CONFIRM' ? `Đơn #${id}: người bán đã nhận đủ tiền sản phẩm; đơn đã PAID, chờ chuẩn bị hàng.` : `Đơn #${id}: kiểm tra giao dịch ngân hàng và gửi lại biên lai ở D03; không tự chuyển tiền lần nữa.`,
-        referenceType: 'ORDER', referenceId: id, createdAt: now }, transaction);
+        referenceType: 'PAYMENT', referenceId: id, createdAt: now }, transaction);
       state.payment = { ...state.payment, ...changes };
       if (input.action === 'CONFIRM') state.order = { ...state.order, Status: 'PAID' };
       state.decision = { Note: input.historyNote, ChangedBy: sellerId, CreatedAt: now, HistoryId: savedHistory?.HistoryId };

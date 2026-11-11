@@ -5,9 +5,10 @@
 const crypto = require("crypto");
 const fs = require("fs/promises");
 const path = require("path");
-const { badRequest } = require("../utils/httpError");
+const { badRequest, forbidden } = require("../utils/httpError");
 
 const UPLOAD_DIR = path.resolve(__dirname, "../../uploads");
+const STORE_QR_UPLOAD_DIR = path.join(UPLOAD_DIR, "qrStore");
 const MAX_BYTES = 5 * 1024 * 1024;
 const INVALID_IMAGE_MESSAGE = "Chỉ chấp nhận ảnh JPG, PNG, tối đa 5MB";
 
@@ -35,4 +36,30 @@ const uploadImage = async (req, res) => {
   });
 };
 
-module.exports = { UPLOAD_DIR, MAX_BYTES, INVALID_IMAGE_MESSAGE, uploadImage };
+const uploadStoreQrImage = async (req, res) => {
+  if (Number(req.params.ownerId) !== Number(req.user?.UserId)) {
+    throw forbidden("Chỉ chủ cửa hàng được tải ảnh QR.");
+  }
+  const buffer = Buffer.isBuffer(req.body) ? req.body : null;
+  if (!buffer || !buffer.length || buffer.length > MAX_BYTES) throw badRequest(INVALID_IMAGE_MESSAGE);
+  const extension = detectType(buffer);
+  if (!extension) throw badRequest(INVALID_IMAGE_MESSAGE);
+
+  await fs.mkdir(STORE_QR_UPLOAD_DIR, { recursive: true });
+  const fileName = `${Date.now()}-${crypto.randomBytes(8).toString("hex")}.${extension}`;
+  await fs.writeFile(path.join(STORE_QR_UPLOAD_DIR, fileName), buffer);
+
+  return res.status(201).json({
+    success: true,
+    message: "Tải ảnh QR cửa hàng thành công",
+    data: { url: `/api/v1/uploads/qrStore/${fileName}`, size: buffer.length },
+  });
+};
+
+module.exports = {
+  UPLOAD_DIR,
+  MAX_BYTES,
+  INVALID_IMAGE_MESSAGE,
+  uploadImage,
+  uploadStoreQrImage,
+};

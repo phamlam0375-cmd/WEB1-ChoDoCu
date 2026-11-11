@@ -1,7 +1,8 @@
-import { Eye, Package } from "lucide-react";
+import { Package, ShoppingBag } from "lucide-react";
 
-import DetailListing from "./DetailListing";
+import ListingDetail from "../../pages/listing/ListingDetail";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const formatPrice = (price) => {
     if (price === null || price === undefined) {
@@ -57,8 +58,34 @@ function ProductImage({ image, alt }) {
 }
 
 export function StoreProduct({ products, loading }) {
-const [openDetail, setOpenDetail] = useState(false);
+    const navigate = useNavigate();
+    const [openDetail, setOpenDetail] = useState(false);
     const [selectedDetail, setSelectedDetail] = useState(null);
+
+    const handleBuy = (event, product) => {
+        event.stopPropagation();
+        const listingId = Number(product?.ListingId || product?.id);
+        if (Number.isSafeInteger(listingId) && listingId > 0) {
+            navigate(`/orders/create/${listingId}`);
+        }
+    };
+
+    const getDetailProduct = (product) => ({
+        id: product.ListingId || product.id,
+        name: product.Title || product.Name || "Sản phẩm chưa có tên",
+        price: Number(product.Price),
+        status: product.Status || "ACTIVE",
+        condition: product.ConditionLevel || "",
+        location: product.Location || "Chưa cập nhật",
+        description: product.Description || "",
+        knownDefects: product.KnownDefects || "",
+        postedAt: product.CreatedAt
+            ? new Date(product.CreatedAt).toLocaleDateString("vi-VN")
+            : "",
+        seller: product.Seller?.FullName || "Người bán",
+        sellerId: product.SellerId,
+        image: resolveProductImage(getProductImage(product)) || "/product-placeholder.svg",
+    });
 
     return (
         <>
@@ -109,7 +136,21 @@ const [openDetail, setOpenDetail] = useState(false);
                                         product.ListingId ||
                                         product.id
                                     }
-                                    className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-md"
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={() => {
+                                        setSelectedDetail(product);
+                                        setOpenDetail(true);
+                                    }}
+                                    onKeyDown={(event) => {
+                                        if (event.key === "Enter" || event.key === " ") {
+                                            event.preventDefault();
+                                            setSelectedDetail(product);
+                                            setOpenDetail(true);
+                                        }
+                                    }}
+                                    aria-label={`Xem chi tiết ${product.Title || product.Name || "sản phẩm"}`}
+                                    className="group cursor-pointer overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                                 >
 
                                     {/* IMAGE */}
@@ -120,14 +161,6 @@ const [openDetail, setOpenDetail] = useState(false);
                                             alt={product.Title || product.Name || "Sản phẩm"}
                                         />
 
-                                        {/* STATUS */}
-                                        {product.Status && (
-                                            <span className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1 text-xs font-semibold text-emerald-700 shadow-sm">
-                                                {
-                                                    product.Status
-                                                }
-                                            </span>
-                                        )}
                                     </div>
 
                                     {/* CONTENT */}
@@ -153,16 +186,20 @@ const [openDetail, setOpenDetail] = useState(false);
                                             </p>
                                         )}
 
-                                       <button
-                                            onClick={() => {
-                                                setSelectedDetail(product);
-                                                setOpenDetail(true);
-                                            }}
-                                            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-600 hover:text-white"
+                                        <button
+                                            type="button"
+                                            onClick={(event) => handleBuy(event, product)}
+                                            disabled={product.Status !== "ACTIVE"}
+                                            className={`mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl px-3 text-sm font-bold transition ${
+                                                product.Status === "ACTIVE"
+                                                    ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                                                    : "cursor-not-allowed bg-slate-100 text-slate-400"
+                                            }`}
                                         >
-                                            <Eye size={14} />
-                                            Chi tiết
+                                            <ShoppingBag size={16} />
+                                            {product.Status === "ACTIVE" ? "Mua hàng" : "Không khả dụng"}
                                         </button>
+
                                     </div>
                                 </div>
                             );
@@ -172,8 +209,8 @@ const [openDetail, setOpenDetail] = useState(false);
             </section>
 
             {openDetail && selectedDetail && (
-                <DetailListing
-                    product={selectedDetail}
+                <ListingDetail
+                    product={getDetailProduct(selectedDetail)}
                     onClose={() => {
                         setOpenDetail(false);
                         setSelectedDetail(null);

@@ -60,6 +60,30 @@ const searchListings = async (keyword, page = 1, limit = 100) => {
     return res.data;
 };
 
+const getSellerVipPromotions = async () => {
+    const res = await api.get("/seller/listing/vip");
+    return res.data;
+};
+
+const getListingVipStatus = async (ListingId) => {
+    const res = await api.get(`/seller/listing/${ListingId}/vip`);
+    return res.data;
+};
+
+const promoteListing = async (ListingId, idempotencyKey, durationMinutes) => {
+    const res = await api.post(`/seller/listing/${ListingId}/vip`, { durationMinutes }, {
+        headers: { "Idempotency-Key": idempotencyKey },
+    });
+    return res.data;
+};
+
+const promoteListings = async (listingIds, idempotencyKey, durationMinutes) => {
+    const res = await api.post("/seller/listing/vip/bulk", { listingIds, durationMinutes }, {
+        headers: { "Idempotency-Key": idempotencyKey },
+    });
+    return res.data;
+};
+
 export {
     getStoreListing,
     updateListing,
@@ -68,4 +92,8 @@ export {
     getAllListing,
     getListingById,
     searchListings,
+    getSellerVipPromotions,
+    getListingVipStatus,
+    promoteListing,
+    promoteListings,
 };

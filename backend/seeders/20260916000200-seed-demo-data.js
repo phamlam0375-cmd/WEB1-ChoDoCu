@@ -386,19 +386,16 @@ const TABLES = [
     })
   },
   {
-    name: 'Notifications',
-    row: (i) => ({
-      NotificationId: i,
-      UserId: i,
-      Type: ['MESSAGE', 'ORDER', 'PARTNER', 'LISTING', 'VIP', 'SYSTEM'][i % 6],
-      Title: `Thông báo ${pad(i)}`,
-      Message: `Nội dung thông báo dữ liệu mẫu số ${i}`,
-      ReferenceType: i % 2 === 0 ? 'ORDER' : 'LISTING',
-      ReferenceId: i,
-      IsRead: i % 2 === 0,
-      CreatedAt: demoDate(i)
-    })
-  }
+    name: 'CreditPackages',
+    rows: [
+      { PackageId: 1, PackageName: 'Gói 1', Description: 'Nạp 10.000đ nhận 10 Credit', Price: 10000, BaseCredit: 10, BonusCredit: 0, TotalCredit: 10, Status: 'ACTIVE', IsFeatured: false, SortOrder: 1 },
+      { PackageId: 2, PackageName: 'Gói 2', Description: 'Nạp 20.000đ nhận 20 Credit', Price: 20000, BaseCredit: 20, BonusCredit: 0, TotalCredit: 20, Status: 'ACTIVE', IsFeatured: false, SortOrder: 2 },
+      { PackageId: 3, PackageName: 'Gói 3', Description: 'Nạp 50.000đ nhận 50 Credit', Price: 50000, BaseCredit: 50, BonusCredit: 0, TotalCredit: 50, Status: 'ACTIVE', IsFeatured: false, SortOrder: 3 },
+      { PackageId: 4, PackageName: 'Gói 4 VIP', Description: 'Nạp 100.000đ nhận 110 Credit (thưởng 10)', Price: 100000, BaseCredit: 100, BonusCredit: 10, TotalCredit: 110, Status: 'ACTIVE', IsFeatured: true, SortOrder: 4 },
+      { PackageId: 5, PackageName: 'Gói 5', Description: 'Nạp 200.000đ nhận 240 Credit (thưởng 40)', Price: 200000, BaseCredit: 200, BonusCredit: 40, TotalCredit: 240, Status: 'ACTIVE', IsFeatured: false, SortOrder: 5 },
+      { PackageId: 6, PackageName: 'Gói 6', Description: 'Nạp 500.000đ nhận 750 Credit (thưởng 250)', Price: 500000, BaseCredit: 500, BonusCredit: 250, TotalCredit: 750, Status: 'ACTIVE', IsFeatured: false, SortOrder: 6 }
+    ]
+  },
 ];
 
 async function insertInBatches(queryInterface, table) {

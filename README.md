@@ -208,6 +208,7 @@ docker compose up -d --build
 | Lệnh `docker` báo `error during connect` hoặc không kết nối được | Mở Docker Desktop, chờ trạng thái "running" rồi chạy lại |
 | Báo cổng 3306/3000/8081 đang được dùng | Tắt MySQL hoặc chương trình đang dùng cổng đó, rồi chạy lại |
 | Máy từng chạy bản cũ của dự án, trang báo lỗi hoặc thiếu bảng | `git pull` rồi `docker compose up -d --build`; vẫn lỗi thì `docker compose down -v` rồi chạy lại (xóa dữ liệu cũ trên máy đó) |
+| API báo `Cannot find module` sau khi thêm package backend | Chạy `docker compose up -d --build --force-recreate -V api` để build lại image và tạo lại volume `node_modules` |
 | Máy khác không thấy dữ liệu mới của mình | Làm theo mục "Chia sẻ dữ liệu giữa các máy" |
 | Trang báo "Lỗi server" ngay sau khi khởi động | Chờ API chạy xong migration (xem `docker compose logs -f api`) |
 | Trang quản trị chỉ hiện "Khu vực dành cho quản trị viên" | Đăng ký/xác minh tài khoản thật, cấp role bằng lệnh `admin:grant`, rồi đăng xuất và đăng nhập lại |

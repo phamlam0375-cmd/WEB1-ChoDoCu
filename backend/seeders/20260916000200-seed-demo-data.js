@@ -386,20 +386,6 @@ const TABLES = [
     })
   },
   {
-    name: 'Notifications',
-    row: (i) => ({
-      NotificationId: i,
-      UserId: i,
-      Type: ['MESSAGE', 'ORDER', 'PARTNER', 'LISTING', 'VIP', 'SYSTEM'][i % 6],
-      Title: `Thông báo ${pad(i)}`,
-      Message: `Nội dung thông báo dữ liệu mẫu số ${i}`,
-      ReferenceType: i % 2 === 0 ? 'ORDER' : 'LISTING',
-      ReferenceId: i,
-      IsRead: i % 2 === 0,
-      CreatedAt: demoDate(i)
-    })
-  },
-  {
     name: 'CreditPackages',
     rows: [
       { PackageId: 1, PackageName: 'Gói 1', Description: 'Nạp 10.000đ nhận 10 Credit', Price: 10000, BaseCredit: 10, BonusCredit: 0, TotalCredit: 10, Status: 'ACTIVE', IsFeatured: false, SortOrder: 1 },

@@ -37,7 +37,11 @@ export default function PublicStore() {
                             1,
                             100
                         );
-                        setProducts(listingResponse.data || []);
+                        setProducts(
+                            (listingResponse.data || []).filter(
+                                (product) => product.Status === "ACTIVE"
+                            )
+                        );
                     } catch (listingError) {
                         console.error(
                             "Lấy sản phẩm cửa hàng thất bại:",

@@ -5,7 +5,7 @@ import {
   Menu,
   ClipboardList,
   Truck,
-  PlusCircle,
+  Bell,
   Store,
   ShieldCheck,
   UserPlus,
@@ -49,13 +49,16 @@ function Header({
   savedCount = 0,
   savedOnly = false,
   onShowSaved = () => {},
-  onUnavailable = () => {},
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
   const [user, setUser] = useState(readStoredUser)
   const [creditBalance, setCreditBalance] = useState(0)
   const [creditLoading, setCreditLoading] = useState(false)
+  const [notifications, setNotifications] = useState([])
+  const [unreadNotifications, setUnreadNotifications] = useState(0)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [notificationsLoading, setNotificationsLoading] = useState(false)
 
   const navigate = useNavigate()
   const isAdmin = user?.roles?.includes('ADMIN') || user?.Roles?.includes('ADMIN')
@@ -117,6 +120,96 @@ function Header({
       window.removeEventListener('credit-balance-updated', refreshBalance)
     }
   }, [user])
+
+  useEffect(() => {
+    let active = true
+    const refreshNotifications = async () => {
+      if (!user) {
+        setNotifications([])
+        setUnreadNotifications(0)
+        return
+      }
+      setNotificationsLoading(true)
+      try {
+        const response = await api.get('/notifications?limit=20')
+        if (active) {
+          setNotifications(response.data?.data?.notifications || [])
+          setUnreadNotifications(Number(response.data?.data?.unreadCount || 0))
+        }
+      } catch {
+        console.error('Không thể tải thông báo.')
+        if (active) setNotifications([])
+      } finally {
+        if (active) setNotificationsLoading(false)
+      }
+    }
+
+    refreshNotifications()
+    const timer = window.setInterval(refreshNotifications, 30000)
+    window.addEventListener('notifications-updated', refreshNotifications)
+    return () => {
+      active = false
+      window.clearInterval(timer)
+      window.removeEventListener('notifications-updated', refreshNotifications)
+    }
+  }, [user])
+
+  const markNotificationRead = async (notification) => {
+    if (notification.IsRead) return
+    try {
+      await api.patch(`/notifications/${notification.NotificationId}/read`, {})
+      setNotifications((current) => current.map((item) => item.NotificationId === notification.NotificationId
+        ? { ...item, IsRead: true }
+        : item))
+      setUnreadNotifications((count) => Math.max(0, count - 1))
+    } catch {
+      console.error('Không thể đánh dấu thông báo đã đọc.')
+    }
+  }
+
+  const markAllNotificationsRead = async () => {
+    if (!unreadNotifications) return
+    try {
+      await api.patch('/notifications/read-all', {})
+      setNotifications((current) => current.map((item) => ({ ...item, IsRead: true })))
+      setUnreadNotifications(0)
+    } catch {
+      console.error('Không thể đánh dấu toàn bộ thông báo đã đọc.')
+    }
+  }
+
+  const getNotificationUrl = (notification) => {
+    const referenceId = Number(notification.ReferenceId)
+    if (!Number.isSafeInteger(referenceId) || referenceId <= 0) return null
+
+    switch (String(notification.ReferenceType || '').toUpperCase()) {
+      case 'ORDER':
+        return isSeller
+          ? '/seller/orders'
+          : `/orders/${referenceId}/tracking`
+      case 'PAYMENT':
+        return `/orders/${referenceId}/payment`
+      case 'REFUND_REQUEST':
+        return '/refunds'
+      case 'COMMISSION':
+        return '/seller/fees'
+      case 'PARTNER_APPLICATION':
+        return '/partner-application'
+      case 'LISTING':
+        return '/seller/listings'
+      default:
+        return null
+    }
+  }
+
+  const handleNotificationClick = async (notification) => {
+    await markNotificationRead(notification)
+    const url = getNotificationUrl(notification)
+    if (url) {
+      setNotificationsOpen(false)
+      navigate(url)
+    }
+  }
 
   const closeMenu = () => {
     setMenuOpen(false)
@@ -286,15 +379,50 @@ function Header({
             )}
           </button>
 
-          {/* Đăng tin */}
-          <button
-            type="button"
-            onClick={() => onUnavailable('Đăng tin')}
-            className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-emerald-600 px-3.5 text-sm font-bold text-white shadow-md shadow-emerald-600/20 transition hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-lg hover:shadow-emerald-600/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
-          >
-            <PlusCircle size={17} />
-            Đăng tin
-          </button>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setNotificationsOpen((open) => !open)}
+              className={`${utilityButtonClass} relative size-10 shrink-0 p-0`}
+              aria-label={`Thông báo${unreadNotifications ? `, ${unreadNotifications} chưa đọc` : ''}`}
+              title="Thông báo"
+            >
+              <Bell size={19} />
+              {unreadNotifications > 0 && (
+                <span className="absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-4 text-white">
+                  {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                </span>
+              )}
+            </button>
+            {notificationsOpen && (
+              <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+                <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                  <strong className="text-sm text-slate-800">Thông báo</strong>
+                  <button type="button" onClick={markAllNotificationsRead} className="text-xs font-semibold text-emerald-700 hover:underline">
+                    Đánh dấu đã đọc
+                  </button>
+                </div>
+                <div className="max-h-96 overflow-y-auto">
+                  {notificationsLoading ? (
+                    <p className="px-4 py-6 text-center text-sm text-slate-500">Đang tải...</p>
+                  ) : notifications.length ? notifications.map((notification) => (
+                    <button
+                      type="button"
+                      key={notification.NotificationId}
+                      onClick={() => handleNotificationClick(notification)}
+                      className={`block w-full border-b border-slate-100 px-4 py-3 text-left hover:bg-emerald-50 ${notification.IsRead ? 'bg-white' : 'bg-emerald-50/60'}`}
+                    >
+                      <p className="text-sm font-semibold text-slate-800">{notification.Title}</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-600">{notification.Message}</p>
+                      <p className="mt-1 text-[11px] text-slate-400">{new Date(notification.CreatedAt).toLocaleString('vi-VN')}</p>
+                    </button>
+                  )) : (
+                    <p className="px-4 py-8 text-center text-sm text-slate-500">Chưa có thông báo.</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
           {user ? (
             <div className="flex items-center gap-2">
@@ -408,16 +536,20 @@ function Header({
               <ColorThemePicker />
             </div>
 
-            {/* Đăng tin */}
             <button
               type="button"
               onClick={() => {
-                onUnavailable('Đăng tin')
-                closeMenu()
+                setNotificationsOpen(true)
               }}
-              className="rounded-xl bg-emerald-600 px-3 py-2.5 text-sm font-semibold text-white"
+              className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700"
             >
-              Đăng tin
+              <Bell size={17} />
+              Thông báo
+              {unreadNotifications > 0 && (
+                <span className="grid min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[10px] leading-5 text-white">
+                  {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                </span>
+              )}
             </button>
 
             {user ? (

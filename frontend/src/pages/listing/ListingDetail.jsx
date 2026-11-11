@@ -1,9 +1,11 @@
 import { useEffect } from 'react'
-import { MapPin, MessageCircle, Store, X } from 'lucide-react'
+import { MapPin, MessageCircle, ShoppingBag, Store, X } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 
 import { formatPrice } from '../../data/mockProducts'
 
 function ListingDetail({ product, onClose }) {
+  const navigate = useNavigate()
   useEffect(() => {
     const handleEscape = (event) => {
       if (event.key === 'Escape') onClose()
@@ -59,6 +61,17 @@ function ListingDetail({ product, onClose }) {
               {formatPrice(product.price)}
             </p>
 
+            {product.status === 'ACTIVE' && (
+              <button
+                type="button"
+                onClick={() => navigate(`/orders/create/${product.id}`)}
+                className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 font-bold text-white shadow-lg shadow-emerald-600/20 transition hover:bg-emerald-700 active:scale-[0.99]"
+              >
+                <ShoppingBag size={18} />
+                <span>Mua hàng</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => {
@@ -79,10 +92,10 @@ function ListingDetail({ product, onClose }) {
                   })
                 );
               }}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 font-bold text-white shadow-lg shadow-emerald-600/20 transition hover:bg-emerald-700 active:scale-[0.99]"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-3 font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 active:scale-[0.99]"
             >
               <MessageCircle size={18} />
-              <span>Chat với người bán về món này</span>
+              <span>Chat với người bán</span>
             </button>
 
             <div className="mt-6 grid gap-4 border-t border-slate-100 pt-5 text-sm text-slate-600 sm:grid-cols-2">

@@ -1,13 +1,21 @@
-import { getStoreListing, hideListing, updateListing } from "../../services/listingApi";
-import { getStoreByOwnerId } from "../../services/storeApi";
-import { useEffect, useState } from "react";
+import { ChevronLeft, ChevronRight, Loader2, Sparkles } from "lucide-react";
+import {
+    getSellerVipPromotions,
+    getStoreListing,
+    hideListing,
+    promoteListings,
+    updateListing,
+} from "../../services/listingApi";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import Header from "../../components/Header";
 import UpdateListingModal from "./UpdateListingModal";
+import { errorMessage } from "../../lib/api";
+import { getStoreByOwnerId } from "../../services/storeApi";
 import { toast } from "react-toastify";
-import { useListingStore } from "../../store/useListing";
-import { useNavigate, useSearchParams } from "react-router-dom";
 import { useDevAccount } from "../../hooks/useDevAccount";
+import { useListingStore } from "../../store/useListing";
 
 export default function CrudListing() {
     const listing = useListingStore((state) => state.listing);
@@ -17,6 +25,12 @@ export default function CrudListing() {
 
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [vipInfo, setVipInfo] = useState({ balance: 0, creditUsed: 0, feeVnd: 0, promotions: [] });
+    const [vipBusy, setVipBusy] = useState(null);
+    const [selectedVipIds, setSelectedVipIds] = useState([]);
+    const [vipModalOpen, setVipModalOpen] = useState(false);
+    const [vipDurationDays, setVipDurationDays] = useState(7);
+    const vipRequestSequence = useRef(0);
 
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -65,16 +79,84 @@ export default function CrudListing() {
                     return;
                 }
 
-                const res = await getStoreListing(storeId, page, 10);
+                const [res, vipResponse] = await Promise.all([
+                    getStoreListing(storeId, page, 10),
+                    getSellerVipPromotions(),
+                ]);
                 setListing(res.data);
                 setTotalPages(res.pagination.totalPages);
+                setVipInfo(vipResponse.data);
             } catch (error) {
-                console.log("error ====> ", error);
+                toast.error(errorMessage(error));
             }
         };
 
         fetchSellerListing();
     }, [accountLoading, page, setListing, storeId, navigate, userId]);
+
+    const refreshVipInfo = async () => {
+        const response = await getSellerVipPromotions();
+        setVipInfo(response.data);
+    };
+
+    const getPromotion = (listingId) => vipInfo.promotions.find(
+        (promotion) => Number(promotion.ListingId) === Number(listingId),
+    );
+
+    const openVipModal = (ids) => {
+        setSelectedVipIds(ids);
+        setVipDurationDays(7);
+        setVipModalOpen(true);
+    };
+
+    const handlePromote = (item) => {
+        if (item.Status !== "ACTIVE") {
+            toast.warning("Chỉ có thể đẩy tin đang hoạt động lên VIP.");
+            return;
+        }
+        if (getPromotion(item.ListingId)) {
+            toast.info("Tin này đang ở trạng thái VIP.");
+            return;
+        }
+        openVipModal([item.ListingId]);
+    };
+
+    const toggleVipSelection = (listingId) => {
+        setSelectedVipIds((current) => current.includes(listingId)
+            ? current.filter((id) => id !== listingId)
+            : [...current, listingId]);
+    };
+
+    const handleBulkPromote = () => {
+        const selected = listing.filter((item) => selectedVipIds.includes(item.ListingId));
+        if (!selected.length) return;
+        openVipModal(selected.map((item) => item.ListingId));
+    };
+
+    const submitVipPromotion = async () => {
+        if (!selectedVipIds.length) return;
+        const durationMinutes = vipDurationDays * 24 * 60;
+        const costPerListing = Number(vipInfo.baseCreditUsed || vipInfo.creditUsed) * (vipDurationDays / 7);
+        const totalCost = costPerListing * selectedVipIds.length;
+        if (totalCost > Number(vipInfo.balance)) {
+            toast.warning(`Số dư không đủ. Cần ${totalCost} credit.`);
+            return;
+        }
+        if (!window.confirm(`Đẩy ${selectedVipIds.length} tin lên VIP trong ${vipDurationDays} ngày với ${totalCost} credit?`)) return;
+        setVipBusy("bulk");
+        try {
+            vipRequestSequence.current += 1;
+            await promoteListings(selectedVipIds, `listing-vip-bulk-${vipRequestSequence.current}`, durationMinutes);
+            await refreshVipInfo();
+            setSelectedVipIds([]);
+            setVipModalOpen(false);
+            toast.success(`Đã đẩy ${selectedVipIds.length} tin lên VIP.`);
+        } catch (error) {
+            toast.error(errorMessage(error));
+        } finally {
+            setVipBusy(null);
+        }
+    };
 
     const handleUpdate = async (data) => {
         try {
@@ -82,8 +164,12 @@ export default function CrudListing() {
             setOpenUpdate(false);
             setSelectedListing(null);
 
-            const res = await getStoreListing(storeId, page, 10);
+            const [res, vipResponse] = await Promise.all([
+                getStoreListing(storeId, page, 10),
+                getSellerVipPromotions(),
+            ]);
             setListing(res.data)
+            setVipInfo(vipResponse.data);
         }
         catch (error) {
             console.error("Loi cap nhat ", error)
@@ -133,10 +219,54 @@ export default function CrudListing() {
                         </button>
                     </div>
 
+                    <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <p className="text-sm font-semibold text-amber-900">Tài khoản Credit</p>
+                            <p className="mt-1 text-sm text-amber-800">
+                                Số dư: <strong>{Number(vipInfo.balance).toLocaleString("vi-VN")} credit</strong>
+                                {" · "}Một tin VIP 7 ngày: <strong>{vipInfo.baseCreditUsed || vipInfo.creditUsed} credit</strong>
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => navigate("/credit/packages")}
+                            className="rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-amber-800 hover:bg-amber-100"
+                        >
+                            Nạp thêm Credit
+                        </button>
+                    </div>
+                    {selectedVipIds.length > 0 && (
+                        <div className="mb-4 flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                            <p className="text-sm font-semibold text-emerald-800">
+                                Đã chọn {selectedVipIds.length} tin · cần {vipInfo.creditUsed * selectedVipIds.length} credit
+                            </p>
+                            <div className="flex gap-2">
+                                <button type="button" onClick={() => setSelectedVipIds([])} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600">
+                                    Bỏ chọn
+                                </button>
+                                <button type="button" disabled={vipBusy === "bulk"} onClick={handleBulkPromote} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
+                                    Đẩy VIP đã chọn
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
                         <div
                             className="grid grid-cols-[2.8fr_1.2fr_1fr_1.2fr_1fr]  items-center gap-4 border-b border-emerald-100/60 bg-emerald-50/60 px-6 py-3.5  text-xs font-bold uppercase tracking-wider text-emerald-800 " >
-                            <span>Sản phẩm</span>
+                            <span className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    aria-label="Chọn tất cả tin có thể đẩy VIP"
+                                    checked={listing.filter((item) => item.Status === "ACTIVE" && !getPromotion(item)).length > 0
+                                        && listing.filter((item) => item.Status === "ACTIVE" && !getPromotion(item)).every((item) => selectedVipIds.includes(item.ListingId))}
+                                    onChange={(event) => {
+                                        const eligibleIds = listing.filter((item) => item.Status === "ACTIVE" && !getPromotion(item)).map((item) => item.ListingId);
+                                        setSelectedVipIds(event.target.checked ? eligibleIds : []);
+                                    }}
+                                />
+                                Sản phẩm
+                            </span>
                             <span>Giá</span>
                             <span>Tình trạng</span>
                             <span>Trạng thái</span>
@@ -147,6 +277,16 @@ export default function CrudListing() {
                             {listing.map((item) => (
                                 <div key={item.ListingId} className=" grid grid-cols-[2.8fr_1.2fr_1fr_1.2fr_1fr] items-center gap-4 px-6 py-4.5 transition-colors duration-150 hover:bg-emerald-50/20">
                                     <div className="min-w-0 pr-2">
+                                        <div className="flex items-start gap-2">
+                                            <input
+                                                type="checkbox"
+                                                aria-label={`Chọn sản phẩm ${item.Title}`}
+                                                checked={selectedVipIds.includes(item.ListingId)}
+                                                disabled={item.Status !== "ACTIVE" || Boolean(getPromotion(item))}
+                                                onChange={() => toggleVipSelection(item.ListingId)}
+                                                className="mt-1"
+                                            />
+                                            <div className="min-w-0">
                                         <h3 className="truncate font-semibold text-slate-900">
                                             {item.Title}
                                         </h3>
@@ -161,6 +301,13 @@ export default function CrudListing() {
                                                 {item.KnownDefects || "Không có"}
                                             </span>
                                         </p>
+                                        {getPromotion(item) && (
+                                            <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">
+                                                <Sparkles size={12} /> VIP đến {new Date(getPromotion(item).EndsAt).toLocaleDateString("vi-VN")}
+                                            </span>
+                                        )}
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <div>
@@ -185,6 +332,18 @@ export default function CrudListing() {
                                     </div>
 
                                     <div className="flex items-center justify-end gap-3">
+                                        <button
+                                            type="button"
+                                            disabled={vipBusy === item.ListingId || item.Status !== "ACTIVE" || Boolean(getPromotion(item))}
+                                            onClick={() => handlePromote(item)}
+                                            title={getPromotion(item) ? "Tin đang VIP" : "Đẩy tin lên VIP trong 7 ngày"}
+                                            className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 transition hover:border-amber-300 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                            {vipBusy === item.ListingId
+                                                ? <Loader2 size={14} className="animate-spin" />
+                                                : <Sparkles size={14} />}
+                                            {getPromotion(item) ? "Đang VIP" : "Đẩy VIP"}
+                                        </button>
                                         <button
                                             className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 shadow-2xs transition hover:border-emerald-300 hover:bg-emerald-100"
                                             onClick={() => {
@@ -273,6 +432,81 @@ export default function CrudListing() {
                     </div>
                 </div>
             </main >
+            {vipModalOpen && (() => {
+                const count = selectedVipIds.length;
+                const baseCredit = Number(vipInfo.baseCreditUsed || vipInfo.creditUsed || 0);
+                const maxDays = baseCredit > 0
+                    ? Math.floor(Number(vipInfo.balance) / (baseCredit * count / 7)) * 7
+                    : 0;
+                const durationDays = Math.min(vipDurationDays, Math.max(7, maxDays));
+                const totalCredit = baseCredit * (durationDays / 7) * count;
+                const insufficientCredit = Number(vipInfo.balance) < totalCredit;
+                return (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" role="dialog" aria-modal="true" aria-labelledby="vip-dialog-title">
+                        <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+                            <div className="flex items-start justify-between gap-4">
+                                <div>
+                                    <h2 id="vip-dialog-title" className="text-xl font-bold text-slate-900">Chọn thời gian VIP</h2>
+                                    <p className="mt-1 text-sm text-slate-500">{count} tin · kéo thanh trượt để chọn thời lượng</p>
+                                </div>
+                                <button type="button" onClick={() => setVipModalOpen(false)} className="text-2xl leading-none text-slate-400 hover:text-slate-700" aria-label="Đóng">×</button>
+                            </div>
+                            <div className="mt-7 rounded-xl bg-emerald-50 p-5 text-center">
+                                <p className="text-sm font-medium text-emerald-700">Thời lượng</p>
+                                <p className="mt-1 text-4xl font-black text-emerald-700">{durationDays} ngày</p>
+                                <div className="mt-5 flex items-center gap-3">
+                                    <button
+                                        type="button"
+                                        disabled={durationDays <= 7}
+                                        onClick={() => setVipDurationDays(Math.max(7, durationDays - 7))}
+                                        className="rounded-full border border-emerald-200 bg-white p-2 text-emerald-700 shadow-sm hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-40"
+                                        aria-label="Giảm 7 ngày"
+                                    >
+                                        <ChevronLeft size={18} />
+                                    </button>
+                                    <input
+                                        type="range"
+                                        min="7"
+                                        max={Math.max(7, maxDays)}
+                                        step="7"
+                                        value={durationDays}
+                                        onChange={(event) => setVipDurationDays(Number(event.target.value))}
+                                        className="w-full accent-emerald-600"
+                                        aria-label="Thời lượng VIP"
+                                    />
+                                    <button
+                                        type="button"
+                                        disabled={durationDays >= Math.max(7, maxDays)}
+                                        onClick={() => setVipDurationDays(Math.min(Math.max(7, maxDays), durationDays + 7))}
+                                        className="rounded-full border border-emerald-200 bg-white p-2 text-emerald-700 shadow-sm hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-40"
+                                        aria-label="Tăng 7 ngày"
+                                    >
+                                        <ChevronRight size={18} />
+                                    </button>
+                                </div>
+                                <div className="mt-2 flex justify-between text-xs text-emerald-700">
+                                    <span>7 ngày</span><span>Tối đa {Math.max(7, maxDays)} ngày</span>
+                                </div>
+                            </div>
+                            <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
+                                <div className="rounded-lg bg-slate-50 p-3"><p className="text-slate-500">Credit cần dùng</p><p className="mt-1 font-bold text-slate-900">{totalCredit} credit</p></div>
+                                <div className="rounded-lg bg-slate-50 p-3"><p className="text-slate-500">Còn lại</p><p className={`mt-1 font-bold ${insufficientCredit ? "text-red-600" : "text-emerald-700"}`}>{Number(vipInfo.balance) - totalCredit} credit</p></div>
+                            </div>
+                            {insufficientCredit && (
+                                <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+                                    Số dư chưa đủ. Vui lòng nạp thêm Credit để đẩy tin VIP.
+                                </p>
+                            )}
+                            <div className="mt-6 flex justify-end gap-2">
+                                <button type="button" onClick={() => setVipModalOpen(false)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600">Hủy</button>
+                                <button type="button" disabled={vipBusy === "bulk" || totalCredit > Number(vipInfo.balance)} onClick={submitVipPromotion} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
+                                    {vipBusy === "bulk" && <Loader2 size={15} className="animate-spin" />} Xác nhận đẩy VIP
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
             {
                 openUpdate &&
                 <UpdateListingModal

@@ -2,6 +2,22 @@
 
 const promotionService = require('../services/listingPromotion.service');
 
+const promoteListings = async (req, res) => {
+  try {
+    const data = await promotionService.promoteListings(
+      req.user.UserId,
+      req.body.listingIds,
+      {
+        idempotencyKey: req.get('Idempotency-Key') || req.body.idempotencyKey,
+        durationMinutes: req.body.durationMinutes ? Number(req.body.durationMinutes) : undefined,
+      },
+    );
+    return res.status(201).json({ success: true, message: 'Đẩy các tin lên VIP thành công.', data });
+  } catch (error) {
+    return res.status(error.status || 500).json({ success: false, message: error.message || 'Không thể đẩy các tin lên VIP.' });
+  }
+};
+
 const listSellerPromotions = async (req, res) => {
   try {
     const data = await promotionService.listSellerPromotions(req.user.UserId);
@@ -36,4 +52,4 @@ const promoteListing = async (req, res) => {
   }
 };
 
-module.exports = { listSellerPromotions, getVipStatus, promoteListing };
+module.exports = { listSellerPromotions, getVipStatus, promoteListing, promoteListings };

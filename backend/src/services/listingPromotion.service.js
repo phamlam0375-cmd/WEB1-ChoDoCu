@@ -29,17 +29,21 @@ const getOwnedListing = async (listingId, sellerId, transaction) => {
 };
 
 const getVipCost = async (durationMinutes = DEFAULT_DURATION_MINUTES) => {
-  if (!Number.isSafeInteger(durationMinutes) || durationMinutes !== DEFAULT_DURATION_MINUTES) {
-    throw badRequest('Thời lượng tin VIP hiện chỉ hỗ trợ 7 ngày.');
+  if (!Number.isSafeInteger(durationMinutes) || durationMinutes < DEFAULT_DURATION_MINUTES
+    || durationMinutes % DEFAULT_DURATION_MINUTES !== 0) {
+    throw badRequest('Thời lượng tin VIP phải là bội số của 7 ngày.');
   }
   const feeVnd = Number(await settingsService.getSetting('VIP_FEE'));
   if (!Number.isSafeInteger(feeVnd) || feeVnd <= 0 || feeVnd % CREDIT_VALUE_VND !== 0) {
     throw conflict('Cấu hình phí tin VIP không hợp lệ.');
   }
+  const durationMultiplier = durationMinutes / DEFAULT_DURATION_MINUTES;
   return {
     durationMinutes,
-    feeVnd,
-    creditUsed: feeVnd / CREDIT_VALUE_VND,
+    feeVnd: feeVnd * durationMultiplier,
+    creditUsed: (feeVnd / CREDIT_VALUE_VND) * durationMultiplier,
+    baseFeeVnd: feeVnd,
+    baseCreditUsed: feeVnd / CREDIT_VALUE_VND,
   };
 };
 
@@ -158,14 +162,14 @@ async function promoteListing(sellerId, listingId, { idempotencyKey, durationMin
       Status: 'SUCCESS',
       ReferenceCode: `PROMO-${order.PromotionOrderId}`,
       IdempotencyKey: normalizedKey || null,
-      Note: `Đẩy tin ${listing.ListingId} lên VIP trong 7 ngày`,
+      Note: `Đẩy tin ${listing.ListingId} lên VIP trong ${cost.durationMinutes / (24 * 60)} ngày`,
       CompletedAt: now,
     }, { transaction });
 
     const promotion = await ListingPromotions.create({
       ListingId: listing.ListingId,
       SellerId: sellerId,
-      PlanName: 'CREDIT_VIP_7D',
+      PlanName: `CREDIT_VIP_${cost.durationMinutes / (24 * 60)}D`,
       FeeAmount: 0,
       PaymentReference: creditTransaction.ReferenceCode,
       Status: 'ACTIVE',
@@ -186,4 +190,92 @@ async function promoteListing(sellerId, listingId, { idempotencyKey, durationMin
   });
 }
 
-module.exports = { listSellerPromotions, getVipStatus, promoteListing };
+async function promoteListings(sellerId, listingIds, { idempotencyKey, durationMinutes } = {}) {
+  const cost = await getVipCost(durationMinutes || DEFAULT_DURATION_MINUTES);
+  const ids = [...new Set((Array.isArray(listingIds) ? listingIds : []).map(Number))];
+  if (!ids.length || ids.some((id) => !Number.isSafeInteger(id) || id <= 0)) {
+    throw badRequest('Danh sách tin đăng không hợp lệ.');
+  }
+  const normalizedKey = typeof idempotencyKey === 'string' ? idempotencyKey.trim() : '';
+
+  return sequelize.transaction(async (transaction) => {
+    if (normalizedKey) {
+      const existing = await PromotionOrders.findOne({
+        where: { BuyerId: sellerId, IdempotencyKey: normalizedKey },
+        include: [{ model: ListingPromotions, as: 'items' }],
+        transaction,
+      });
+      if (existing) return existing;
+    }
+
+    const now = new Date();
+    const listings = [];
+    for (const listingId of ids) {
+      const listing = await getOwnedListing(listingId, sellerId, transaction);
+      if (listing.Status !== 'ACTIVE') throw conflict(`Tin "${listing.Title}" chưa ở trạng thái hoạt động.`);
+      const active = await ListingPromotions.findOne({
+        where: { ListingId: listingId, Status: 'ACTIVE', EndsAt: { [Op.gt]: now } },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+      if (active) throw conflict(`Tin "${listing.Title}" đang ở trạng thái VIP.`);
+      listings.push(listing);
+    }
+
+    const totalCredit = cost.creditUsed * listings.length;
+    const wallet = await UserCredits.findOne({
+      where: { UserId: sellerId },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+    const balance = wallet ? Number(wallet.Balance) : 0;
+    if (balance < totalCredit) throw conflict(`Số dư không đủ. Cần ${totalCredit} credit.`);
+
+    const order = await PromotionOrders.create({
+      BuyerId: sellerId,
+      ListingCount: listings.length,
+      DurationMinutes: cost.durationMinutes,
+      TotalCredit: totalCredit,
+      Status: 'PAID',
+      IdempotencyKey: normalizedKey || null,
+      PaidAt: now,
+    }, { transaction });
+
+    const nextBalance = balance - totalCredit;
+    if (wallet) await wallet.update({ Balance: nextBalance }, { transaction });
+    else await UserCredits.create({ UserId: sellerId, Balance: nextBalance }, { transaction });
+
+    await CreditTransactions.create({
+      UserId: sellerId,
+      PromotionOrderId: order.PromotionOrderId,
+      Type: 'SPEND',
+      Amount: -totalCredit,
+      BalanceAfter: nextBalance,
+      MoneyAmount: cost.feeVnd * listings.length,
+      Status: 'SUCCESS',
+      ReferenceCode: `PROMO-${order.PromotionOrderId}`,
+      IdempotencyKey: normalizedKey || null,
+      Note: `Đẩy ${listings.length} tin lên VIP trong 7 ngày`,
+      CompletedAt: now,
+    }, { transaction });
+
+    await ListingPromotions.bulkCreate(listings.map((listing) => ({
+      ListingId: listing.ListingId,
+      SellerId: sellerId,
+      PlanName: `CREDIT_VIP_${cost.durationMinutes / (24 * 60)}D`,
+      FeeAmount: 0,
+      PaymentReference: `PROMO-${order.PromotionOrderId}`,
+      Status: 'ACTIVE',
+      StartsAt: now,
+      EndsAt: new Date(now.getTime() + cost.durationMinutes * 60 * 1000),
+      ConfirmedAt: now,
+      PromotionOrderId: order.PromotionOrderId,
+      CreditUsed: cost.creditUsed,
+      DurationMinutes: cost.durationMinutes,
+    })), { transaction });
+
+    return { order, balance: nextBalance, creditUsed: totalCredit };
+  });
+}
+
+module.exports = { listSellerPromotions, getVipStatus, promoteListing, promoteListings };

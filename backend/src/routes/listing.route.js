@@ -14,6 +14,7 @@ router.get("/store/:StoreId", getAllListingStore);
 router.get("/", getAllListing);
 router.get("/search", searchListings);
 router.get("/vip", requireAuth, promotionController.listSellerPromotions);
+router.post("/vip/bulk", requireAuth, promotionController.promoteListings);
 router.get("/:ListingId", getListingId);
 router.patch("/:ListingId", requireAuth, updateListing);
 router.patch("/:ListingId/hidden", requireAuth, hiddenListing);

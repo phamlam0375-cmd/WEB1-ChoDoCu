@@ -1,6 +1,7 @@
 'use strict'
 
-const { Orders } = require('../models');
+const { Orders, sequelize } = require('../models');
+const { notify } = require('../services/notification.service');
 const { updateSellerOrderStatusSchema } = require('../validators/sellerOrder.validator')
 
 const getSellerOrders = async (req, res) => {
@@ -73,10 +74,22 @@ const updateSellerOrderStatus = async (req, res) => {
         const nextStatus = ["CONFIRM", "CONFIRMED"].includes(status)
             ? "WAITING_PAYMENT"
             : "CANCELLED";
-        await order.update({
-            Status: nextStatus,
-            CancelReason:
-                status === "REJECTED" ? reason.trim() : null,
+        await sequelize.transaction(async (transaction) => {
+            await order.update({
+                Status: nextStatus,
+                CancelReason:
+                    status === "REJECTED" ? reason.trim() : null,
+            }, { transaction });
+
+            if (nextStatus === "WAITING_PAYMENT") {
+                await notify(order.BuyerId, {
+                    type: "PAYMENT",
+                    title: "Người bán đã chấp nhận đơn hàng",
+                    message: `Đơn #${order.OrderId} đã được người bán chấp nhận. Vui lòng thanh toán để tiếp tục.`,
+                    referenceType: "PAYMENT",
+                    referenceId: order.OrderId,
+                }, { transaction });
+            }
         });
         return res.status(200).json({
             success: true,

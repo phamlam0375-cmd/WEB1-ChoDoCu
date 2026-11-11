@@ -1,7 +1,8 @@
-import { Package } from "lucide-react";
+import { Package, ShoppingBag } from "lucide-react";
 
-import DetailListing from "./DetailListing";
+import ListingDetail from "../../pages/listing/ListingDetail";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const formatPrice = (price) => {
     if (price === null || price === undefined) {
@@ -57,8 +58,34 @@ function ProductImage({ image, alt }) {
 }
 
 export function StoreProduct({ products, loading }) {
-const [openDetail, setOpenDetail] = useState(false);
+    const navigate = useNavigate();
+    const [openDetail, setOpenDetail] = useState(false);
     const [selectedDetail, setSelectedDetail] = useState(null);
+
+    const handleBuy = (event, product) => {
+        event.stopPropagation();
+        const listingId = Number(product?.ListingId || product?.id);
+        if (Number.isSafeInteger(listingId) && listingId > 0) {
+            navigate(`/orders/create/${listingId}`);
+        }
+    };
+
+    const getDetailProduct = (product) => ({
+        id: product.ListingId || product.id,
+        name: product.Title || product.Name || "Sản phẩm chưa có tên",
+        price: Number(product.Price),
+        status: product.Status || "ACTIVE",
+        condition: product.ConditionLevel || "",
+        location: product.Location || "Chưa cập nhật",
+        description: product.Description || "",
+        knownDefects: product.KnownDefects || "",
+        postedAt: product.CreatedAt
+            ? new Date(product.CreatedAt).toLocaleDateString("vi-VN")
+            : "",
+        seller: product.Seller?.FullName || "Người bán",
+        sellerId: product.SellerId,
+        image: resolveProductImage(getProductImage(product)) || "/product-placeholder.svg",
+    });
 
     return (
         <>
@@ -134,14 +161,6 @@ const [openDetail, setOpenDetail] = useState(false);
                                             alt={product.Title || product.Name || "Sản phẩm"}
                                         />
 
-                                        {/* STATUS */}
-                                        {product.Status && (
-                                            <span className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1 text-xs font-semibold text-emerald-700 shadow-sm">
-                                                {
-                                                    product.Status
-                                                }
-                                            </span>
-                                        )}
                                     </div>
 
                                     {/* CONTENT */}
@@ -167,6 +186,20 @@ const [openDetail, setOpenDetail] = useState(false);
                                             </p>
                                         )}
 
+                                        <button
+                                            type="button"
+                                            onClick={(event) => handleBuy(event, product)}
+                                            disabled={product.Status !== "ACTIVE"}
+                                            className={`mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl px-3 text-sm font-bold transition ${
+                                                product.Status === "ACTIVE"
+                                                    ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                                                    : "cursor-not-allowed bg-slate-100 text-slate-400"
+                                            }`}
+                                        >
+                                            <ShoppingBag size={16} />
+                                            {product.Status === "ACTIVE" ? "Mua hàng" : "Không khả dụng"}
+                                        </button>
+
                                     </div>
                                 </div>
                             );
@@ -176,8 +209,8 @@ const [openDetail, setOpenDetail] = useState(false);
             </section>
 
             {openDetail && selectedDetail && (
-                <DetailListing
-                    product={selectedDetail}
+                <ListingDetail
+                    product={getDetailProduct(selectedDetail)}
                     onClose={() => {
                         setOpenDetail(false);
                         setSelectedDetail(null);

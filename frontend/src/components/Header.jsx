@@ -10,12 +10,14 @@ import {
   ShieldCheck,
   UserPlus,
   UserRound,
+  Wallet,
   X,
 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import ColorThemePicker from './ColorThemePicker'
 import { clearSession, getAccessToken } from '../lib/auth'
 import { api } from '../lib/api'
+import creditApi from '../services/apiClient'
 
 const readStoredUser = () => {
   try {
@@ -52,6 +54,8 @@ function Header({
   const [menuOpen, setMenuOpen] = useState(false)
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
   const [user, setUser] = useState(readStoredUser)
+  const [creditBalance, setCreditBalance] = useState(0)
+  const [creditLoading, setCreditLoading] = useState(false)
 
   const navigate = useNavigate()
   const isAdmin = user?.roles?.includes('ADMIN') || user?.Roles?.includes('ADMIN')
@@ -63,6 +67,7 @@ function Header({
     const syncSession = async () => {
       if (!getAccessToken({ sessionOnly: true })) {
         setUser(readStoredUser())
+        setCreditBalance(0)
         return
       }
       try {
@@ -83,6 +88,35 @@ function Header({
       window.removeEventListener('auth-session-changed', syncSession)
     }
   }, [])
+
+  useEffect(() => {
+    let active = true
+    const refreshBalance = () => {
+      if (!user || !getAccessToken({ sessionOnly: true })) {
+        setCreditBalance(0)
+        return
+      }
+      setCreditLoading(true)
+      creditApi.get('/credit/balance', { sessionOnly: true })
+        .then((response) => {
+          if (active) setCreditBalance(response.data?.data?.balance ?? 0)
+        })
+        .catch(() => {
+          if (active) setCreditBalance(0)
+        })
+        .finally(() => {
+          if (active) setCreditLoading(false)
+        })
+    }
+
+    refreshBalance()
+    window.addEventListener('credit-balance-updated', refreshBalance)
+
+    return () => {
+      active = false
+      window.removeEventListener('credit-balance-updated', refreshBalance)
+    }
+  }, [user])
 
   const closeMenu = () => {
     setMenuOpen(false)
@@ -159,6 +193,21 @@ function Header({
             Trang quản trị
           </Link>
         )}
+        <div className="mt-1 flex items-center gap-2 border-t border-slate-100 px-3 py-2.5 text-sm text-slate-600">
+          <Wallet size={17} className="text-emerald-600" />
+          <span>Credit:</span>
+          <strong className="ml-auto text-emerald-700">
+            {creditLoading ? '...' : Number(creditBalance || 0).toLocaleString('vi-VN')}
+          </strong>
+        </div>
+        <Link
+          to="/credit/packages"
+          onClick={closeMenu}
+          role="menuitem"
+          className="flex items-center justify-center rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100"
+        >
+          Nạp thêm
+        </Link>
       </div>
     )
   )

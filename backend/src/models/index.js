@@ -52,6 +52,8 @@ Listings.hasOne(ListingAiReviews, { foreignKey: "ListingId", as: "AiReview" });
 
 ListingPromotions.belongsTo(Listings, { foreignKey: "ListingId", as: "Listing" });
 ListingPromotions.belongsTo(Users, { foreignKey: "SellerId", as: "Seller" });
+ListingPromotions.belongsTo(PromotionOrders, { foreignKey: "PromotionOrderId", as: "PromotionOrder" });
+Listings.hasMany(ListingPromotions, { foreignKey: "ListingId", as: "Promotions" });
 
 Orders.belongsTo(Users, { foreignKey: "BuyerId", as: "Buyer" });
 Orders.belongsTo(Users, { foreignKey: "SellerId", as: "Seller" });
@@ -98,6 +100,7 @@ Users.hasOne(Store, { foreignKey: "OwnerId", as: "Store" });
 CreditPackages.hasMany(CreditTransactions, { foreignKey: "PackageId", as: "transactions" });
 UserCredits.belongsTo(Users, { foreignKey: "UserId", as: "user" });
 PromotionOrders.belongsTo(Users, { foreignKey: "BuyerId", as: "buyer" });
+PromotionOrders.hasMany(ListingPromotions, { foreignKey: "PromotionOrderId", as: "items" });
 PromotionOrders.hasMany(CreditTransactions, { foreignKey: "PromotionOrderId", as: "transactions" });
 CreditTransactions.belongsTo(Users, { foreignKey: "UserId", as: "user" });
 CreditTransactions.belongsTo(CreditPackages, { foreignKey: "PackageId", as: "package" });

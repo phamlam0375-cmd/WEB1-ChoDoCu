@@ -26,7 +26,7 @@ module.exports = (sequelize, DataTypes) => {
 
     PromotionOrder.associate = (models) => {
         PromotionOrder.belongsTo(models.User, { foreignKey: 'BuyerId', as: 'buyer' });
-        PromotionOrder.hasMany(models.ListingPromotion, { foreignKey: 'PromotionOrderId', as: 'items' });
+        PromotionOrder.hasMany(models.ListingPromotions, { foreignKey: 'PromotionOrderId', as: 'items' });
         PromotionOrder.hasMany(models.CreditTransaction, { foreignKey: 'PromotionOrderId', as: 'transactions' });
     };
 

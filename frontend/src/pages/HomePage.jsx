@@ -118,8 +118,10 @@ function HomePage() {
     sellerId: item.SellerId,
     sellerAvatar: item.Seller?.AvatarUrl || '',
     verified: Boolean(item.Seller?.EmailVerified),
-    isVip: false,
-    isFeatured: item.Status === 'ACTIVE' && index < 3,
+    isVip: Array.isArray(item.Promotions) && item.Promotions.length > 0,
+    isFeatured: item.Status === 'ACTIVE'
+      && !(Array.isArray(item.Promotions) && item.Promotions.length > 0)
+      && index < 3,
     image: getListingImage(item.Media),
   })), [listing, searchResults])
 
@@ -221,20 +223,30 @@ function HomePage() {
       const matchesPrice = product.price >= minPrice && product.price <= maxPrice
       const matchesSaved = !savedOnly || savedIds.has(product.id)
 
-      return matchesCategory && matchesCondition && matchesLocation && matchesPrice && matchesSaved
+      return !product.isFeatured && matchesCategory && matchesCondition && matchesLocation && matchesPrice && matchesSaved
+    }
+
+    const arrangeVipMix = (items) => {
+      const vip = items.filter((product) => product.isVip)
+      const regular = items.filter((product) => !product.isVip)
+      const mixed = []
+      while (vip.length || regular.length) {
+        mixed.push(...vip.splice(0, 2), ...regular.splice(0, 1))
+      }
+      return mixed
     }
 
     if (!appliedKeyword.trim()) {
-      return products
+      return arrangeVipMix(products
         .filter(matchesFilters)
         .sort((first, second) => {
           if (appliedFilters.sort === 'price-asc') return first.price - second.price
           if (appliedFilters.sort === 'price-desc') return second.price - first.price
           return second.createdOrder - first.createdOrder
-        })
+        }))
     }
 
-    return products
+    return arrangeVipMix(products
       .filter(matchesFilters)
       .sort((first, second) => {
         if (appliedFilters.sort === 'price-asc')
@@ -244,7 +256,7 @@ function HomePage() {
           return second.price - first.price
 
         return 0
-      })
+      }))
   }, [appliedFilters, appliedKeyword, categories, products, savedIds, savedOnly, searchResults])
 
   const featuredProducts = useMemo(() => products.filter((product) => product.isFeatured), [products])
@@ -392,6 +404,7 @@ function HomePage() {
           savedIds={savedIds}
           onToggleSave={handleToggleSave}
           onView={handleViewProduct}
+          onBuy={handleBuyProduct}
         />
 
         <section id="san-pham" className="scroll-mt-24 bg-slate-50 py-16 sm:py-20">

@@ -35,6 +35,7 @@ import DeliveryFailurePage from './pages/D10_ThatBai_HoanTra/DeliveryFailurePage
 import DriverProfilePage from './pages/D11_HoSoVanHanhTaiXe/DriverProfilePage'
 import ChatWidget from './components/Chat/ChatWidget'
 import ProductDetail from './pages/ProductDetail'
+import AIChatWidget from "./components/AIChatWidget";
 
 // Phân hệ B: quản trị và doanh thu (tải khi cần để không làm nặng trang chủ)
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'))
@@ -159,6 +160,7 @@ function App() {
       />
 
       <ChatWidget />
+      <AIChatWidget />
     </>
   )
 }

@@ -357,7 +357,7 @@ function HomePage() {
   }
 
   const handleViewProduct = (product) => {
-    setSelectedProduct(product)
+    navigate(`/products/${product.id}`)
   }
 
   const handleBuyProduct = (product) => {

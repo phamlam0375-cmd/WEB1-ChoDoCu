@@ -288,6 +288,12 @@ function ProductDetail() {
     )
   }
 
+  const isAvailable = product.Status === 'ACTIVE'
+  const availabilityMessage = product.Status === 'RESERVED'
+    ? 'Sản phẩm đã có người đặt nên hiện chưa thể mua.'
+    : product.Status === 'SOLD'
+      ? 'Sản phẩm đã bán nên không còn khả dụng.'
+      : 'Sản phẩm hiện không khả dụng.'
   const mainImage =
     images[activeImage] || '/product-placeholder.svg'
 
@@ -396,7 +402,7 @@ function ProductDetail() {
                   : product.Status === 'SOLD'
                   ? 'Đã bán'
                   : product.Status === 'RESERVED'
-                  ? 'Đã giữ món'
+                  ? 'Đã có người đặt'
                   : product.Status || 'Chưa cập nhật'}
               </p>
             </div>
@@ -431,28 +437,36 @@ function ProductDetail() {
             <p className="product-note">
               Mỗi tin đăng hiện được xử lý như một món hàng.
             </p>
+            {!isAvailable && (
+              <p className="product-note" role="status">
+                {availabilityMessage}
+              </p>
+            )}
 
             {/* Nút mua hàng */}
             <div className="product-actions">
               <button
                 type="button"
                 className="product-cart-button"
+                disabled={!isAvailable}
+                title={!isAvailable ? availabilityMessage : undefined}
                 onClick={() =>
                   toast.info(
                     'Chức năng giỏ hàng chưa được kết nối'
                   )
                 }
               >
-                Thêm vào giỏ
+                {isAvailable ? 'Thêm vào giỏ' : 'Không khả dụng'}
               </button>
 
               <button
                 type="button"
                 className="product-buy-button"
-                disabled={product.Status !== 'ACTIVE'}
+                disabled={!isAvailable}
+                title={!isAvailable ? availabilityMessage : undefined}
                 onClick={handleBuy}
               >
-                Mua ngay
+                {isAvailable ? 'Mua ngay' : 'Không khả dụng'}
               </button>
             </div>
 

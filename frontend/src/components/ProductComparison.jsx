@@ -1,5 +1,5 @@
 
-import { X } from 'lucide-react'
+import { ArrowLeft, Eye, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
 const formatPrice = (value) =>
@@ -25,27 +25,45 @@ const getImage = (media = []) => {
   return url
 }
 
-const conditionLabels = {
-  NEW: 'Mới',
-  LIKE_NEW: 'Như mới',
-  GOOD: 'Đã sử dụng - tốt',
-  FAIR: 'Đã sử dụng',
-  POOR: 'Cần sửa chữa',
-}
-
 function ProductComparison({ products, onClose }) {
   const navigate = useNavigate()
 
   if (products.length < 2) return null
 
+  const prices = products.map((product) => Number(product.Price))
+  const lowestPrice = Math.min(...prices.filter(Number.isFinite))
   const rows = [
-    ['Giá bán', (p) => formatPrice(p.Price)],
-    ['Tình trạng', (p) => conditionLabels[p.ConditionLevel] || p.ConditionLevel || 'Chưa cập nhật'],
+    ['Ảnh', (product) => (
+      <img
+        src={getImage(product.Media)}
+        alt={product.Title || 'Ảnh sản phẩm'}
+        className="mx-auto h-28 w-28 rounded-lg object-contain"
+      />
+    )],
+    ['Tên sản phẩm', (product) => product.Title || 'Chưa cập nhật'],
+    ['Giá bán', (product) => {
+      const price = Number(product.Price)
+      return (
+        <span className="inline-flex flex-wrap items-center gap-2">
+          <span>{formatPrice(product.Price)}</span>
+          {Number.isFinite(price) && price === lowestPrice && (
+            <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-700">
+              Rẻ nhất
+            </span>
+          )}
+        </span>
+      )
+    }],
     ['Danh mục', (p) => p.Category?.CategoryName || 'Chưa cập nhật'],
-    ['Địa điểm', (p) => p.Location || 'Chưa cập nhật'],
-    ['Người bán', (p) => p.Seller?.FullName || 'Chưa cập nhật'],
-    ['Khuyết điểm', (p) => p.KnownDefects || 'Không có'],
+    ['Trạng thái', (product) => {
+      if (product.Status === 'ACTIVE') return 'Đang bán'
+      if (product.Status === 'RESERVED') return 'Đã có người đặt'
+      if (product.Status === 'SOLD') return 'Đã bán'
+      return product.Status || 'Chưa cập nhật'
+    }],
+    ['Khu vực', (p) => p.Location || 'Chưa cập nhật'],
     ['Mô tả', (p) => p.Description || 'Chưa có mô tả'],
+    ['Người bán', (p) => p.Seller?.FullName || 'Chưa cập nhật'],
   ]
 
   return (
@@ -56,19 +74,28 @@ function ProductComparison({ products, onClose }) {
         aria-label="So sánh sản phẩm"
         className="mx-auto max-w-6xl rounded-2xl bg-white p-4 shadow-2xl sm:p-7"
       >
-        <div className="mb-6 flex items-center justify-between gap-3">
-          <h2 className="text-xl font-extrabold sm:text-2xl">
-            So sánh sản phẩm
-          </h2>
+        <div className="mb-6 grid grid-cols-[1fr_auto] items-center gap-y-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex items-center gap-2 justify-self-start rounded-lg px-2 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+          >
+            <ArrowLeft size={18} />
+            Quay lại trang chi tiết
+          </button>
 
           <button
             type="button"
             onClick={onClose}
             aria-label="Đóng bảng so sánh"
-            className="rounded-full p-2 hover:bg-slate-100"
+            className="justify-self-end rounded-full p-2 hover:bg-slate-100"
           >
             <X size={22} />
           </button>
+
+          <h2 className="col-span-2 text-center text-xl font-extrabold sm:text-2xl">
+            So sánh sản phẩm
+          </h2>
         </div>
 
         <div className="overflow-x-auto">
@@ -76,21 +103,15 @@ function ProductComparison({ products, onClose }) {
             <thead>
               <tr>
                 <th className="w-36 border border-slate-200 bg-slate-50 p-4">
-                  Tiêu chí
+                  Thông tin
                 </th>
 
-                {products.map((product) => (
+                {products.map((product, index) => (
                   <th
                     key={product.ListingId}
                     className="min-w-48 border border-slate-200 p-4 text-center"
                   >
-                    <img
-                      src={getImage(product.Media)}
-                      alt={product.Title}
-                      className="mx-auto mb-3 h-36 w-36 object-contain"
-                    />
-
-                    <p className="font-bold">{product.Title}</p>
+                    Sản phẩm {index + 1}
                   </th>
                 ))}
               </tr>
@@ -106,7 +127,7 @@ function ProductComparison({ products, onClose }) {
                   {products.map((product) => (
                     <td
                       key={product.ListingId}
-                      className="border border-slate-200 p-4 align-top"
+                      className="break-words border border-slate-200 p-4 align-top"
                     >
                       {getValue(product)}
                     </td>
@@ -124,13 +145,36 @@ function ProductComparison({ products, onClose }) {
                     key={product.ListingId}
                     className="border border-slate-200 p-4 text-center"
                   >
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/orders/create/${product.ListingId}`)}
-                      className="rounded-lg bg-yellow-400 px-5 py-3 font-bold text-slate-900 hover:bg-yellow-500"
-                    >
-                      Mua ngay
-                    </button>
+                    {product.Status !== 'ACTIVE' && (
+                      <p className="mb-2 text-xs text-slate-500">
+                        {product.Status === 'RESERVED'
+                          ? 'Đã có người đặt'
+                          : product.Status === 'SOLD'
+                            ? 'Sản phẩm đã bán'
+                            : 'Sản phẩm không khả dụng'}
+                      </p>
+                    )}
+                    <div className="flex flex-wrap justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onClose()
+                          navigate(`/products/${product.ListingId}`)
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-600 px-4 py-3 font-bold text-emerald-700 hover:bg-emerald-50"
+                      >
+                        <Eye size={16} />
+                        Xem chi tiết
+                      </button>
+                      <button
+                        type="button"
+                        disabled={product.Status !== 'ACTIVE'}
+                        onClick={() => navigate(`/orders/create/${product.ListingId}`)}
+                        className="rounded-lg bg-yellow-400 px-5 py-3 font-bold text-slate-900 hover:bg-yellow-500 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
+                      >
+                        {product.Status === 'ACTIVE' ? 'Mua ngay' : 'Không khả dụng'}
+                      </button>
+                    </div>
                   </td>
                 ))}
               </tr>

@@ -119,11 +119,12 @@ function HomePage() {
     sellerAvatar: item.Seller?.AvatarUrl || '',
     verified: Boolean(item.Seller?.EmailVerified),
     isVip: Array.isArray(item.Promotions) && item.Promotions.length > 0,
-    isFeatured: item.Status === 'ACTIVE'
+    isFeatured: !appliedKeyword.trim()
+      && item.Status === 'ACTIVE'
       && !(Array.isArray(item.Promotions) && item.Promotions.length > 0)
       && index < 3,
     image: getListingImage(item.Media),
-  })), [listing, searchResults])
+  })), [appliedKeyword, listing, searchResults])
 
   useEffect(() => {
     const q = appliedKeyword.trim();

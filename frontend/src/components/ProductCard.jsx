@@ -1,4 +1,4 @@
-import { BadgeCheck, Clock3, Heart, MapPin, ShoppingBag, Store } from 'lucide-react'
+import { BadgeCheck, Clock3, Eye, Heart, MapPin, ShoppingBag, Store } from 'lucide-react'
 
 import { formatPrice } from '../data/mockProducts'
 import { useNavigate } from 'react-router-dom'
@@ -6,7 +6,16 @@ import { useNavigate } from 'react-router-dom'
 function ProductCard({ product, isSaved, onToggleSave, onView, onBuy, compact = false }) {
   const navigate = useNavigate()
   const isAvailable = product.status === 'ACTIVE'
-  const availabilityLabel = product.status === 'RESERVED' ? 'Đã có người đặt' : 'Đã bán'
+  const availabilityLabel = product.status === 'RESERVED'
+    ? 'Đã có người đặt'
+    : product.status === 'SOLD'
+      ? 'Đã bán'
+      : 'Không khả dụng'
+  const availabilityMessage = product.status === 'RESERVED'
+    ? 'Sản phẩm đã có người đặt, hiện chưa thể mua.'
+    : product.status === 'SOLD'
+      ? 'Sản phẩm đã bán và không còn khả dụng.'
+      : 'Sản phẩm hiện không khả dụng.'
   const handleImageError = (event) => {
     event.currentTarget.onerror = null
     event.currentTarget.src = '/product-placeholder.svg'
@@ -98,10 +107,22 @@ function ProductCard({ product, isSaved, onToggleSave, onView, onBuy, compact = 
             type="button"
             onClick={(event) => {
               event.stopPropagation()
+              onView(product)
+            }}
+            className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-emerald-600 px-2 text-xs font-bold text-emerald-700 transition hover:bg-emerald-50"
+          >
+            <Eye size={15} />
+            Xem chi tiết
+          </button>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation()
               onBuy(product)
             }}
             disabled={!isAvailable}
-            className={`col-span-2 inline-flex h-10 items-center justify-center gap-1.5 rounded-xl px-2 text-xs font-bold transition ${isAvailable ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'cursor-not-allowed bg-slate-200 text-slate-500'}`}
+            title={!isAvailable ? availabilityMessage : undefined}
+            className={`inline-flex h-10 items-center justify-center gap-1.5 rounded-xl px-2 text-xs font-bold transition ${isAvailable ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'cursor-not-allowed bg-slate-200 text-slate-500'}`}
           >
             <ShoppingBag size={15} />
             {isAvailable ? 'Mua ngay' : availabilityLabel}

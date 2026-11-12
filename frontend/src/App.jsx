@@ -61,6 +61,7 @@ const MomoPaymentPage = lazy(() => import('./pages/account/MomoPaymentPage'))
 const CreditPackagesPage = lazy(() => import('./pages/CreditPackagesPage'))
 const SellerPaymentsPage = lazy(() => import('./pages/D04_XacNhanNhanTien/SellerPaymentsPage'))
 const SellerPaymentPage = lazy(() => import('./pages/D04_XacNhanNhanTien/SellerPaymentPage'))
+const TrackingLayout = lazy(() => import('./components/D05_TheoDoiDonHang/TrackingLayout'))
 const BuyerOrdersPage = lazy(() => import('./pages/D05_TheoDoiDonHang/BuyerOrdersPage'))
 const OrderTrackingPage = lazy(() => import('./pages/D05_TheoDoiDonHang/OrderTrackingPage'))
 
@@ -126,11 +127,13 @@ function App() {
           <Route element={<AccountShell hideNavigation />}>
             <Route path="/credit/packages" element={<CreditPackagesPage />} />
           </Route>
-          <Route element={<AccountShell />}>
-            <Route path="/profile" element={<ProfilePage />} />
+          <Route element={<TrackingLayout />}>
             <Route path="/orders" element={<BuyerOrdersPage />} />
             <Route path="/orders/:orderId/tracking" element={<OrderTrackingPage />} />
             <Route path="/orders/:orderId/reviews" element={<OrderReviewsPage />} />
+          </Route>
+          <Route element={<AccountShell />}>
+            <Route path="/profile" element={<ProfilePage />} />
             <Route path="/seller/payments" element={<SellerPaymentsPage />} />
             <Route path="/seller/orders/:orderId/payment" element={<SellerPaymentPage />} />
             <Route path="/reports" element={<MyReportsPage />} />

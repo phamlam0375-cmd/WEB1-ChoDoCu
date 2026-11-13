@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
 import Header from '../../components/Header'
 import Footer from '../../components/Footer'
-import { Card, ErrorState, Loading, PageHeader } from '../../components/admin/AdminUi'
+import { Card, ErrorState, Loading, PageHeader } from '../../components/D05_TheoDoiDonHang/OrderUi'
 import { btn, input } from '../../components/admin/styles'
 import { getAccessToken } from '../../lib/auth'
 import { errorMessage } from '../../lib/api'
@@ -21,6 +21,7 @@ function DriverDeliveries() {
   const [selected, setSelected] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [notice, setNotice] = useState('')
+  const [noticeError, setNoticeError] = useState(false)
   const [accepted, setAccepted] = useState(null)
   const submittingRef = useRef(false)
   const requestRevision = useRef(0)
@@ -45,13 +46,14 @@ function DriverDeliveries() {
 
   async function confirm() {
     if (submittingRef.current || !selected) return
-    submittingRef.current = true; setSubmitting(true); setNotice('')
+    submittingRef.current = true; setSubmitting(true); setNotice(''); setNoticeError(false)
     // Chặn phản hồi GET cũ ghi đè trạng thái sau khi thao tác đã commit.
     requestRevision.current++
     try {
       const response = await acceptDelivery(selected.deliveryId)
       setNotice(response.message); setAccepted(response.data); setSelected(null)
     } catch (error) {
+      setNoticeError(true)
       if (error.response?.status === 401) setResult(previous => ({ ...previous, unauthorized: true }))
       setNotice(errorMessage(error, 'Không nhận được phản hồi. Hãy tải lại để kiểm tra chuyến trước khi thử lại.'))
       setSelected(null)
@@ -66,7 +68,7 @@ function DriverDeliveries() {
   return <>
     <PageHeader title="Chuyến có thể nhận" description="D07 · Nhận chuyến chưa phải xác nhận đã lấy hàng." actions={<button type="button" className={btn.secondary} onClick={refresh} disabled={loading || submitting}>Tải lại</button>} />
     {loading && status && <p role="status" className="mb-3 text-sm text-slate-600">Đang tải lại chuyến…</p>}
-    {notice && <p role="status" className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">{notice}</p>}
+    {notice && <p role={noticeError ? 'alert' : 'status'} className={`mb-4 rounded-xl border p-4 ${noticeError ? 'border-rose-200 bg-rose-50 text-rose-800' : 'border-green-200 bg-green-50 text-green-900'}`}>{notice}</p>}
     {accepted && <Card className="mb-5 p-5"><p>Chuyến #{accepted.deliveryId} đã được phân công.</p><Link className={btn.primary} to={accepted.trackingUrl}>Mở thông tin chuyến đã nhận</Link>{accepted.pickupUrl && <Link className={`${btn.secondary} ml-2`} to={accepted.pickupUrl}>Xác nhận đã lấy hàng</Link>}</Card>}
     {loading && !status ? <Loading /> : error ? <ErrorState message={error} onRetry={refresh} /> : status && <>
       <Card className="mb-5 space-y-3 p-5">
@@ -105,5 +107,5 @@ function DriverDeliveries() {
   </>
 }
 export default function AvailableDeliveriesPage() {
-  return <div className="min-h-screen bg-slate-50 text-slate-900"><Header /><main className="mx-auto min-h-[600px] max-w-5xl px-4 py-8 sm:px-6"><DriverDeliveries /></main><Footer /></div>
+  return <div className="min-h-screen bg-slate-50 text-slate-900"><Header /><main className="d-workspace mx-auto min-h-[600px] max-w-5xl px-4 py-8 sm:px-6"><DriverDeliveries /></main><Footer /></div>
 }

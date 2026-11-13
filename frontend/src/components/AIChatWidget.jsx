@@ -177,13 +177,6 @@ export default function AIChatWidget() {
               </div>
             ))}
 
-            {/* Trạng thái đang xử lý */}
-            {loading && (
-              <div className="ai-message assistant">
-                AI đang tư vấn...
-              </div>
-            )}
-
             <div ref={messagesEndRef} />
           </div>
 

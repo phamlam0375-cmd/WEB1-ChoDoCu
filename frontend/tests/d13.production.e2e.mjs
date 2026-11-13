@@ -1,21 +1,23 @@
 import assert from 'node:assert/strict'
-import { randomBytes } from 'node:crypto'
+import { createHmac, randomBytes } from 'node:crypto'
 import { spawn } from 'node:child_process'
 import http from 'node:http'
 import { readFile, mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { createRequire } from 'node:module'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { createLinkChecks, enterDriverProfile } from './helpers/d-link-checks.mjs'
 if (process.env.D13_BROWSER_TEST !== 'true' || !process.env.D13_EXPECTED_MYSQL_UUID || !process.env.D13_PLAYWRIGHT_MODULE) throw new Error('Cần D13_BROWSER_TEST, UUID MySQL local và module Playwright đã cài.')
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..'), backend = path.join(root, 'backend'), dist = path.join(root, 'frontend/dist')
 const prefix = `d13_ui_${Date.now()}_${randomBytes(2).toString('hex')}`, password = randomBytes(24).toString('base64url')
 const { pngReceipt } = createRequire(import.meta.url)(path.join(backend, 'tests/D03_ThanhToan/fixtures'))
+const linked = process.env.D_LINK_TEST === 'true'
 let child, server, browser, output = '', stage = 'khởi tạo'
 try {
   child = spawn(process.execPath, ['scripts/serve-completion-test.js'], { cwd: backend, windowsHide: true, env: { ...process.env,
     NODE_ENV: 'test', DB_HOST: '127.0.0.1', DB_PORT: '33307', DB_NAME: 'cho_do_cu_d13_20261109', DB_LOGGING: 'false', AUTH_DEV_HEADER: 'false', D01_DEMO_MODE: 'false',
     D13_INTEGRATION_TEST: 'true', D13_BROWSER_PREFIX: prefix, D13_BROWSER_TEST_PASSWORD: password, D13_BROWSER_PORT: '0', D13_BROWSER_HOST: '127.0.0.1',
-    JWT_SECRET: 'd13-browser-isolated-test-no-real-users', EMAIL_USER: '', EMAIL_PASS: '', MAIL_USER: '', MAIL_PASS: '', SMTP_USER: '', SMTP_PASS: '' }, stdio: ['ignore', 'pipe', 'pipe'] })
+    JWT_SECRET: 'd13-browser-isolated-test-no-real-users', EMAIL_USER: '', EMAIL_PASS: '', MAIL_USER: '', MAIL_PASS: '', SMTP_USER: '', SMTP_PASS: '' }, stdio: ['ignore', 'pipe', 'pipe', 'ipc'] })
   child.stdout.on('data', bytes => { output += bytes.toString() }); child.stderr.on('data', () => {})
   let fixture
   for (let i = 0; i < 100; i++) {
@@ -44,6 +46,8 @@ try {
     return ctx
   }
   const buyerContext = await context(), buyer = await buyerContext.newPage(), seller = await (await context()).newPage(), driver = await (await context()).newPage(), pageErrors = []
+  const links = linked ? createLinkChecks(child, fixture, origin, { buyer, seller, driver }) : null
+  let pickupFingerprint = null, sellerQr = null
   for (const page of [buyer, seller, driver]) { page.setDefaultTimeout(15000); page.on('pageerror', () => pageErrors.push(true)) }
   const login = async (page, label, destination) => {
     await page.goto(`${origin}/login?returnTo=${encodeURIComponent(destination)}`)
@@ -71,6 +75,10 @@ try {
     const luminance = value => value.match(/[\d.]+/g).slice(0, 3).map(Number).map(n => n / 255).map(n => n <= .04045 ? n / 12.92 : ((n + .055) / 1.055) ** 2.4).reduce((total, n, i) => total + n * [.2126, .7152, .0722][i], 0)
     const a = luminance(background), b = luminance(color); assert.ok((Math.max(a, b) + .05) / (Math.min(a, b) + .05) >= 4.5, 'D primary button contrast >= 4.5')
   }
+  if (linked) {
+    stage = 'D11 profile -> D07 readiness'
+    await enterDriverProfile({ driver, login, fixture, receiving: process.env.D_LINK_RECEIVING || 'bank', image: pngReceipt(), links })
+  }
   stage = 'Home → JWT → D01 → C05 → D03 → D04'
   await buyer.goto(origin + '/')
   await buyer.locator('article').filter({ hasText: fixture.title }).getByRole('button', { name: 'Mua ngay', exact: true }).click()
@@ -80,7 +88,11 @@ try {
   await buyer.locator('#receiver-name').fill('Test Buyer'); await buyer.locator('#receiver-phone').fill('0900000111')
   await buyer.getByRole('radio', { name: /Giao hàng tận nơi/ }).check(); await buyer.locator('#receiver-address').fill('Địa chỉ giao fixture D13')
   await buyer.locator('#delivery-area').fill(fixture.area); await buyer.locator('#delivery-vehicle').selectOption('MOTORBIKE')
-  await buyer.getByRole('button', { name: 'Tính phí giao hàng', exact: true }).click(); await buyer.getByRole('button', { name: 'Dùng mức phí này', exact: true }).click()
+  const quoteResponse = buyer.waitForResponse(r => r.url().endsWith('/delivery-fees/estimate') && r.request().method() === 'POST')
+  await buyer.getByRole('button', { name: 'Tính phí giao hàng', exact: true }).click()
+  const quote = (await (await quoteResponse).json()).data; assert.equal(quote.amount, '20000.20')
+  await buyer.getByRole('button', { name: 'Dùng mức phí này', exact: true }).click()
+  if (linked) assert.equal((await links.read({})).listing.Status, 'ACTIVE')
   let orderKey, createRequests = 0
   if (process.env.D_QUALITY_TEST === 'true') await buyer.route('**/api/v1/orders', async route => {
     if (route.request().method() !== 'POST') return route.continue()
@@ -93,15 +105,48 @@ try {
   if (process.env.D_QUALITY_TEST === 'true') await buyer.getByRole('button', { name: 'Kiểm tra lại yêu cầu đặt hàng', exact: true }).click()
   const ordered = await (await orderResponse).json(); assert.equal(ordered.success, true)
   const orderId = ordered.data.orderId
+  if (linked) {
+    assert.equal(ordered.data.deliveryFeeDecimal, quote.amount)
+    const s = await links.checkpoint('D12 -> D01', { orderId }, 'RESERVED')
+    assert.equal(s.histories.filter(h => h.StatusValue === 'RESERVED' && h.ChangedBy === fixture.buyerId).length, 1)
+    await buyer.getByRole('button', { name: 'Theo dõi đơn hàng', exact: true }).click()
+    await buyer.getByRole('heading', { name: 'Chờ người bán chấp nhận', exact: true }).waitFor()
+  }
   await login(seller, 'seller', '/seller/orders')
+  if (linked) {
+    const uploaded = await links.api(seller, `/api/stores/${fixture.sellerId}/qr`, { method: 'POST', data: pngReceipt(), headers: { 'Content-Type': 'image/png' } })
+    assert.equal(uploaded.status(), 201); sellerQr = (await uploaded.json()).data.url
+    const current = await links.api(seller, `/api/stores/${fixture.sellerId}`), store = (await current.json()).data
+    assert.equal((await links.api(seller, `/api/stores/${fixture.sellerId}`, { method: 'PATCH', data: { StoreName: store.StoreName, QrImageUrl: sellerQr } })).status(), 200)
+  }
   await seller.getByRole('row').filter({ hasText: `#${orderId}` }).getByRole('button', { name: 'Chấp nhận', exact: true }).click()
   const accepted = seller.waitForResponse(r => r.url().endsWith(`/api/seller/store/order/${orderId}/status`) && r.request().method() === 'PATCH')
   await seller.getByRole('button', { name: 'Xác nhận', exact: true }).click(); assert.equal((await accepted).status(), 200)
-  await buyer.goto(`${origin}/orders/${orderId}/payment`)
+  if (linked) {
+    await links.checkpoint('seller acceptance -> D03', { orderId }, 'WAITING_PAYMENT')
+    await buyer.getByRole('button', { name: 'Làm mới', exact: true }).click()
+    await buyer.getByRole('link', { name: 'Thanh toán / Báo chuyển tiền', exact: true }).click()
+  } else await buyer.goto(`${origin}/orders/${orderId}/payment`)
+  if (linked) {
+    const qr = buyer.getByRole('img', { name: 'QR nhận tiền của người bán', exact: true })
+    await qr.waitFor(); assert.equal(await qr.getAttribute('src'), sellerQr)
+    await qr.evaluate(image => image.decode())
+    assert.equal((await links.api(buyer, `/api/v1/orders/${orderId}/payment-info`)).status(), 200)
+    console.log('PASS LINK C02 -> D03: seller-owned upload API -> store QR -> payment UI renders real file with unchanged bank snapshot')
+  }
   await buyer.locator('#d03-proof').setInputFiles({ name: 'receipt.png', mimeType: 'image/png', buffer: pngReceipt() })
   await buyer.getByRole('button', { name: 'Tôi đã chuyển tiền', exact: true }).click()
   await buyer.getByText('Đã gửi thông báo chuyển khoản cho người bán.', { exact: true }).first().waitFor()
-  await seller.goto(`${origin}/seller/orders/${orderId}/payment`)
+  if (linked) {
+    const s = await links.checkpoint('D03 -> D04', { orderId }, 'WAITING_PAYMENT')
+    assert.equal(s.payment.Status, 'REPORTED'); assert.equal(s.payment.Amount, s.order.ProductAmount)
+    assert.equal(s.payment.PayerId, fixture.buyerId); assert.equal(s.payment.PayeeId, fixture.sellerId); assert.ok(s.payment.ProofUrl)
+    const closeResult = seller.getByRole('button', { name: 'Đóng', exact: true })
+    if (await closeResult.count()) await closeResult.click()
+    await seller.getByRole('link', { name: 'Đơn mua của tôi', exact: true }).click()
+    await seller.getByRole('navigation', { name: 'Tài khoản', exact: true }).getByRole('link', { name: 'Xác nhận nhận tiền', exact: true }).click()
+    await seller.locator(`a[href="/seller/orders/${orderId}/payment"]`).click()
+  } else await seller.goto(`${origin}/seller/orders/${orderId}/payment`)
   if (process.env.D_QUALITY_TEST === 'true') {
     await buyer.getByText('Bạn có thể chuyển khoản theo tài khoản và nội dung bên dưới.', { exact: false }).waitFor()
     await theme(seller, 'Xanh dương', 'ocean')
@@ -118,34 +163,67 @@ try {
   } else await seller.getByRole('button', { name: 'Đã nhận đủ tiền', exact: true }).click()
   await seller.getByRole('button', { name: 'Lưu kết quả đối chiếu', exact: true }).click()
   await seller.getByText('Đã xác nhận nhận đủ tiền', { exact: true }).first().waitFor()
+  if (linked) {
+    const s = await links.checkpoint('D04 -> preparation', { orderId }, 'PAID')
+    assert.equal(s.payment.Status, 'CONFIRMED'); assert.equal(s.payment.ConfirmedBy, fixture.sellerId)
+    assert.ok(Date.parse(s.payment.ConfirmedAt) >= Date.parse(s.payment.ReportedAt))
+  }
   stage = 'C07 → D07 → D08 → D09'
-  await seller.goto(`${origin}/orders/${orderId}/tracking`)
+  if (linked) await seller.getByRole('link', { name: 'Theo dõi đơn hàng', exact: true }).click()
+  else await seller.goto(`${origin}/orders/${orderId}/tracking`)
   await seller.getByRole('checkbox', { name: 'Tôi đã chuẩn bị và đóng gói hàng để bàn giao.', exact: true }).check()
   const prepare = seller.waitForResponse(r => r.url().endsWith(`/api/seller/orders/${orderId}/preparation`) && r.request().method() === 'POST')
   await seller.getByRole('button', { name: 'Xác nhận sẵn sàng giao hàng', exact: true }).click(); const deliveryId = (await (await prepare).json()).data.DeliveryId
-  await login(driver, 'browserdriver', '/driver/deliveries')
+  if (linked) {
+    const s = await links.checkpoint('preparation -> D07', { orderId, deliveryId }, 'PAID', 'AVAILABLE')
+    assert.equal(s.driver.profile.availability, 'AVAILABLE'); assert.equal(s.driver.active, 0)
+    await driver.getByRole('main').getByRole('link', { name: 'Chuyến tài xế', exact: true }).click()
+  } else await login(driver, 'browserdriver', '/driver/deliveries')
   await driver.getByRole('heading', { name: `Chuyến #${deliveryId}`, exact: true }).locator('..').getByRole('button', { name: 'Nhận chuyến', exact: true }).click()
   if (process.env.D_QUALITY_TEST === 'true') await driver.route(`**/deliveries/${deliveryId}/accept`, async route => { const response = await route.fetch(); assert.equal(response.status(), 200); await route.abort('failed') })
   await driver.getByRole('dialog').getByRole('button', { name: 'Xác nhận nhận chuyến', exact: true }).click()
   if (process.env.D_QUALITY_TEST === 'true') { await driver.getByRole('alert').waitFor(); assert.match(await driver.getByRole('alert').getAttribute('class'), /bg-rose-50/) }
-  await seller.goto(`${origin}/seller/orders/${orderId}/pickup-code`)
+  if (linked) {
+    await driver.getByRole('link', { name: 'Xác nhận đã lấy hàng', exact: true }).first().waitFor()
+    const s = await links.checkpoint('D07 -> D08', { orderId, deliveryId }, 'PAID', 'ACCEPTED')
+    assert.equal(s.driver.profile.availability, 'BUSY'); assert.equal(s.driver.active, 1)
+    await driver.reload(); await driver.getByRole('link', { name: 'Xác nhận đã lấy hàng', exact: true }).first().waitFor()
+    await seller.getByRole('button', { name: 'Làm mới', exact: true }).click()
+    await seller.getByRole('link', { name: 'Bàn giao và cấp mã lấy hàng', exact: true }).click()
+  } else await seller.goto(`${origin}/seller/orders/${orderId}/pickup-code`)
   await seller.getByRole('checkbox').check()
   await seller.getByRole('button', { name: 'Xác nhận bàn giao và cấp mã', exact: true }).click()
   const pickupCode = (await seller.getByLabel('Mã lấy hàng', { exact: true }).textContent()).trim()
   assert.match(pickupCode, /^\d{6}$/)
-  await driver.goto(`${origin}/driver/deliveries/${deliveryId}/pickup`)
+  if (linked) await driver.getByRole('link', { name: 'Xác nhận đã lấy hàng', exact: true }).first().click()
+  else await driver.goto(`${origin}/driver/deliveries/${deliveryId}/pickup`)
   await driver.locator('#pickup-code').fill(pickupCode); await driver.getByRole('checkbox').check()
   await driver.locator('#pickup-proof').setInputFiles({ name: 'pickup.png', mimeType: 'image/png', buffer: pngReceipt() })
   await driver.getByRole('button', { name: 'Xác nhận đã lấy hàng', exact: true }).click()
+  if (linked) {
+    await driver.getByRole('link', { name: 'Cập nhật tiến độ giao hàng', exact: true }).waitFor()
+    const s = await links.checkpoint('D08 -> D09/D05', { orderId, deliveryId }, 'PAID', 'PICKED_UP')
+    assert.ok(s.deliveries[0].pickupHashStored); assert.ok(s.deliveries[0].pickupProofAvailable)
+    assert.equal(s.deliveries[0].PickedUpAt, s.deliveries[0].PickupCodeUsedAt); pickupFingerprint = s.deliveries[0].pickupProofFingerprint
+    await buyer.getByRole('link', { name: 'Theo dõi đơn hàng', exact: true }).click()
+    await buyer.getByRole('heading', { name: 'Tài xế đã lấy hàng · chờ bắt đầu giao', exact: true }).waitFor()
+    await seller.getByRole('link', { name: 'Quay lại đơn/chuyến', exact: true }).click()
+  }
   await driver.getByRole('link', { name: /Cập nhật tiến độ/ }).first().click()
   await driver.locator('#delivery-progress-status').selectOption('DELIVERING')
   await driver.getByRole('button', { name: 'Bắt đầu giao hàng', exact: true }).click()
   await driver.getByText('Đã cập nhật tiến độ giao hàng.', { exact: true }).waitFor()
+  if (linked) {
+    await links.checkpoint('D09 -> D13', { orderId, deliveryId }, 'IN_DELIVERY', 'DELIVERING')
+    await buyer.getByRole('button', { name: 'Làm mới', exact: true }).click()
+    await buyer.getByRole('heading', { name: 'Đang giao hàng', exact: true }).waitFor()
+  }
   console.log('PASS D13 production UI: JWT → D01/D12 → C05/D03/D04/C07 → D07/D08/D09, không đường tắt nghiệp vụ')
   stage = 'D05 explicit buyer OTP, privacy/cooldown, wrong code/proof validation'
   let issues = 0
   buyerContext.on('request', req => { if (req.method() === 'POST' && req.url().endsWith('/delivery-code')) issues++ })
-  await buyer.goto(`${origin}/orders/${orderId}/tracking`)
+  if (linked) await buyer.getByRole('button', { name: 'Làm mới', exact: true }).click()
+  else await buyer.goto(`${origin}/orders/${orderId}/tracking`)
   const createCode = buyer.getByRole('button', { name: 'Tạo mã giao hàng', exact: true }); await createCode.waitFor()
   if (process.env.D_QUALITY_TEST === 'true') {
     await theme(buyer, 'Xanh dương', 'ocean'); const blue = await themeButton(buyer); assert.equal(blue.background, 'rgb(29, 78, 216)'); contrast(blue)
@@ -193,6 +271,16 @@ try {
   await driver.getByRole('button', { name: 'Thử lại cùng yêu cầu', exact: true }).click()
   await driver.getByText('Đã xác thực giao hàng trước đó; không xử lý trùng.', { exact: true }).waitFor()
   await driver.getByRole('img', { name: `Bằng chứng giao hàng chuyến #${deliveryId}`, exact: true }).waitFor()
+  if (linked) {
+    const s = await links.checkpoint('D13 -> D05/D11/D06', { orderId, deliveryId }, 'DELIVERED', 'DELIVERED'), d = s.deliveries[0]
+    assert.equal(d.DeliveredAt, d.VerifiedAt); assert.equal(d.VerifiedAt, d.CompletionCodeUsedAt)
+    assert.ok(d.completionProofAvailable); assert.equal(d.pickupProofFingerprint, pickupFingerprint); assert.ok(d.pickupProofAvailable)
+    assert.equal(s.driver.profile.availability, 'OFFLINE'); assert.equal(s.driver.active, 0); assert.equal(s.order.CompletedAt, null)
+    assert.equal(s.histories.filter(h => h.StatusValue === 'DELIVERED' && h.StatusType === 'DELIVERY' && h.ChangedBy === fixture.driverId).length, 1)
+    assert.equal(s.histories.filter(h => h.StatusValue === 'DELIVERED' && h.StatusType === 'ORDER').length, 1)
+    assert.deepEqual(s.notifications.filter(n => n.Title === 'Đã xác thực giao hàng').map(n => n.UserId).sort(), [fixture.buyerId, fixture.sellerId].sort())
+    await seller.getByRole('button', { name: 'Làm mới', exact: true }).click(); await seller.getByRole('heading', { name: 'Đã giao, chưa hoàn tất đơn', exact: true }).waitFor()
+  }
   await buyer.getByRole('button', { name: 'Làm mới', exact: true }).click()
   await buyer.getByRole('link', { name: 'Xác nhận nhận hàng', exact: true }).first().waitFor()
   assert.equal(await buyer.getByLabel('Mã giao hàng', { exact: true }).count(), 0)
@@ -208,12 +296,54 @@ try {
     await buyer.screenshot({ path: path.join(root, 'frontend/test-results/d-quality-order-mobile.png'), fullPage: true })
   }
   await buyer.getByRole('link', { name: 'Xác nhận nhận hàng', exact: true }).first().click()
+  if (linked) {
+    let refundPosts = 0
+    buyer.on('request', request => { if (request.method() === 'POST' && request.url().endsWith('/refund-requests')) refundPosts++ })
+    await buyer.getByRole('link', { name: 'Sản phẩm có vấn đề / Yêu cầu hoàn tiền', exact: true }).click()
+    await buyer.waitForURL(`${origin}/orders/${orderId}/refund`)
+    await buyer.getByRole('heading', { name: `Yêu cầu hoàn tiền cho đơn #${orderId}`, exact: true }).waitFor()
+    assert.equal(refundPosts, 0); assert.equal((await links.read({ orderId, deliveryId })).refunds, 0)
+    await buyer.getByRole('link', { name: 'Quay lại theo dõi đơn hàng', exact: true }).click()
+    await buyer.getByRole('link', { name: 'Xác nhận nhận hàng', exact: true }).first().click()
+  }
   await buyer.getByRole('checkbox', { name: 'Tôi đã nhận được sản phẩm', exact: true }).check()
   await buyer.getByRole('button', { name: 'Xác nhận hoàn tất', exact: true }).click()
   await buyer.getByText(/Đã xác nhận nhận hàng/).first().waitFor()
+  if (linked) {
+    const before = await links.checkpoint('D06 -> B08 once', { orderId, deliveryId }, 'COMPLETED', 'DELIVERED')
+    assert.equal(before.commissions[0].SellerId, fixture.sellerId)
+    assert.equal(Number(before.commissions[0].OriginalAmount), Math.round(Number(before.order.ProductAmount) * Number(before.commissions[0].Rate) / 100))
+    assert.equal(before.histories.filter(h => h.StatusValue === 'COMPLETED' && h.ChangedBy === fixture.buyerId).length, 1)
+    assert.equal((await links.api(buyer, `/api/v1/orders/${orderId}/received`, { method: 'PATCH', data: { received: true } })).status(), 200)
+    const replay = await links.api(driver, `/api/v1/driver/deliveries/${deliveryId}/complete`, { method: 'PATCH', headers: { 'Idempotency-Key': completionKey }, data: {} })
+    assert.equal(replay.status(), 200); assert.equal((await replay.json()).data.orderStatus, 'COMPLETED')
+    const after = await links.read({ orderId, deliveryId })
+    for (const key of ['histories', 'commissions', 'notifications']) assert.equal(after[key].length, before[key].length)
+    assert.equal(after.order.CompletedAt, before.order.CompletedAt)
+    console.log(`PASS LINK FINAL ${process.env.D_LINK_RECEIVING || 'bank'}: one product/order/delivery through D11/D12/D01/C05/D03/D04/C07/D07/D08/D09/D13/D05/D06; B06 form only, B08 once; no direct state updates`)
+  }
   await driver.reload(); await driver.getByText('Chuyến: DELIVERED · Đơn: COMPLETED', { exact: true }).waitFor()
   assert.equal(await driver.locator('#completion-code').count(), 0)
   assert.equal(issues, 1); assert.equal(pageErrors.length, 0)
+  if (linked) {
+    stage = 'cross-tab identity change clears prior D order data'
+    const switchTab = await buyerContext.newPage()
+    await login(switchTab, 'outsider', '/')
+    assert.equal((await links.api(buyer, `/api/v1/orders/${orderId}/tracking`)).status(), 403)
+    await buyer.waitForFunction(title => !document.querySelector('main')?.textContent.includes(title), fixture.title, { timeout: 3000 })
+    console.log('PASS LINK session: another tab logged into outsider; prior D order data removed and API ownership denied')
+    const liveToken = await switchTab.evaluate(() => localStorage.getItem('accessToken'))
+    const [header, payload] = liveToken.split('.'), claims = JSON.parse(Buffer.from(payload, 'base64url').toString())
+    const expiredPayload = Buffer.from(JSON.stringify({ ...claims, exp: 1 })).toString('base64url'), signed = header + '.' + expiredPayload
+    const expiredToken = signed + '.' + createHmac('sha256', 'd13-browser-isolated-test-no-real-users').update(signed).digest('base64url')
+    const rejected = await buyer.request.get(`${origin}/api/v1/orders/${orderId}/tracking`, { headers: { Authorization: `Bearer ${expiredToken}` } })
+    assert.equal(rejected.status(), 401); assert.equal((await rejected.json()).code, 'TOKEN_EXPIRED')
+    await switchTab.evaluate(token => localStorage.setItem('accessToken', token), expiredToken)
+    await buyer.waitForURL(/\/login\?returnTo=/)
+    assert.equal(await buyer.locator('main').getByText(fixture.title, { exact: false }).count(), 0)
+    console.log('PASS LINK expired fixture JWT: backend TOKEN_EXPIRED 401, D redirects login and clears old data; no business state advanced')
+    await switchTab.close()
+  }
   if (process.env.D_QUALITY_TEST === 'true') {
     await buyer.unroute('**/api/v1/orders')
     await buyer.goto(`${origin}/orders/create/${fixture.pickupListingId}`)

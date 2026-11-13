@@ -20,6 +20,7 @@ import PublicStore from './pages/Store/PublicStore'
 import Register from './pages/Register'
 import RegisterApplication from './components/PartnerApplication/RegisterApplication'
 import RequireSession from './components/RequireSession'
+import DSessionBoundary from './components/D05_TheoDoiDonHang/DSessionBoundary'
 import ResetPassword from './pages/ResetPassword'
 import SellerOrders from './pages/SellerOrders/SellerOrders'
 import SellerStore from './pages/Store/SellerStore'
@@ -79,25 +80,35 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/verify-email" element={<VerifyEmail />} /> {/* <-- Route cho trang nhập OTP */}
-        <Route path="/orders/create/:listingId" element={<OrderCreatePage />} />
-        <Route path="/orders/:orderId/cancel" element={<OrderCancelPage />} />
-        <Route path="/orders/:orderId/payment" element={<OrderPaymentPage />} />
-        <Route path="/orders/:orderId/received" element={<OrderReceivedPage />} />
+        <Route path="/orders/create/:listingId" element={<DSessionBoundary><OrderCreatePage /></DSessionBoundary>} />
+        <Route path="/orders/:orderId/cancel" element={<DSessionBoundary><OrderCancelPage /></DSessionBoundary>} />
+        <Route path="/orders/:orderId/payment" element={<DSessionBoundary><OrderPaymentPage /></DSessionBoundary>} />
+        <Route path="/orders/:orderId/received" element={<DSessionBoundary><OrderReceivedPage /></DSessionBoundary>} />
         <Route path="/seller/orders/:orderId/reject" element={<OrderRejectPage />} />
 
         <Route path="/partner-application" element={<RegisterApplication />} />
-        <Route path="/driver/deliveries" element={<AvailableDeliveriesPage />} />
-        <Route path="/driver/profile" element={<DriverProfilePage />} />
-        <Route path="/driver/deliveries/:deliveryId/pickup" element={<PickupPage />} />
-        <Route path="/driver/deliveries/:deliveryId/progress" element={<DeliveryProgressPage />} />
-        <Route path="/driver/deliveries/:deliveryId/complete" element={<DeliveryCompletePage />} />
-        <Route path="/driver/deliveries/:deliveryId/failure" element={<DeliveryFailurePage />} />
-        <Route path="/seller/orders/:orderId/pickup-code" element={<PickupPage seller />} />
+        <Route path="/driver/deliveries" element={<DSessionBoundary><AvailableDeliveriesPage /></DSessionBoundary>} />
+        <Route path="/driver/profile" element={<DSessionBoundary><DriverProfilePage /></DSessionBoundary>} />
+        <Route path="/driver/deliveries/:deliveryId/pickup" element={<DSessionBoundary><PickupPage /></DSessionBoundary>} />
+        <Route path="/driver/deliveries/:deliveryId/progress" element={<DSessionBoundary><DeliveryProgressPage /></DSessionBoundary>} />
+        <Route path="/driver/deliveries/:deliveryId/complete" element={<DSessionBoundary><DeliveryCompletePage /></DSessionBoundary>} />
+        <Route path="/driver/deliveries/:deliveryId/failure" element={<DSessionBoundary><DeliveryFailurePage /></DSessionBoundary>} />
+        <Route path="/seller/orders/:orderId/pickup-code" element={<DSessionBoundary><PickupPage seller /></DSessionBoundary>} />
         <Route path="store/:ownerId" element={<PublicStore />} />
         <Route path="/seller/store" element={<SellerStore />} />
         
         <Route path="/seller/orders" element={<SellerOrders/>}/>
 
+        <Route element={<DSessionBoundary><DevAccountProvider><Suspense fallback={<Loading />}><Outlet /></Suspense></DevAccountProvider></DSessionBoundary>}>
+          <Route element={<TrackingLayout />}>
+            <Route path="/orders" element={<BuyerOrdersPage />} />
+            <Route path="/orders/:orderId/tracking" element={<OrderTrackingPage />} />
+          </Route>
+          <Route element={<AccountShell />}>
+            <Route path="/seller/payments" element={<SellerPaymentsPage />} />
+            <Route path="/seller/orders/:orderId/payment" element={<SellerPaymentPage />} />
+          </Route>
+        </Route>
         <Route
           element={
             <DevAccountProvider>
@@ -129,14 +140,10 @@ function App() {
             <Route path="/credit/packages" element={<CreditPackagesPage />} />
           </Route>
           <Route element={<TrackingLayout />}>
-            <Route path="/orders" element={<BuyerOrdersPage />} />
-            <Route path="/orders/:orderId/tracking" element={<OrderTrackingPage />} />
             <Route path="/orders/:orderId/reviews" element={<OrderReviewsPage />} />
           </Route>
           <Route element={<AccountShell />}>
             <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/seller/payments" element={<SellerPaymentsPage />} />
-            <Route path="/seller/orders/:orderId/payment" element={<SellerPaymentPage />} />
             <Route path="/reports" element={<MyReportsPage />} />
             <Route path="/reports/new" element={<ReportCreatePage />} />
             <Route path="/orders/:orderId/refund" element={<RefundCreatePage />} />

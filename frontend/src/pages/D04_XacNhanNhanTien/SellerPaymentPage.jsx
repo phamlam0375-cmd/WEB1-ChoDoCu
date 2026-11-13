@@ -78,6 +78,7 @@ function PaymentDetail({ orderId }) {
   return <>
     <PageHeader code="D04" title={`Xác nhận nhận tiền · Đơn #${data.orderId}`} description={labels[data.paymentStatus] || 'Chưa có thanh toán'} actions={<>
       <Link className={btn.secondary} to="/seller/payments">Danh sách giao dịch</Link>
+      <Link className={btn.secondary} to={data.trackingUrl || `/orders/${data.orderId}/tracking`}>Theo dõi đơn hàng</Link>
       <button className={btn.secondary} type="button" disabled={busy} onClick={refresh}><RefreshCw size={16} /> Tải lại</button>
     </>} />
     {notice && <p role="status" className="mb-4 rounded-xl bg-green-50 p-4 font-semibold text-green-800">{notice}</p>}

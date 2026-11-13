@@ -1,3 +1,4 @@
+import { formatDecimalMoney } from '../../lib/format'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
@@ -5,18 +6,14 @@ import { Copy, LoaderCircle, RefreshCw, ShieldCheck } from 'lucide-react'
 import Header from '../../components/Header'
 import Footer from '../../components/Footer'
 import ReceiptUpload from '../../components/D03_ThanhToan/ReceiptUpload'
-import { errorMessage, getDevUserId } from '../../lib/api'
+import { errorMessage } from '../../lib/api'
 import { getAccessToken, rememberPostLoginUrl } from '../../lib/auth'
-import { isD01DemoEnabled } from '../../lib/d01Demo'
 import { ORDER_STATUS } from '../../lib/labels'
 import { getPaymentInfo, reportPayment } from '../../services/D03_ThanhToan/paymentApi'
 
 const paymentLabels = { WAITING: 'Chưa báo chuyển tiền', REPORTED: 'Đã báo chuyển tiền — chờ người bán xác nhận', CONFIRMED: 'Người bán đã xác nhận nhận tiền', REJECTED: 'Người bán chưa nhận được tiền' }
 // Không ép DECIMAL lớn qua Number: giữ chính xác cả phần lẻ khi hiển thị tiền.
-const money = value => {
-  const [whole, fraction = '00'] = String(value ?? '0').split('.')
-  return `${BigInt(whole).toLocaleString('vi-VN')}${fraction !== '00' ? `,${fraction.padEnd(2, '0')}` : ''} ₫`
-}
+const money = formatDecimalMoney
 
 function CopyField({ label, value, onCopy }) {
   return <div className="mt-4">
@@ -50,7 +47,7 @@ export default function OrderPaymentPage() {
   }, [location.pathname, location.search, navigate])
 
   useEffect(() => {
-    if (!getAccessToken() && !getDevUserId() && !isD01DemoEnabled()) { login(); return undefined }
+    if (!getAccessToken({ sessionOnly: true })) { login(); return undefined }
     const controller = new AbortController()
     getPaymentInfo(orderId, { signal: controller.signal }).then(result => {
       if (!controller.signal.aborted) { setData(result); setError(''); setLoading(false) }
@@ -94,13 +91,11 @@ export default function OrderPaymentPage() {
   }
 
   return <div className="min-h-screen bg-slate-50 text-slate-900">
-    <Header />
-    {isD01DemoEnabled() && !getAccessToken() && <p role="status" className="bg-amber-50 px-4 py-3 text-center text-sm text-amber-900">Chế độ test D01/D02/D03: dùng tài khoản demo của nhóm, vẫn kiểm tra quyền sở hữu đơn.</p>}
-    <main className="mx-auto min-h-[620px] max-w-5xl px-4 py-10 sm:px-6">
+    <Header />    <main className="d-workspace mx-auto min-h-[620px] max-w-5xl px-4 py-10 sm:px-6">
       <h1 className="text-2xl font-black sm:text-3xl">Thanh toán cho người bán</h1>
       <p className="mt-2 text-sm text-slate-500">Chuyển khoản trực tiếp; website không giữ tiền hoặc tự xác nhận giao dịch ngân hàng.</p>
       {error && <p role="alert" className="mt-5 rounded-xl bg-rose-50 p-4 text-sm text-rose-700">{error}</p>}
-      {notice?.orderId === orderId && <p role="status" className="mt-5 rounded-xl bg-emerald-50 p-4 text-sm font-bold text-emerald-800">{notice.message}</p>}
+      {notice?.orderId === orderId && <p role="status" className="mt-5 rounded-xl bg-green-50 p-4 text-sm font-bold text-green-800">{notice.message}</p>}
       {(loading || !currentOrder && !error) && <p role="status" className="mt-8">Đang tải thông tin thanh toán…</p>}
       {!loading && currentOrder && <form onSubmit={submit} className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
         <div className="grid gap-8 md:grid-cols-2">
@@ -125,7 +120,7 @@ export default function OrderPaymentPage() {
           </section>
           <section>
             <h2 className="border-b border-slate-200 pb-3 text-lg font-black">Thông tin nhận tiền</h2>
-            <div aria-label="Khu vực QR người bán" className="mt-5 flex min-h-44 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 px-5 text-center text-sm text-slate-500">Mã QR của người bán sẽ được cập nhật sau.</div>
+            <div aria-label="Khu vực QR người bán" className="mt-5 flex min-h-44 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center text-sm text-slate-600">{data.qr?.imageUrl ? <img src={data.qr.imageUrl} alt="QR nhận tiền của người bán" className="max-h-64 max-w-full object-contain" onError={e => { e.currentTarget.hidden = true; e.currentTarget.nextElementSibling.hidden = false }} /> : null}<p hidden={Boolean(data.qr?.imageUrl)}>Chưa có QR phù hợp với thông tin nhận tiền của đơn. {data.bank ? 'Bạn có thể chuyển khoản theo tài khoản và nội dung bên dưới.' : 'Vui lòng liên hệ người bán cập nhật thông tin ngân hàng trước khi chuyển tiền.'}</p></div>
             <dl>
               <CopyField label="Ngân hàng" value={data.bank?.bankName} onCopy={copy} />
               <CopyField label="Số tài khoản" value={data.bank?.accountNumber} onCopy={copy} />

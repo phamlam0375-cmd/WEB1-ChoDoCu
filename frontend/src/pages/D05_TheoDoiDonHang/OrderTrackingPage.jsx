@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { RefreshCw } from 'lucide-react'
-import { Card, ErrorState, Loading, PageHeader } from '../../components/admin/AdminUi'
+import { Card, ErrorState, Loading, PageHeader } from '../../components/D05_TheoDoiDonHang/OrderUi'
 import PrepareDeliveryPanel from '../../components/D12_UocTinhPhiGiaoHang/PrepareDeliveryPanel'
 import { btn } from '../../components/admin/styles'
 import TrackingTimeline from '../../components/D05_TheoDoiDonHang/TrackingTimeline'
@@ -33,8 +33,8 @@ function TrackingDetail({ orderId }) {
       <button className={btn.secondary} type="button" disabled={loading} onClick={refresh}><RefreshCw size={16} /> Làm mới</button>
     </>} />
     {loading ? <Loading /> : error ? <ErrorState message={error} onRetry={refresh} /> : data && <>
-      {notice && <p role="status" className="mb-4 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">{notice}</p>}
-      <Card className="mb-5 p-5 sm:p-6">
+      {notice && <p role="status" className="mb-4 rounded-xl bg-green-50 p-4 text-sm text-green-800">{notice}</p>}
+      <Card className="d-summary mb-5 p-5 sm:p-6">
         <p className="text-sm text-slate-500">Tài khoản #{data.viewer.userId}{data.viewer.demo ? ' · tài khoản thử nghiệm' : ''}</p>
         <h2 className="mt-2 text-xl font-bold text-emerald-800">{data.progress.label}</h2>
         <p className="mt-2 text-sm text-slate-600">{data.progress.description}</p>
@@ -43,7 +43,7 @@ function TrackingDetail({ orderId }) {
       <div className="grid gap-5 md:grid-cols-2">
         <Card className="p-5 sm:p-6">
           <h2 className="text-lg font-bold">Thông tin đơn hàng</h2>
-          <dl className="mt-4 space-y-3 text-sm">
+          <dl className="d-money mt-4 space-y-3 text-sm">
             <div><dt className="text-slate-500">Sản phẩm</dt><dd className="break-words font-semibold">{data.product.title || 'Chưa có thông tin'}</dd></div>
             <div><dt className="text-slate-500">Người bán</dt><dd>{data.seller.name || 'Chưa có thông tin'}</dd></div>
             <div><dt className="text-slate-500">Đặt lúc</dt><dd>{formatDateTime(data.createdAt)}</dd></div>
@@ -88,11 +88,11 @@ function TrackingDetail({ orderId }) {
       {data.viewer.role === 'BUYER' && data.deliveryMethod === 'DELIVERY' && ['IN_DELIVERY', 'DELIVERED'].includes(data.orderStatus) && <BuyerCodePanel orderId={data.orderId} onVerified={data.orderStatus === 'IN_DELIVERY' ? refresh : undefined} />}
       {data.cancelReason && <Card className="mt-5 p-5"><h2 className="font-bold">Lý do hủy</h2><p className="mt-2 whitespace-pre-wrap break-words text-sm">{data.cancelReason}</p></Card>}
       {!!data.refunds.length && <Card className="mt-5 p-5"><h2 className="font-bold">Hoàn tiền</h2>{data.refunds.map(r => <div key={r.refundId} className="mt-4 text-sm"><p className="font-semibold">Yêu cầu #{r.refundId} · {REFUND_STATUS[r.status]?.label || 'Trạng thái khác'}</p><p>{formatDecimalMoney(r.amount)} · {formatDateTime(r.requestedAt)}</p><p className="mt-1 whitespace-pre-wrap break-words">{r.reason}</p></div>)}</Card>}
-      <Card className="mt-5 p-5">
+      <Card className="d-next mt-5 p-5">
         <h2 className="font-bold">Thao tác liên quan</h2>
         {data.viewer.role === 'SELLER' && data.deliveryMethod === 'DELIVERY' && data.orderStatus === 'PAID' && !data.deliveries.length && <PrepareDeliveryPanel orderId={data.orderId} onSaved={refresh} />}
         <div className="mt-4 flex flex-wrap gap-3">{Object.entries(data.capabilities).filter(([, action]) => action.enabled && action.href).map(([key, action]) => <Link key={key} to={action.href} className={btn.secondary}>{actionLabels[key]}</Link>)}</div>
-        <ul className="mt-4 space-y-2 text-sm text-slate-500">{Object.entries(data.capabilities).filter(([key, action]) => !action.enabled && (data.viewer.role === 'BUYER' ? key !== 'confirmPayment' && key !== 'rejectOrder' : key === 'confirmPayment' || key === 'rejectOrder' || key === 'chat')).map(([key, action]) => <li key={key}>{actionLabels[key]}: {action.reason}</li>)}</ul>
+        <details className="mt-4 text-sm text-slate-600"><summary className="cursor-pointer font-semibold">Vì sao một số thao tác chưa mở?</summary><ul className="mt-3 space-y-2">{Object.entries(data.capabilities).filter(([key, action]) => !action.enabled && (data.viewer.role === 'BUYER' ? key !== 'confirmPayment' && key !== 'rejectOrder' : key === 'confirmPayment' || key === 'rejectOrder' || key === 'chat')).map(([key, action]) => <li key={key}>{actionLabels[key]}: {action.reason}</li>)}</ul></details>
       </Card>
       <TrackingTimeline histories={data.histories} pagination={data.historyPagination} onPage={setHistoryPage} />
     </>}

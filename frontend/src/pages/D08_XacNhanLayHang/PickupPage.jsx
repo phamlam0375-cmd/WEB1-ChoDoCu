@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
 import Header from '../../components/Header'
 import Footer from '../../components/Footer'
-import { Card, ErrorState, Loading, PageHeader } from '../../components/admin/AdminUi'
+import { Card, ErrorState, Loading, PageHeader } from '../../components/D05_TheoDoiDonHang/OrderUi'
 import { btn, input } from '../../components/admin/styles'
 import PickupProof from '../../components/D08_XacNhanLayHang/PickupProof'
 import { getAccessToken } from '../../lib/auth'
@@ -101,7 +101,7 @@ function PickupContent({ id, seller }) {
       <Link className={btn.secondary} to={data?.trackingUrl || (seller ? '/seller/orders' : '/driver/deliveries')}>Quay lại đơn/chuyến</Link>
       <button type="button" className={btn.secondary} disabled={loading || sending} onClick={resource.refresh}>Tải lại</button>
     </>} />
-    {notice && <p role="status" className="mb-4 rounded-xl bg-emerald-50 p-4 text-emerald-900">{notice}</p>}
+    {notice && <p role="status" className="mb-4 rounded-xl bg-green-50 p-4 text-green-900">{notice}</p>}
     {error && <p role="alert" className="mb-4 rounded-xl bg-rose-50 p-4 text-rose-800">{error}</p>}
     {loading && !data ? <Loading /> : resource.error ? <ErrorState message={resource.error} onRetry={resource.refresh} /> : data && <>
       <Card className="mb-5 space-y-3 break-words p-5">
@@ -127,7 +127,7 @@ function PickupContent({ id, seller }) {
           {cooldown > 0 && <p role="status" className="text-sm text-amber-800">Vui lòng chờ {cooldown} giây trước khi tạo mã mới.</p>}
           <button type="submit" className={btn.primary} disabled={sending || loading || !handover || !data.policy.allowed || cooldown > 0 || now === null}>{sending ? 'Đang cấp mã…' : data.code.exists ? 'Cấp lại mã lấy hàng' : 'Xác nhận bàn giao và cấp mã'}</button>
         </form> : <form onSubmit={submit} className="space-y-4">
-          <label className="block text-sm font-semibold" htmlFor="pickup-code">Mã lấy hàng do người bán cung cấp<input id="pickup-code" type="text" inputMode="numeric" autoComplete="off" maxLength={6} value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ''))} disabled={sending} className={`${input} mt-2 max-w-xs tracking-[0.2em]`} /></label>
+          <label className="d-code block text-sm font-semibold" htmlFor="pickup-code">Mã lấy hàng do người bán cung cấp<input id="pickup-code" type="text" inputMode="numeric" autoComplete="off" maxLength={6} value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ''))} disabled={sending} className={`${input} mt-2 max-w-xs tracking-[0.2em]`} /></label>
           {data.code.expiresAt && <p className="text-sm text-slate-600">Mã có hiệu lực đến {formatDateTime(data.code.expiresAt)}. Còn {data.code.attemptsRemaining} lần thử.</p>}
           {codeExpired && <p role="status" className="text-sm text-rose-700">Mã xác nhận không đúng hoặc đã hết hiệu lực. Hãy nhờ người bán cấp lại mã.</p>}
           <label className="flex items-start gap-3 text-sm"><input type="checkbox" checked={intact} onChange={e => setIntact(e.target.checked)} disabled={sending} className="mt-1 accent-emerald-600" />Tôi đã đối chiếu đúng kiện và xác nhận kiện hàng còn nguyên vẹn.</label>
@@ -147,5 +147,5 @@ function PickupContent({ id, seller }) {
 }
 export default function PickupPage({ seller = false }) {
   const params = useParams(), id = seller ? params.orderId : params.deliveryId
-  return <div className="min-h-screen bg-slate-50 text-slate-900"><Header /><main className="mx-auto min-h-[600px] max-w-4xl px-4 py-8 sm:px-6"><PickupContent key={`${seller}:${id}`} id={id} seller={seller} /></main><Footer /></div>
+  return <div className="min-h-screen bg-slate-50 text-slate-900"><Header /><main className="d-workspace mx-auto min-h-[600px] max-w-4xl px-4 py-8 sm:px-6"><PickupContent key={`${seller}:${id}`} id={id} seller={seller} /></main><Footer /></div>
 }

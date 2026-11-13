@@ -1,0 +1,30 @@
+/* Phạm vi D duy nhất. Token lấy trực tiếp từ Màu giao diện hiện có. */
+.d-workspace { color: var(--color-text); overflow-wrap: anywhere; }
+.d-workspace :is(h1, h2, h3, dl, dd, section, form, fieldset) { min-width: 0; }
+.d-workspace :is(input, select, textarea) { max-width: 100%; }
+.d-workspace input[type="file"] { width: 100%; font-size: .875rem; }
+.d-workspace :is(button, a, input, select, textarea):focus-visible { outline: 3px solid var(--brand-primary-600); outline-offset: 3px; }
+.d-workspace :is(button, a) { scroll-margin-block: 6rem; }
+.d-workspace :is(button, a).bg-emerald-600:not(:disabled) { background: var(--brand-primary-700); color: white; }
+.d-workspace :is(button, a).bg-emerald-600:not(:disabled):hover { background: var(--brand-primary-800); }
+.d-workspace .d-page-heading { border-color: var(--brand-primary-200); border-top: 4px solid var(--brand-primary-600); box-shadow: 0 5px 18px rgb(15 23 42 / 4%); }
+.d-workspace .d-heading-icon { background: var(--brand-primary-100); color: var(--brand-primary-800); }
+.d-workspace .d-eyebrow { color: var(--brand-primary-700); }
+.d-workspace .d-card { box-shadow: 0 3px 14px rgb(15 23 42 / 3%); }
+.d-workspace .d-summary { background: linear-gradient(115deg, var(--brand-primary-50), white); border-left: 4px solid var(--brand-primary-600); }
+.d-workspace .d-money { border: 1px solid var(--brand-primary-200); background: var(--brand-primary-50); border-radius: 1rem; padding: 1rem; }
+.d-workspace .d-money dd { color: var(--brand-primary-800); font-variant-numeric: tabular-nums; }
+.d-workspace .d-code { background: var(--brand-primary-50); border: 1px solid var(--brand-primary-200); border-radius: 1rem; padding: 1rem; }
+.d-workspace .d-code input { font-size: 1.4rem; letter-spacing: .2em; font-variant-numeric: tabular-nums; }
+.d-workspace .d-next { border: 1px solid var(--brand-primary-200); border-radius: 1rem; background: var(--brand-primary-50); }
+.d-workspace .d-modal-heading { color: var(--brand-primary-900); background: var(--brand-primary-50); border-color: var(--brand-primary-200); }
+.d-modal { max-height: calc(100dvh - 2rem); }
+.d-modal-frame { display: flex; flex-direction: column; max-height: calc(100dvh - 2rem); }
+.d-workspace [role="alert"] { border-left: 3px solid #be123c; }
+@media (max-width: 480px) {
+  .d-workspace .d-page-heading { padding: 1rem; }
+  .d-workspace .d-page-heading h1 { font-size: 1.35rem; }
+  .d-workspace dl > div.flex { flex-wrap: wrap; }
+  .d-workspace dd { overflow-wrap: anywhere; }
+  .d-workspace .d-modal-frame footer > button { flex: 1 1 9rem; }
+}

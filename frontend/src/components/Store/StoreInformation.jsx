@@ -1,4 +1,5 @@
-import { MapPin, Phone, Store as StoreIcon } from "lucide-react";
+import { MapPin, Phone } from "lucide-react";
+import UserAvatar from "../UserAvatar";
 
 export default function StoreInformation({ store, isActive }) {
     return (
@@ -9,13 +10,10 @@ export default function StoreInformation({ store, isActive }) {
                 <div className="border-b border-slate-100 p-6">
                     <div className="flex items-center gap-4">
 
-                        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-emerald-100">
-                            {store.Owner?.AvatarUrl ? (
-                                <img src={store.Owner.AvatarUrl} alt="" className="h-full w-full object-cover" />
-                            ) : (
-                                <StoreIcon className="h-8 w-8 text-emerald-600" />
-                            )}
-                        </div>
+                        <UserAvatar
+                            user={store.Owner}
+                            className="h-16 w-16 rounded-2xl text-lg"
+                        />
 
                         <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center justify-between gap-3">

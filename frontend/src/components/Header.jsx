@@ -6,6 +6,7 @@ import {
   ClipboardList,
   Truck,
   Bell,
+  Crown,
   Store,
   ShieldCheck,
   UserPlus,
@@ -15,6 +16,7 @@ import {
 } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import ColorThemePicker from './ColorThemePicker'
+import UserAvatar from './UserAvatar'
 import { clearSession, getAccessToken } from '../lib/auth'
 import { api } from '../lib/api'
 import creditApi from '../services/apiClient'
@@ -27,14 +29,6 @@ const readStoredUser = () => {
     return null
   }
 }
-
-const getUserInitials = (fullName = '') => fullName
-  .trim()
-  .split(/\s+/)
-  .slice(-2)
-  .map((part) => part[0])
-  .join('')
-  .toLocaleUpperCase('vi-VN') || 'U'
 
 const navItems = [
   { label: 'Trang chủ', to: '/#top' },
@@ -249,19 +243,7 @@ function Header({
   }
 
   const renderUserAvatar = (className = 'size-10') => (
-    <span className={`relative grid ${className} shrink-0 place-items-center overflow-hidden rounded-full bg-emerald-100 text-sm font-bold text-emerald-800`}>
-      {getUserInitials(user?.FullName)}
-      {(user?.AvatarUrl || user?.avatarUrl) && (
-        <img
-          src={user.AvatarUrl || user.avatarUrl}
-          alt=""
-          className="absolute inset-0 size-full object-cover"
-          onError={(event) => {
-            event.currentTarget.style.display = 'none'
-          }}
-        />
-      )}
-    </span>
+    <UserAvatar user={user} className={className} />
   )
 
   const renderAccountMenu = (positionClass) => (
@@ -280,15 +262,26 @@ function Header({
           Hồ sơ cá nhân
         </Link>
         {isSeller && (
-          <Link
-            to="/seller/store"
-            onClick={closeMenu}
-            role="menuitem"
-            className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-800"
-          >
-            <Store size={17} />
-            Cửa hàng của tôi
-          </Link>
+          <>
+            <Link
+              to="/seller/store"
+              onClick={closeMenu}
+              role="menuitem"
+              className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-800"
+            >
+              <Store size={17} />
+              Cửa hàng của tôi
+            </Link>
+            <Link
+              to="/seller/vip"
+              onClick={closeMenu}
+              role="menuitem"
+              className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-800"
+            >
+              <Crown size={17} />
+              Quản lý tin VIP
+            </Link>
+          </>
         )}
         {isAdmin && (
           <Link

@@ -6,6 +6,7 @@ import { Suspense, lazy } from 'react'
 
 import CreateListing from './pages/listing/CreateListing'
 import CrudListing from './pages/listing/CrudListing'
+import VipListingsPage from './pages/listing/VipListingsPage'
 import DevAccountProvider from './context/DevAccountProvider'
 import ForgotPassword from './pages/ForgotPassword'
 import HomePage from './pages/HomePage'
@@ -96,6 +97,7 @@ function App() {
         <Route path="/seller/orders/:orderId/pickup-code" element={<DSessionBoundary><PickupPage seller /></DSessionBoundary>} />
         <Route path="store/:ownerId" element={<PublicStore />} />
         <Route path="/seller/store" element={<SellerStore />} />
+        <Route path="/seller/vip" element={<VipListingsPage />} />
         
         <Route path="/seller/orders" element={<SellerOrders/>}/>
 

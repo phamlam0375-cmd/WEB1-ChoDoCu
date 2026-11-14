@@ -101,30 +101,31 @@ function HomePage() {
     return () => { cancelled = true }
   }, [setListing])
 
-  const products = useMemo(() => (searchResults ?? listing).map((item, index) => ({
-    id: item.ListingId,
-    name: item.Title,
-    price: Number(item.Price),
-    category: String(item.CategoryId),
-    categoryName: item.Category?.CategoryName || '',
-    description: item.Description || '',
-    knownDefects: item.KnownDefects || '',
-    status: item.Status || '',
-    condition: { NEW: 'Như mới', LIKE_NEW: 'Như mới', GOOD: 'Đã sử dụng', FAIR: 'Đã sử dụng', POOR: 'Cần sửa chữa nhẹ' }[item.ConditionLevel] || item.ConditionLevel,
-    location: item.Location || 'Chưa cập nhật',
-    postedAt: new Date(item.CreatedAt).toLocaleDateString('vi-VN'),
-    createdOrder: new Date(item.CreatedAt).getTime() || index,
-    seller: item.Seller?.FullName || `Người bán #${item.SellerId}`,
-    sellerId: item.SellerId,
-    sellerAvatar: item.Seller?.AvatarUrl || '',
-    verified: Boolean(item.Seller?.EmailVerified),
-    isVip: Array.isArray(item.Promotions) && item.Promotions.length > 0,
-    isFeatured: !appliedKeyword.trim()
-      && item.Status === 'ACTIVE'
-      && !(Array.isArray(item.Promotions) && item.Promotions.length > 0)
-      && index < 3,
-    image: getListingImage(item.Media),
-  })), [appliedKeyword, listing, searchResults])
+  const products = useMemo(() => (searchResults ?? listing)
+    .filter((item) => item.Status === 'ACTIVE')
+    .map((item, index) => ({
+      id: item.ListingId,
+      name: item.Title,
+      price: Number(item.Price),
+      category: String(item.CategoryId),
+      categoryName: item.Category?.CategoryName || '',
+      description: item.Description || '',
+      knownDefects: item.KnownDefects || '',
+      status: item.Status || '',
+      condition: { NEW: 'Như mới', LIKE_NEW: 'Như mới', GOOD: 'Đã sử dụng', FAIR: 'Đã sử dụng', POOR: 'Cần sửa chữa nhẹ' }[item.ConditionLevel] || item.ConditionLevel,
+      location: item.Location || 'Chưa cập nhật',
+      postedAt: new Date(item.CreatedAt).toLocaleDateString('vi-VN'),
+      createdOrder: new Date(item.CreatedAt).getTime() || index,
+      seller: item.Seller?.FullName || `Người bán #${item.SellerId}`,
+      sellerId: item.SellerId,
+      sellerAvatar: item.Seller?.AvatarUrl || '',
+      verified: Boolean(item.Seller?.EmailVerified),
+      isVip: Array.isArray(item.Promotions) && item.Promotions.length > 0,
+      isFeatured: !appliedKeyword.trim()
+        && !(Array.isArray(item.Promotions) && item.Promotions.length > 0)
+        && index < 3,
+      image: getListingImage(item.Media),
+    })), [appliedKeyword, listing, searchResults])
 
   useEffect(() => {
     const q = appliedKeyword.trim();

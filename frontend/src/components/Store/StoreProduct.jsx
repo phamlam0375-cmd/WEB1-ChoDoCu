@@ -1,8 +1,7 @@
-import { Package, ShoppingBag } from "lucide-react";
+import { Package } from "lucide-react";
 
 import ListingDetail from "../../pages/listing/ListingDetail";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 
 const formatPrice = (price) => {
     if (price === null || price === undefined) {
@@ -58,17 +57,8 @@ function ProductImage({ image, alt }) {
 }
 
 export function StoreProduct({ products, loading }) {
-    const navigate = useNavigate();
     const [openDetail, setOpenDetail] = useState(false);
     const [selectedDetail, setSelectedDetail] = useState(null);
-
-    const handleBuy = (event, product) => {
-        event.stopPropagation();
-        const listingId = Number(product?.ListingId || product?.id);
-        if (Number.isSafeInteger(listingId) && listingId > 0) {
-            navigate(`/orders/create/${listingId}`);
-        }
-    };
 
     const getDetailProduct = (product) => ({
         id: product.ListingId || product.id,
@@ -185,20 +175,6 @@ export function StoreProduct({ products, loading }) {
                                                 }
                                             </p>
                                         )}
-
-                                        <button
-                                            type="button"
-                                            onClick={(event) => handleBuy(event, product)}
-                                            disabled={product.Status !== "ACTIVE"}
-                                            className={`mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl px-3 text-sm font-bold transition ${
-                                                product.Status === "ACTIVE"
-                                                    ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                                                    : "cursor-not-allowed bg-slate-100 text-slate-400"
-                                            }`}
-                                        >
-                                            <ShoppingBag size={16} />
-                                            {product.Status === "ACTIVE" ? "Mua hàng" : "Không khả dụng"}
-                                        </button>
 
                                     </div>
                                 </div>

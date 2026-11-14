@@ -20,5 +20,6 @@ router.patch("/:ListingId", requireAuth, updateListing);
 router.patch("/:ListingId/hidden", requireAuth, hiddenListing);
 router.get("/:ListingId/vip", requireAuth, promotionController.getVipStatus);
 router.post("/:ListingId/vip", requireAuth, promotionController.promoteListing);
+router.patch("/:ListingId/vip/stop", requireAuth, promotionController.stopPromotion);
 
 module.exports = router;

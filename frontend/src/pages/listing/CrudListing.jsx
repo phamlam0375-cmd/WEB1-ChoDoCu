@@ -143,7 +143,6 @@ export default function CrudListing() {
             toast.warning(`Số dư không đủ. Cần ${totalCost} credit.`);
             return;
         }
-        if (!window.confirm(`Đẩy ${selectedVipIds.length} tin lên VIP trong ${vipDurationDays} ngày với ${totalCost} credit?`)) return;
         setVipBusy("bulk");
         try {
             vipRequestSequence.current += 1;
@@ -210,14 +209,25 @@ export default function CrudListing() {
                             </h1>
                         </div>
 
-                        <button className=" inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm shadow-emerald-200 transition duration-150 ease-in-out hover:bg-emerald-700 hover:shadow-md hover:shadow-emerald-200  active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
-                            onClick={() => navigate(`/seller/listings/create?storeId=${storeId}`)}
-                        >
-                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                            </svg>
-                            Thêm sản phẩm
-                        </button>
+                        <div className="flex flex-wrap gap-2">
+                            <button
+                                type="button"
+                                className="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-5 py-2.5 text-sm font-semibold text-amber-800 transition hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2"
+                                onClick={() => navigate("/seller/vip")}
+                            >
+                                Quản lý tin VIP
+                            </button>
+                            <button
+                                type="button"
+                                className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm shadow-emerald-200 transition duration-150 ease-in-out hover:bg-emerald-700 hover:shadow-md hover:shadow-emerald-200 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+                                onClick={() => navigate(`/seller/listings/create?storeId=${storeId}`)}
+                            >
+                                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                                </svg>
+                                Thêm sản phẩm
+                            </button>
+                        </div>
                     </div>
 
                     <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">

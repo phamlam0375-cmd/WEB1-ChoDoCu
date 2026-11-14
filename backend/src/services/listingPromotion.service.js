@@ -47,6 +47,80 @@ const getVipCost = async (durationMinutes = DEFAULT_DURATION_MINUTES) => {
   };
 };
 
+async function refundActivePromotionForSoldListing(listingId, sellerId, now = new Date(), transaction) {
+  const promotion = await ListingPromotions.findOne({
+    where: {
+      ListingId: listingId,
+      SellerId: sellerId,
+      Status: 'ACTIVE',
+      StartsAt: { [Op.lt]: now },
+      EndsAt: { [Op.gt]: now },
+    },
+    transaction,
+    lock: transaction?.LOCK.UPDATE,
+  });
+  if (!promotion) return 0;
+
+  const durationMinutes = Number(promotion.DurationMinutes);
+  const creditUsed = Number(promotion.CreditUsed);
+  const remainingMinutes = Math.max(
+    0,
+    Math.ceil((new Date(promotion.EndsAt).getTime() - now.getTime()) / 60000),
+  );
+  const refundCredit = Number.isSafeInteger(durationMinutes) && durationMinutes > 0
+    && Number.isSafeInteger(creditUsed) && creditUsed > 0
+    ? Math.floor((creditUsed * remainingMinutes) / durationMinutes)
+    : 0;
+
+  await promotion.update({ Status: 'REFUNDED', EndsAt: now }, { transaction });
+  if (refundCredit <= 0) return 0;
+
+  const wallet = await UserCredits.findOne({
+    where: { UserId: sellerId },
+    transaction,
+    lock: transaction?.LOCK.UPDATE,
+  });
+  const currentBalance = wallet ? Number(wallet.Balance) : 0;
+  const nextBalance = currentBalance + refundCredit;
+  if (wallet) {
+    await wallet.update({ Balance: nextBalance }, { transaction });
+  } else {
+    await UserCredits.create({ UserId: sellerId, Balance: nextBalance }, { transaction });
+  }
+
+  await CreditTransactions.create({
+    UserId: sellerId,
+    PromotionOrderId: promotion.PromotionOrderId,
+    Type: 'REFUND',
+    Amount: refundCredit,
+    BalanceAfter: nextBalance,
+    Status: 'SUCCESS',
+    ReferenceCode: `SALE-REFUND-${promotion.PromotionId}-${Date.now()}`,
+    Note: `Hoàn ${refundCredit} credit VIP còn lại vì tin ${listingId} đã bán.`,
+    CompletedAt: now,
+  }, { transaction });
+
+  return refundCredit;
+}
+
+async function stopPromotion(sellerId, listingId) {
+  return sequelize.transaction(async (transaction) => {
+    const listing = await getOwnedListing(listingId, sellerId, transaction);
+    const refundCredit = await refundActivePromotionForSoldListing(
+      listing.ListingId,
+      sellerId,
+      new Date(),
+      transaction,
+    );
+
+    if (refundCredit === 0) {
+      throw conflict('Tin đăng không có chương trình VIP đang hoạt động.');
+    }
+
+    return { listingId: listing.ListingId, refundCredit };
+  });
+}
+
 async function listSellerPromotions(sellerId) {
   const now = new Date();
   const [promotions, wallet, cost] = await Promise.all([
@@ -278,4 +352,11 @@ async function promoteListings(sellerId, listingIds, { idempotencyKey, durationM
   });
 }
 
-module.exports = { listSellerPromotions, getVipStatus, promoteListing, promoteListings };
+module.exports = {
+  listSellerPromotions,
+  getVipStatus,
+  promoteListing,
+  promoteListings,
+  refundActivePromotionForSoldListing,
+  stopPromotion,
+};

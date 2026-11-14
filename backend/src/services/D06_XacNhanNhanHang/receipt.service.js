@@ -5,6 +5,7 @@ const { refundEligibility } = require('../../controllers/refunds.controller');
 const v = require('../../validators/D06_XacNhanNhanHang/receipt.validator');
 const defaultRepository = require('../../repositories/D06_XacNhanNhanHang/receipt.repository');
 const { verifiedDelivery } = require('../D13_XacThucGiaoHangOTP/verification.policy');
+const { refundActivePromotionForSoldListing } = require('../listingPromotion.service');
 
 const SUCCESS = 'Đã xác nhận nhận hàng; đơn đã hoàn tất.';
 const date = value => value ? new Date(value).getTime() : NaN;
@@ -76,6 +77,7 @@ function createReceiptService({ repository = defaultRepository, clock = () => ne
       // Giữ nguyên cơ chế B08 (kể cả fallback tỷ lệ 0 đã được nhóm xác nhận).
       await repository.createCommission(id, transaction);
       await repository.markListingSold(order, transaction); // Chỉ RESERVED -> SOLD, không mở bán hoặc ghi đè trạng thái kiểm duyệt.
+      await refundActivePromotionForSoldListing(order.ListingId, order.SellerId, now, transaction);
       await repository.createHistory({ OrderId: id, DeliveryId: null, StatusType: 'ORDER', StatusValue: 'COMPLETED', Note: 'Người mua xác nhận đã nhận và kiểm tra sản phẩm.', ChangedBy: Number(order.BuyerId), CreatedAt: now }, transaction);
       const payload = { type: 'ORDER', title: `Đơn #${id} đã hoàn tất`, message: 'Người mua đã xác nhận nhận và kiểm tra sản phẩm.', referenceType: 'ORDER', referenceId: id, createdAt: now };
       await repository.notifyUser(order.SellerId, payload, transaction);

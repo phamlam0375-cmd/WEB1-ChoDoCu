@@ -6,6 +6,7 @@ import {
   ClipboardList,
   Truck,
   Bell,
+  Crown,
   Store,
   ShieldCheck,
   UserPlus,
@@ -261,15 +262,26 @@ function Header({
           Hồ sơ cá nhân
         </Link>
         {isSeller && (
-          <Link
-            to="/seller/store"
-            onClick={closeMenu}
-            role="menuitem"
-            className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-800"
-          >
-            <Store size={17} />
-            Cửa hàng của tôi
-          </Link>
+          <>
+            <Link
+              to="/seller/store"
+              onClick={closeMenu}
+              role="menuitem"
+              className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-800"
+            >
+              <Store size={17} />
+              Cửa hàng của tôi
+            </Link>
+            <Link
+              to="/seller/vip"
+              onClick={closeMenu}
+              role="menuitem"
+              className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-800"
+            >
+              <Crown size={17} />
+              Quản lý tin VIP
+            </Link>
+          </>
         )}
         {isAdmin && (
           <Link

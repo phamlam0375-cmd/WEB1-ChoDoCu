@@ -52,4 +52,22 @@ const promoteListing = async (req, res) => {
   }
 };
 
-module.exports = { listSellerPromotions, getVipStatus, promoteListing, promoteListings };
+const stopPromotion = async (req, res) => {
+  try {
+    const data = await promotionService.stopPromotion(
+      req.user.UserId,
+      Number(req.params.ListingId),
+    );
+    return res.json({ success: true, message: 'Đã dừng tin VIP và hoàn Credit còn lại.', data });
+  } catch (error) {
+    return res.status(error.status || 500).json({ success: false, message: error.message || 'Không thể dừng tin VIP.' });
+  }
+};
+
+module.exports = {
+  listSellerPromotions,
+  getVipStatus,
+  promoteListing,
+  promoteListings,
+  stopPromotion,
+};

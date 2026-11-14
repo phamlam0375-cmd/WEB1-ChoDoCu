@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import ColorThemePicker from './ColorThemePicker'
+import UserAvatar from './UserAvatar'
 import { clearSession, getAccessToken } from '../lib/auth'
 import { api } from '../lib/api'
 import creditApi from '../services/apiClient'
@@ -27,14 +28,6 @@ const readStoredUser = () => {
     return null
   }
 }
-
-const getUserInitials = (fullName = '') => fullName
-  .trim()
-  .split(/\s+/)
-  .slice(-2)
-  .map((part) => part[0])
-  .join('')
-  .toLocaleUpperCase('vi-VN') || 'U'
 
 const navItems = [
   { label: 'Trang chủ', to: '/#top' },
@@ -249,19 +242,7 @@ function Header({
   }
 
   const renderUserAvatar = (className = 'size-10') => (
-    <span className={`relative grid ${className} shrink-0 place-items-center overflow-hidden rounded-full bg-emerald-100 text-sm font-bold text-emerald-800`}>
-      {getUserInitials(user?.FullName)}
-      {(user?.AvatarUrl || user?.avatarUrl) && (
-        <img
-          src={user.AvatarUrl || user.avatarUrl}
-          alt=""
-          className="absolute inset-0 size-full object-cover"
-          onError={(event) => {
-            event.currentTarget.style.display = 'none'
-          }}
-        />
-      )}
-    </span>
+    <UserAvatar user={user} className={className} />
   )
 
   const renderAccountMenu = (positionClass) => (

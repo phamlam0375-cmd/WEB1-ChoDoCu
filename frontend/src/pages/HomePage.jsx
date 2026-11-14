@@ -122,8 +122,8 @@ function HomePage() {
       verified: Boolean(item.Seller?.EmailVerified),
       isVip: Array.isArray(item.Promotions) && item.Promotions.length > 0,
       isFeatured: !appliedKeyword.trim()
-        && !(Array.isArray(item.Promotions) && item.Promotions.length > 0)
-        && index < 3,
+        && Array.isArray(item.Promotions)
+        && item.Promotions.length > 0,
       image: getListingImage(item.Media),
     })), [appliedKeyword, listing, searchResults])
 

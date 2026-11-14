@@ -62,7 +62,11 @@ export default function SellerStore() {
                         setProductLoading(true);
 
                         const productResponse = await getStoreListing(storeInfo.StoreId, 1, 100);
-                        setProducts(productResponse.data || []);
+                        setProducts(
+                            (productResponse.data || []).filter(
+                                (product) => product.Status === "ACTIVE"
+                            )
+                        );
                     } catch (productError) {
                         console.error(
                             "Lấy sản phẩm thất bại:",

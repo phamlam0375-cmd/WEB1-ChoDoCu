@@ -11,7 +11,7 @@ test('D03 GET/POST v1: demo scoped, signal, multipart file thật, tiền sản 
   const signal = new AbortController().signal
   let calls = 0
   api.defaults.adapter = async config => {
-    assert.equal(config.d01Demo, true)
+    assert.equal(config.sessionOnly, true); assert.equal(config.d01Demo, undefined)
     if (calls++ === 0) {
       assert.equal(api.getUri(config), '/api/v1/orders/91/payment-info'); assert.equal(config.signal, signal)
     } else {

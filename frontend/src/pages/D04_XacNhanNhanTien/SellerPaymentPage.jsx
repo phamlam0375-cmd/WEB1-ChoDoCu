@@ -3,18 +3,15 @@ import { Link, useParams } from 'react-router-dom'
 import { RefreshCw, ShieldCheck } from 'lucide-react'
 import Footer from '../../components/Footer'
 import PaymentDecisionDialog from '../../components/D04_XacNhanNhanTien/PaymentDecisionDialog'
-import { Card, ErrorState, Loading, PageHeader } from '../../components/admin/AdminUi'
+import { Card, ErrorState, Loading, PageHeader } from '../../components/D05_TheoDoiDonHang/OrderUi'
 import { btn, input } from '../../components/admin/styles'
 import { errorMessage } from '../../lib/api'
-import { formatDateTime } from '../../lib/format'
+import { formatDateTime, formatDecimalMoney } from '../../lib/format'
 import { ORDER_STATUS } from '../../lib/labels'
 import { getSellerPayment, decideSellerPayment } from '../../services/D04_XacNhanNhanTien/confirmationApi'
 
 const labels = { REPORTED: 'Chờ người bán đối chiếu', REJECTED: 'Người bán chưa nhận được tiền', CONFIRMED: 'Đã xác nhận nhận đủ tiền', WAITING: 'Người mua chưa báo chuyển tiền' }
-const money = value => {
-  const [whole, fraction = '00'] = String(value ?? '0').split('.')
-  return `${BigInt(whole).toLocaleString('vi-VN')}${fraction !== '00' ? `,${fraction.padEnd(2, '0')}` : ''} ₫`
-}
+const money = formatDecimalMoney
 const safeProof = value => typeof value === 'string' && (/^\/(?!\/)[^\s]+$/.test(value) || /^https?:\/\/[^\s]+$/i.test(value)) ? value : null
 
 function PaymentDetail({ orderId }) {
@@ -81,9 +78,10 @@ function PaymentDetail({ orderId }) {
   return <>
     <PageHeader code="D04" title={`Xác nhận nhận tiền · Đơn #${data.orderId}`} description={labels[data.paymentStatus] || 'Chưa có thanh toán'} actions={<>
       <Link className={btn.secondary} to="/seller/payments">Danh sách giao dịch</Link>
+      <Link className={btn.secondary} to={data.trackingUrl || `/orders/${data.orderId}/tracking`}>Theo dõi đơn hàng</Link>
       <button className={btn.secondary} type="button" disabled={busy} onClick={refresh}><RefreshCw size={16} /> Tải lại</button>
     </>} />
-    {notice && <p role="status" className="mb-4 rounded-xl bg-emerald-50 p-4 font-semibold text-emerald-800">{notice}</p>}
+    {notice && <p role="status" className="mb-4 rounded-xl bg-green-50 p-4 font-semibold text-green-800">{notice}</p>}
     {error && <p role="alert" className="mb-4 rounded-xl bg-rose-50 p-4 text-sm text-rose-700">{error}</p>}
     <div className="grid gap-5 lg:grid-cols-2">
       <Card className="p-5 sm:p-6">
@@ -122,5 +120,5 @@ function PaymentDetail({ orderId }) {
 
 export default function SellerPaymentPage() {
   const { orderId } = useParams()
-  return <PaymentDetail key={orderId} orderId={orderId} />
+  return <div className="d-workspace"><PaymentDetail key={orderId} orderId={orderId} /></div>
 }

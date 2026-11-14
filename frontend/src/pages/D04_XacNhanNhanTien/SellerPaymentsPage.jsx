@@ -2,17 +2,14 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { RefreshCw } from 'lucide-react'
 import Footer from '../../components/Footer'
-import { Card, ErrorState, Loading, PageHeader, Pagination } from '../../components/admin/AdminUi'
+import { Card, ErrorState, Loading, PageHeader, Pagination } from '../../components/D05_TheoDoiDonHang/OrderUi'
 import { btn } from '../../components/admin/styles'
 import { errorMessage } from '../../lib/api'
-import { formatDateTime } from '../../lib/format'
+import { formatDateTime, formatDecimalMoney } from '../../lib/format'
 import { listSellerPayments } from '../../services/D04_XacNhanNhanTien/confirmationApi'
 
 const labels = { REPORTED: 'Chờ xác nhận', REJECTED: 'Chưa nhận được tiền', CONFIRMED: 'Đã nhận đủ tiền', WAITING: 'Chưa báo chuyển tiền', ALL: 'Tất cả' }
-const money = value => {
-  const [whole, fraction = '00'] = String(value ?? '0').split('.')
-  return `${BigInt(whole).toLocaleString('vi-VN')}${fraction !== '00' ? `,${fraction.padEnd(2, '0')}` : ''} ₫`
-}
+const money = formatDecimalMoney
 
 export default function SellerPaymentsPage() {
   const [filter, setFilter] = useState({ page: 1, status: 'REPORTED' })
@@ -28,7 +25,7 @@ export default function SellerPaymentsPage() {
     return () => controller.abort()
   }, [key])
   const loading = state?.key !== key
-  return <>
+  return <div className="d-workspace">
     <PageHeader code="D04" title="Xác nhận nhận tiền" description="Chỉ hiển thị giao dịch của tài khoản người bán đang chọn/đăng nhập. Đối chiếu ngân hàng, không chỉ dựa vào ảnh biên lai." actions={<button type="button" className={btn.secondary} onClick={() => setReload(value => value + 1)}><RefreshCw size={16} /> Tải lại</button>} />
     <label className="mb-4 flex flex-wrap items-center gap-3 text-sm font-semibold text-slate-700">Trạng thái thanh toán
       <select aria-label="Lọc trạng thái thanh toán" className="rounded-lg border border-slate-300 bg-white px-3 py-2" value={filter.status} onChange={event => setFilter({ page: 1, status: event.target.value })}>{Object.entries(labels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
@@ -44,5 +41,5 @@ export default function SellerPaymentsPage() {
       <Pagination pagination={state.response.pagination} onPage={page => setFilter(previous => ({ ...previous, page }))} />
     </Card>}
     <div className="mt-8"><Footer /></div>
-  </>
+  </div>
 }

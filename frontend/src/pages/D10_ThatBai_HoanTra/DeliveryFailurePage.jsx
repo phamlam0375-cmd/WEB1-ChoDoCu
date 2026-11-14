@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
 import Header from '../../components/Header'
 import Footer from '../../components/Footer'
-import { Card, ConfirmDialog, ErrorState, Loading, PageHeader } from '../../components/admin/AdminUi'
+import { Card, ConfirmDialog, ErrorState, Loading, PageHeader } from '../../components/D05_TheoDoiDonHang/OrderUi'
 import { btn, input } from '../../components/admin/styles'
 import { getAccessToken } from '../../lib/auth'
 import { errorMessage } from '../../lib/api'
@@ -67,7 +67,7 @@ function FailureContent({ id }) {
       <Link className={btn.secondary} to={data?.trackingUrl || '/driver/deliveries'}>Theo dõi đơn/chuyến</Link>
       <button className={btn.secondary} disabled={busy || loading} type="button" onClick={refresh}>Tải lại</button>
     </>} />
-    {notice && <p role="status" className="mb-4 rounded-xl bg-emerald-50 p-4 text-emerald-900">{notice}</p>}
+    {notice && <p role="status" className="mb-4 rounded-xl bg-green-50 p-4 text-green-900">{notice}</p>}
     {error && <p role="alert" className="mb-4 rounded-xl bg-rose-50 p-4 text-rose-800">{error}</p>}
     {pending && error && <button className={`${btn.secondary} mb-4`} type="button" disabled={busy || loading} onClick={() => send(pending.payload.action, true)}>Thử lại đúng thao tác đang chờ</button>}
     {loading && !data ? <Loading /> : resource.error ? <ErrorState message={resource.error} onRetry={refresh} /> : data && <>
@@ -120,5 +120,5 @@ function FailureContent({ id }) {
 }
 export default function DeliveryFailurePage() {
   const { deliveryId } = useParams()
-  return <div className="min-h-screen bg-slate-50 text-slate-900"><Header /><main className="mx-auto min-h-[600px] max-w-4xl px-4 py-8 sm:px-6"><FailureContent key={deliveryId} id={deliveryId} /></main><Footer /></div>
+  return <div className="min-h-screen bg-slate-50 text-slate-900"><Header /><main className="d-workspace mx-auto min-h-[600px] max-w-4xl px-4 py-8 sm:px-6"><FailureContent key={deliveryId} id={deliveryId} /></main><Footer /></div>
 }

@@ -208,6 +208,7 @@ docker compose up -d --build
 | Lệnh `docker` báo `error during connect` hoặc không kết nối được | Mở Docker Desktop, chờ trạng thái "running" rồi chạy lại |
 | Báo cổng 3306/3000/8081 đang được dùng | Tắt MySQL hoặc chương trình đang dùng cổng đó, rồi chạy lại |
 | Máy từng chạy bản cũ của dự án, trang báo lỗi hoặc thiếu bảng | `git pull` rồi `docker compose up -d --build`; vẫn lỗi thì `docker compose down -v` rồi chạy lại (xóa dữ liệu cũ trên máy đó) |
+| API báo `Cannot find module` sau khi thêm package backend | Chạy `docker compose up -d --build --force-recreate -V api` để build lại image và tạo lại volume `node_modules` |
 | Máy khác không thấy dữ liệu mới của mình | Làm theo mục "Chia sẻ dữ liệu giữa các máy" |
 | Trang báo "Lỗi server" ngay sau khi khởi động | Chờ API chạy xong migration (xem `docker compose logs -f api`) |
 | Trang quản trị chỉ hiện "Khu vực dành cho quản trị viên" | Đăng ký/xác minh tài khoản thật, cấp role bằng lệnh `admin:grant`, rồi đăng xuất và đăng nhập lại |
@@ -324,6 +325,7 @@ Phần B đã được quét bằng OWASP ZAP trên bản chạy local: trang we
 - Header `x-user-id` chỉ là cơ chế phát triển cũ; Compose hiện tại đặt `AUTH_DEV_HEADER=false`, còn production đặt `NODE_ENV=production`. Khi chấm, đăng nhập bằng tài khoản thật và JWT.
 - Lệnh `POST /admin/commissions/sync` và `POST /admin/commissions/remind-overdue` thay đổi dữ liệu thật; chỉ chạy khi cần.
 - Tính năng duyệt tin bằng AI cần khóa API AI trong `.env`; không có khóa thì chỉ phần AI không chạy, các chức năng khác vẫn dùng bình thường.
+- Trợ lý chat có thể dùng Gemini API miễn phí theo hạn mức: tạo API key tại https://aistudio.google.com/apikey, đặt `GEMINI_API_KEY` trong `backend/.env` (local) hoặc `.env` (production), rồi chạy lại API (`docker compose up -d --force-recreate api` nếu dùng Docker). Có thể đặt `GEMINI_MODEL` để đổi model. Hạn mức miễn phí thay đổi theo model/tài khoản và không được đảm bảo lâu dài; không bật billing nếu không muốn phát sinh phí. Chatbot hỗ trợ tìm sản phẩm rẻ nhất/đắt nhất, so sánh hai món, xem tình trạng người bán khai báo và kiểm tra tin đang bán/đang có người đặt/đã bán. Tình trạng thực tế không được xác minh bởi chatbot. Khi chưa có key, chatbot vẫn chạy ở chế độ dự phòng nhưng câu trả lời sẽ giới hạn hơn.
 
 ## Cơ sở dữ liệu
 

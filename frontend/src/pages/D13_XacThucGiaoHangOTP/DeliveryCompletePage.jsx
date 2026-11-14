@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
 import Header from '../../components/Header'
 import Footer from '../../components/Footer'
-import { Card, PageHeader } from '../../components/admin/AdminUi'
+import { Card, PageHeader } from '../../components/D05_TheoDoiDonHang/OrderUi'
 import { btn, input } from '../../components/admin/styles'
 import CompletionProof from '../../components/D13_XacThucGiaoHangOTP/CompletionProof'
 import { errorMessage } from '../../lib/api'
@@ -76,7 +76,7 @@ function CompleteContent({ deliveryId }) {
   return <>
     <PageHeader code="D13" title="Xác thực giao hàng" actions={<><Link to={data?.trackingUrl || '/driver/deliveries'} className={btn.secondary}>Theo dõi đơn/chuyến</Link><button className={btn.secondary} disabled={busy} onClick={() => setReload(n => n + 1)}>Tải lại trạng thái</button></>} />
     {error && <p role="alert" className="mb-4 rounded-xl bg-rose-50 p-4 text-rose-800">{error}</p>}
-    {notice && <p role="status" className="mb-4 rounded-xl bg-emerald-50 p-4">{notice}</p>}
+    {notice && <p role="status" className="mb-4 rounded-xl bg-green-50 p-4">{notice}</p>}
     {uncertain && <Card className="mb-4 space-y-3 p-5"><p>Chưa xác định được kết quả phản hồi. Thử lại cùng yêu cầu sẽ không ghi nhận giao hàng hai lần.</p><button className={btn.primary} disabled={busy} onClick={() => send(true)}>Thử lại cùng yêu cầu</button></Card>}
     {data ? <Card className="space-y-4 p-5">
       <h2 className="text-lg font-bold">Chuyến #{data.deliveryId} · Đơn #{data.orderId}</h2>
@@ -86,7 +86,7 @@ function CompleteContent({ deliveryId }) {
         <p>Chỉ người mua tạo mã tại trang theo dõi đơn. Nhận mã khi bàn giao thực tế. Không dùng mã lấy hàng D08.</p>
         <p>Lượt nhập còn lại: {data.code.attemptsRemaining}{data.code.expiresAt ? ` · Hạn mã: ${formatDateTime(data.code.expiresAt)}` : ''}</p>
         <form className="space-y-4" onSubmit={event => { event.preventDefault(); send() }}>
-          <label className="block font-semibold" htmlFor="completion-code">Mã giao hàng (6 chữ số)<input id="completion-code" className={`${input} mt-2`} type="text" inputMode="numeric" autoComplete="off" maxLength={6} value={code} disabled={busy || uncertain} onChange={e => setCode(e.target.value.replace(/\D/g, ''))} /></label>
+          <label className="d-code block font-semibold" htmlFor="completion-code">Mã giao hàng (6 chữ số)<input id="completion-code" className={`${input} mt-2`} type="text" inputMode="numeric" autoComplete="off" maxLength={6} value={code} disabled={busy || uncertain} onChange={e => setCode(e.target.value.replace(/\D/g, ''))} /></label>
           <label className="block font-semibold" htmlFor="completion-proof">Ảnh bàn giao (JPG/PNG, tối đa 5 MB)<input id="completion-proof" className="mt-2 block" type="file" accept="image/jpeg,image/png" disabled={busy || uncertain} onChange={e => { const selected = e.target.files?.[0] || null, invalid = validateCompletionImage(selected); setError(invalid || ''); setFile(invalid ? null : selected); setPreview(null) }} /></label>
           {preview && <img className="max-h-72 max-w-full rounded-xl object-contain" src={preview} alt="Ảnh bàn giao chuẩn bị gửi" />}
           <label className="flex items-start gap-2"><input type="checkbox" checked={checked} disabled={busy || uncertain} onChange={e => setChecked(e.target.checked)} />Tôi xác nhận đã bàn giao kiện hàng thực tế cho người mua.</label>
@@ -98,5 +98,5 @@ function CompleteContent({ deliveryId }) {
 }
 export default function DeliveryCompletePage() {
   const { deliveryId } = useParams()
-  return <div className="min-h-screen bg-slate-50 text-slate-900"><Header /><main className="mx-auto min-h-[600px] max-w-4xl px-4 py-8"><CompleteContent key={deliveryId} deliveryId={deliveryId} /></main><Footer /></div>
+  return <div className="min-h-screen bg-slate-50 text-slate-900"><Header /><main className="d-workspace mx-auto min-h-[600px] max-w-4xl px-4 py-8"><CompleteContent key={deliveryId} deliveryId={deliveryId} /></main><Footer /></div>
 }

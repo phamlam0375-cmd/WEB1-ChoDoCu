@@ -1,6 +1,9 @@
 'use strict';
 
-const { Listings, ListingMedia, Categories, Users } = require("../models");
+const { Op } = require('sequelize');
+const { Listings, ListingMedia, Categories, Users, ListingPromotions } = require("../models");
+
+const PUBLIC_LISTING_STATUSES = ["ACTIVE", "RESERVED", "SOLD"];
 
 const getAllListing = async (req, res) => {
     try {
@@ -8,7 +11,7 @@ const getAllListing = async (req, res) => {
         const limit = Number(req.query.limit) || 20;
 
         const { count, rows } = await Listings.findAndCountAll({
-            where: { Status: ["ACTIVE", "RESERVED", "SOLD"] },
+            where: { Status: { [Op.in]: PUBLIC_LISTING_STATUSES } },
             include: [
                 { model: Categories, as: "Category", attributes: ["CategoryId", "CategoryName"] },
                 { model: Users, as: "Seller", attributes: ["UserId", "FullName", "EmailVerified", "AvatarUrl"] },
@@ -18,6 +21,17 @@ const getAllListing = async (req, res) => {
                     attributes: ["MediaId", "MediaUrl", "MediaType", "SortOrder"],
                     separate: true,
                     order: [["SortOrder", "ASC"]],
+                },
+                {
+                    model: ListingPromotions,
+                    as: "Promotions",
+                    attributes: ["PromotionId", "StartsAt", "EndsAt"],
+                    required: false,
+                    where: {
+                        Status: "ACTIVE",
+                        StartsAt: { [Op.lte]: new Date() },
+                        EndsAt: { [Op.gt]: new Date() },
+                    },
                 },
             ],
             order: [["CreatedAt", "DESC"]],
@@ -46,4 +60,4 @@ const getAllListing = async (req, res) => {
     }
 }
 
-module.exports={getAllListing}
+module.exports = { getAllListing };

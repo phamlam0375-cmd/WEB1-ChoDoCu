@@ -1,43 +1,23 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { Outlet } from 'react-router-dom'
 import Header from '../../components/Header'
 import DevAccountSwitcher from '../../components/DevAccountSwitcher'
 import DevAccountError from '../../components/DevAccountError'
 import { Loading } from '../../components/admin/AdminUi'
 import { useDevAccount } from '../../hooks/useDevAccount'
-
-const LINKS = [
-  { to: '/profile', label: 'Hồ sơ cá nhân' },
-  { to: '/orders', label: 'Đơn mua của tôi' },
-  { to: '/reports', label: 'Báo cáo của tôi' },
-  { to: '/refunds', label: 'Hoàn tiền' },
-  { to: '/seller/fees', label: 'Phí & hoa hồng (người bán)' },
-  { to: '/seller/payments', label: 'Xác nhận nhận tiền' },
-]
+import AccountNavigation from './AccountNavigation'
 
 // Khung cho các trang phân hệ B phía người dùng: báo cáo vi phạm, hoàn tiền, phí người bán.
-export default function AccountShell() {
+export default function AccountShell({ hideNavigation = false }) {
   const { userId, me, loading, error } = useDevAccount()
 
   return (
     <div className="flex min-h-screen flex-col bg-green-100">
       <Header savedCount={0} onShowSaved={() => {}} onUnavailable={() => {}} />
       <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:px-6">
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <nav className="flex flex-wrap gap-1" aria-label="Tài khoản">
-            {LINKS.map((link) => (
-              <NavLink
-                key={link.to}
-                to={link.to}
-                className={({ isActive }) =>
-                  `rounded-lg px-3 py-1.5 text-sm font-medium ${isActive ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-white'}`
-                }
-              >
-                {link.label}
-              </NavLink>
-            ))}
-          </nav>
+        {!hideNavigation && <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <AccountNavigation />
           <DevAccountSwitcher compact />
-        </div>
+        </div>}
         {userId && loading ? (
           <Loading />
         ) : me ? (

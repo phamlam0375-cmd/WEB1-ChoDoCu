@@ -14,6 +14,7 @@ export function createLinkChecks(child, fixture, origin, pages) {
     pending.set(id, { resolve, reject, timer }); child.send({ type: 'D_LINK_READ', id, listingId: fixture.listingId, ...input })
   })
   const api = async (page, path, options = {}) => {
+    if (process.env.D_ACCEPTANCE_TEST === 'true') assert.equal(options.method || 'GET', 'GET', 'Luồng nghiệm thu chỉ dùng API quan sát; mọi bước ghi phải qua UI')
     const token = await page.evaluate(() => localStorage.getItem('accessToken'))
     return page.request.fetch(origin + path, { ...options, headers: { Authorization: `Bearer ${token}`, ...options.headers } })
   }
@@ -21,7 +22,7 @@ export function createLinkChecks(child, fixture, origin, pages) {
     const s = await read(ids)
     assert.equal(s.order.OrderId, ids.orderId); assert.equal(s.order.Status, orderStatus)
     assert.equal(s.order.BuyerId, fixture.buyerId); assert.equal(s.order.SellerId, fixture.sellerId)
-    assert.equal(s.order.ProductAmount, '100000.10'); assert.equal(s.order.DeliveryFee, '20000.20'); assert.equal(s.order.TotalAmount, '120000.30')
+    assert.equal(s.order.ProductAmount, fixture.productAmount || '100000.10'); assert.equal(s.order.DeliveryFee, '20000.20'); assert.equal(s.order.TotalAmount, fixture.totalAmount || '120000.30')
     assert.equal(s.listing.Status, orderStatus === 'COMPLETED' ? 'SOLD' : 'RESERVED')
     assert.equal(s.commissions.length, orderStatus === 'COMPLETED' ? 1 : 0)
     if (deliveryStatus) {

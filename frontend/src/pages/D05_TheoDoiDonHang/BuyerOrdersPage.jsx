@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { RefreshCw } from 'lucide-react'
-import { Card, ErrorState, Loading, PageHeader, Pagination } from '../../components/admin/AdminUi'
+import { Card, ErrorState, Loading, PageHeader, Pagination } from '../../components/D05_TheoDoiDonHang/OrderUi'
 import { btn } from '../../components/admin/styles'
 import { useTrackingResource } from '../../components/D05_TheoDoiDonHang/useTrackingResource'
 import { listBuyerOrders } from '../../services/D05_TheoDoiDonHang/trackingApi'

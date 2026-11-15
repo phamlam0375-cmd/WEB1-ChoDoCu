@@ -35,47 +35,80 @@ const searchListings = async (req, res) => {
         const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
         const limit = Math.min(100, Math.max(1, Number.parseInt(req.query.limit, 10) || 10));
 
-        let result = await elasticClient.search({
+        const normalizedQuery = normalizeVietnamese(q);
+        const isShortSingleWordQuery =
+            normalizedQuery.length >= 2 &&
+            !/\s/.test(normalizedQuery);
+        const searchOptions = {
             index: 'products',
             from: (page - 1) * limit,
             size: limit,
-            query: {
-                bool: {
-                    must: [{
-                        bool: {
-                            should: [
-                                {
-                                    multi_match: {
-                                        query: q,
-                                        fields: [
-                                            'Title^3',
-                                            'Description',
-                                            'CategoryName^2'
-                                        ],
-                                        operator: 'and'
-                                    }
-                                },
-                                {
-                                    multi_match: {
-                                        query: normalizeVietnamese(q),
-                                        fields: [
-                                            'TitleNormalized^3',
-                                            'DescriptionNormalized',
-                                            'CategoryNameNormalized^2'
-                                        ],
-                                        operator: 'and'
-                                    }
-                                }
-                            ],
-                            minimum_should_match: 1
-                        }
-                    }],
-                    filter: [
-                        { term: { 'Status.keyword': 'ACTIVE' } }
-                    ]
+        };
+        let result;
+
+        if (isShortSingleWordQuery) {
+            result = await elasticClient.search({
+                ...searchOptions,
+                query: {
+                    bool: {
+                        must: [{
+                            match_bool_prefix: {
+                                TitleNormalized: normalizedQuery
+                            }
+                        }],
+                        filter: [
+                            { term: { 'Status.keyword': 'ACTIVE' } }
+                        ]
+                    }
                 }
-            }
-        });
+            });
+        }
+
+        const shortQueryTotal = typeof result?.hits.total === 'number'
+            ? result.hits.total
+            : result?.hits.total?.value || 0;
+
+        if (!result || shortQueryTotal === 0) {
+            result = await elasticClient.search({
+                ...searchOptions,
+                query: {
+                    bool: {
+                        must: [{
+                            bool: {
+                                should: [
+                                    {
+                                        multi_match: {
+                                            query: q,
+                                            fields: [
+                                                'Title^3',
+                                                'Description',
+                                                'CategoryName^2'
+                                            ],
+                                            operator: 'and'
+                                        }
+                                    },
+                                    {
+                                        multi_match: {
+                                            query: normalizedQuery,
+                                            fields: [
+                                                'TitleNormalized^3',
+                                                'DescriptionNormalized',
+                                                'CategoryNameNormalized^2'
+                                            ],
+                                            operator: 'and'
+                                        }
+                                    }
+                                ],
+                                minimum_should_match: 1
+                            }
+                        }],
+                        filter: [
+                            { term: { 'Status.keyword': 'ACTIVE' } }
+                        ]
+                    }
+                }
+            });
+        }
 
         // Nếu không tìm thấy kết quả chính xác,
         // thử tìm gần đúng để xử lý lỗi chính tả.
@@ -85,21 +118,41 @@ const searchListings = async (req, res) => {
 
         if (exactTotal === 0) {
             result = await elasticClient.search({
-                index: 'products',
-                from: (page - 1) * limit,
-                size: limit,
+                ...searchOptions,
                 query: {
                     bool: {
                         must: [
                             {
-                                multi_match: {
-                                    query: normalizeVietnamese(q),
-                                    fields: [
-                                        'TitleNormalized^5'
+                                bool: {
+                                    should: [
+                                        {
+                                            multi_match: {
+                                                query: normalizedQuery,
+                                                fields: [
+                                                    'TitleNormalized^5',
+                                                    'DescriptionNormalized',
+                                                    'CategoryNameNormalized^2'
+                                                ],
+                                                fuzziness: 'AUTO',
+                                                prefix_length: 0,
+                                                operator: 'and'
+                                            }
+                                        },
+                                        {
+                                            multi_match: {
+                                                query: q,
+                                                fields: [
+                                                    'Title^5',
+                                                    'Description',
+                                                    'CategoryName^2'
+                                                ],
+                                                fuzziness: 'AUTO',
+                                                prefix_length: 0,
+                                                operator: 'and'
+                                            }
+                                        }
                                     ],
-                                    fuzziness: 1,
-                                    prefix_length: 1,
-                                    operator: 'and'
+                                    minimum_should_match: 1
                                 }
                             }
                         ],

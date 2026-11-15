@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
 import Header from '../../components/Header'
 import Footer from '../../components/Footer'
-import { Card, ErrorState, Loading, PageHeader } from '../../components/admin/AdminUi'
+import { Card, ErrorState, Loading, PageHeader } from '../../components/D05_TheoDoiDonHang/OrderUi'
 import { btn, input } from '../../components/admin/styles'
 import { getAccessToken } from '../../lib/auth'
 import { errorMessage } from '../../lib/api'
@@ -60,7 +60,7 @@ function ProgressContent({ id }) {
       <Link className={btn.secondary} to={data?.trackingUrl || '/driver/deliveries'}>Theo dõi đơn/chuyến</Link>
       <button type="button" className={btn.secondary} disabled={sending || loading} onClick={refresh}>Tải lại</button>
     </>} />
-    {notice && <p role="status" className="mb-4 rounded-xl bg-emerald-50 p-4 text-emerald-900">{notice}</p>}
+    {notice && <p role="status" className="mb-4 rounded-xl bg-green-50 p-4 text-green-900">{notice}</p>}
     {error && <p role="alert" className="mb-4 rounded-xl bg-rose-50 p-4 text-rose-800">{error}</p>}
     {loading && !data ? <Loading /> : resource.error ? <ErrorState message={resource.error} onRetry={refresh} /> : data && <>
       <Card className="mb-5 space-y-3 break-words p-5">
@@ -92,5 +92,5 @@ function ProgressContent({ id }) {
 }
 export default function DeliveryProgressPage() {
   const { deliveryId } = useParams()
-  return <div className="min-h-screen bg-slate-50 text-slate-900"><Header /><main className="mx-auto min-h-[600px] max-w-4xl px-4 py-8 sm:px-6"><ProgressContent key={deliveryId} id={deliveryId} /></main><Footer /></div>
+  return <div className="min-h-screen bg-slate-50 text-slate-900"><Header /><main className="d-workspace mx-auto min-h-[600px] max-w-4xl px-4 py-8 sm:px-6"><ProgressContent key={deliveryId} id={deliveryId} /></main><Footer /></div>
 }

@@ -1,9 +1,9 @@
-import { Modal } from '../admin/AdminUi'
+import { Modal } from '../D05_TheoDoiDonHang/OrderUi'
 import { btn } from '../admin/styles'
 
 export default function PaymentDecisionDialog({ action, orderId, busy, onClose, onSubmit }) {
   if (!action) return null
-  return <Modal open title={action === 'CONFIRM' ? 'Xác nhận đã nhận đủ tiền' : 'Xác nhận chưa nhận được tiền'} onClose={() => { if (!busy) onClose() }} footer={<>
+  return <Modal open busy={busy} title={action === 'CONFIRM' ? 'Xác nhận đã nhận đủ tiền' : 'Xác nhận chưa nhận được tiền'} onClose={() => { if (!busy) onClose() }} footer={<>
     <button type="button" className={btn.secondary} disabled={busy} onClick={onClose}>Quay lại đối chiếu</button>
     <button type="button" className={btn.primary} disabled={busy} onClick={onSubmit}>{busy ? 'Đang gửi…' : 'Lưu kết quả đối chiếu'}</button>
   </>}>

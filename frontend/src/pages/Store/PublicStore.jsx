@@ -1,7 +1,6 @@
 import {
     MapPin,
     Phone,
-    Store as StoreIcon,
 } from "lucide-react";
 import "leaflet/dist/leaflet.css";
 import { useEffect, useState } from "react";
@@ -12,6 +11,7 @@ import { getStoreByOwnerId } from "../../services/storeApi";
 import { getStoreListing } from "../../services/listingApi";
 import StoreMap from "../../components/Store/StoreMap";
 import { StoreProduct } from "../../components/Store/StoreProduct";
+import UserAvatar from "../../components/UserAvatar";
 
 export default function PublicStore() {
     const { ownerId } = useParams();
@@ -117,17 +117,10 @@ export default function PublicStore() {
                             <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
                                 <div className="flex items-start justify-between gap-4">
                                     <div className="flex items-start gap-4">
-                                        {/* STORE ICON */}
-                                        <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-emerald-100">
-                                            {store.Owner?.AvatarUrl ? (
-                                                <img src={store.Owner.AvatarUrl} alt="" className="h-full w-full object-cover" />
-                                            ) : (
-                                                <StoreIcon
-                                                    size={36}
-                                                    className="text-emerald-600"
-                                                />
-                                            )}
-                                        </div>
+                                        <UserAvatar
+                                            user={store.Owner}
+                                            className="h-20 w-20 rounded-2xl text-xl"
+                                        />
 
                                         <div>
                                             <div className="flex flex-wrap items-center gap-2">

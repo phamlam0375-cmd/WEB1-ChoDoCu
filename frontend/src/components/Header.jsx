@@ -6,6 +6,7 @@ import {
   ClipboardList,
   Truck,
   Bell,
+  Crown,
   Store,
   ShieldCheck,
   UserPlus,
@@ -13,8 +14,9 @@ import {
   Wallet,
   X,
 } from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import ColorThemePicker from './ColorThemePicker'
+import UserAvatar from './UserAvatar'
 import { clearSession, getAccessToken } from '../lib/auth'
 import { api } from '../lib/api'
 import creditApi from '../services/apiClient'
@@ -28,19 +30,11 @@ const readStoredUser = () => {
   }
 }
 
-const getUserInitials = (fullName = '') => fullName
-  .trim()
-  .split(/\s+/)
-  .slice(-2)
-  .map((part) => part[0])
-  .join('')
-  .toLocaleUpperCase('vi-VN') || 'U'
-
 const navItems = [
-  { label: 'Trang chủ', href: '#top' },
-  { label: 'Sản phẩm', href: '#san-pham' },
-  { label: 'Danh mục', href: '#danh-muc' },
-  { label: 'Hỗ trợ', href: '#ho-tro' },
+  { label: 'Trang chủ', to: '/#top' },
+  { label: 'Sản phẩm', to: '/#san-pham' },
+  { label: 'Danh mục', to: '/#danh-muc' },
+  { label: 'Hỗ trợ', to: '/#ho-tro' },
 ]
 
 const utilityButtonClass = 'inline-flex  whitespace-nowrap h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2'
@@ -60,9 +54,24 @@ function Header({
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [notificationsLoading, setNotificationsLoading] = useState(false)
 
+  const location = useLocation()
   const navigate = useNavigate()
   const isAdmin = user?.roles?.includes('ADMIN') || user?.Roles?.includes('ADMIN')
   const isSeller = user?.roles?.includes('SELLER') || user?.Roles?.includes('SELLER')
+
+  useEffect(() => {
+    if (!location.hash) return undefined
+
+    const targetId = decodeURIComponent(location.hash.slice(1))
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(targetId)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
+    })
+
+    return () => window.cancelAnimationFrame(frame)
+  }, [location.pathname, location.hash])
 
   useEffect(() => {
     const syncUser = (event) => setUser(event.detail || readStoredUser())
@@ -234,19 +243,7 @@ function Header({
   }
 
   const renderUserAvatar = (className = 'size-10') => (
-    <span className={`relative grid ${className} shrink-0 place-items-center overflow-hidden rounded-full bg-emerald-100 text-sm font-bold text-emerald-800`}>
-      {getUserInitials(user?.FullName)}
-      {(user?.AvatarUrl || user?.avatarUrl) && (
-        <img
-          src={user.AvatarUrl || user.avatarUrl}
-          alt=""
-          className="absolute inset-0 size-full object-cover"
-          onError={(event) => {
-            event.currentTarget.style.display = 'none'
-          }}
-        />
-      )}
-    </span>
+    <UserAvatar user={user} className={className} />
   )
 
   const renderAccountMenu = (positionClass) => (
@@ -265,15 +262,26 @@ function Header({
           Hồ sơ cá nhân
         </Link>
         {isSeller && (
-          <Link
-            to="/seller/store"
-            onClick={closeMenu}
-            role="menuitem"
-            className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-800"
-          >
-            <Store size={17} />
-            Cửa hàng của tôi
-          </Link>
+          <>
+            <Link
+              to="/seller/store"
+              onClick={closeMenu}
+              role="menuitem"
+              className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-800"
+            >
+              <Store size={17} />
+              Cửa hàng của tôi
+            </Link>
+            <Link
+              to="/seller/vip"
+              onClick={closeMenu}
+              role="menuitem"
+              className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-800"
+            >
+              <Crown size={17} />
+              Quản lý tin VIP
+            </Link>
+          </>
         )}
         {isAdmin && (
           <Link
@@ -330,13 +338,13 @@ function Header({
           aria-label="Điều hướng chính"
         >
           {navItems.map((item) => (
-            <a
+            <Link
               key={item.label}
-              href={item.href}
+              to={item.to}
               className="whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100/80 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
             >
               {item.label}
-            </a>
+            </Link>
           ))}
         </nav>
 
@@ -496,14 +504,14 @@ function Header({
             aria-label="Điều hướng di động"
           >
             {navItems.map((item) => (
-              <a
+              <Link
                 key={item.label}
-                href={item.href}
+                to={item.to}
                 onClick={closeMenu}
                 className="rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-800"
               >
                 {item.label}
-              </a>
+              </Link>
             ))}
 
             {/* Tin đã lưu */}

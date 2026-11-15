@@ -18,27 +18,23 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import Footer from '../components/Footer'
 import Header from '../components/Header'
-import { errorMessage, getDevUserId } from '../lib/api'
+import { errorMessage } from '../lib/api'
 import { getAccessToken, rememberPostLoginUrl } from '../lib/auth'
-import { isD01DemoEnabled } from '../lib/d01Demo'
 import { estimateDeliveryFee } from '../services/deliveryFeeApi'
 import { createOrder, getOrderPreview } from '../services/orderApi'
 import { formatDecimalMoney } from '../lib/format'
 import { addAmounts, quoteSelectionKey } from '../services/D12_UocTinhPhiGiaoHang/quoteState'
 import DeliveryQuotePanel from '../components/D12_UocTinhPhiGiaoHang/DeliveryQuotePanel'
+import '../components/D05_TheoDoiDonHang/orderWorkspace.css'
 
 const inputClass = 'mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15 disabled:cursor-not-allowed disabled:bg-slate-100'
 const conditionLabels = {
   LIKE_NEW: 'Như mới', GOOD: 'Còn tốt', FAIR: 'Đã qua sử dụng',
   POOR: 'Cần sửa chữa', USED_GOOD: 'Đã qua sử dụng',
 }
-const hasSession = () => Boolean(getAccessToken() || getDevUserId() || isD01DemoEnabled())
+const hasSession = () => Boolean(getAccessToken({ sessionOnly: true }))
 const phonePattern = /^(?:\+84|84|0)(?:3|5|7|8|9)\d{8}$/
 
-function D01DemoNotice() {
-  if (!isD01DemoEnabled() || getAccessToken()) return null
-  return <p role="status" className="bg-amber-50 px-4 py-3 text-center text-sm text-amber-900">Chế độ test D01: đơn hàng sử dụng tài khoản demo của nhóm, không phải phiên đăng nhập.</p>
-}
 
 const formatCurrency = formatDecimalMoney
 
@@ -111,11 +107,13 @@ function StateCard({ icon: Icon, title, description, actionLabel, onAction, onRe
   )
 }
 
-function OrderCreatePage() {
+function OrderCreateContent() {
   const { listingId } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
   const submitLock = useRef(false)
+  const pendingOrder = useRef(null)
+  const [uncertainOrder, setUncertainOrder] = useState(false)
   const expirationToastShown = useRef(false)
   const quoteRequest = useRef(0)
   const quoteAbort = useRef(null)
@@ -219,7 +217,7 @@ function OrderCreatePage() {
     && quote.selectionKey === quoteSelectionKey(listingId, form),
   )
   const quoteValid = quoteFresh && quoteAccepted
-  const productAmount = String(preview?.listing?.price ?? '0.00')
+  const productAmount = String(preview?.listing?.priceDecimal ?? preview?.listing?.price ?? '0.00')
   const deliveryFee = form.deliveryMethod === 'DELIVERY' ? (quoteFresh ? quote.amount : null) : '0.00'
   const totalAmount = deliveryFee === null ? null : addAmounts(productAmount, deliveryFee)
   const normalizedPhone = form.receiverPhone.trim().replace(/[.\s-]/g, '')
@@ -231,7 +229,7 @@ function OrderCreatePage() {
       || (form.receiverAddress.trim() && quoteValid)
     ),
   )
-  const canSubmit = Boolean(
+  const canSubmit = !uncertainOrder && Boolean(
     hasRequiredFields
     && preview?.listing?.isAvailable
     && !preview?.listing?.isOwnListing
@@ -342,20 +340,20 @@ function OrderCreatePage() {
     }
   }
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = async (event, retryPending = false) => {
     event.preventDefault()
     if (submitLock.current || submitting) return
-    if (!validate()) {
+    if (!retryPending && !validate()) {
       toast.error('Vui lòng nhập đầy đủ thông tin người nhận.', { toastId: 'order-required-fields' })
       return
     }
-    if (!preview.listing.isAvailable || preview.listing.isOwnListing) return
+    if (!retryPending && (!preview.listing.isAvailable || preview.listing.isOwnListing)) return
 
     submitLock.current = true
     setSubmitting(true)
     setSubmitError('')
     try {
-      const response = await createOrder({
+      const payload = retryPending ? pendingOrder.current.payload : {
         listingId: Number(listingId),
         deliveryMethod: form.deliveryMethod,
         receiverName: form.receiverName.trim(),
@@ -365,12 +363,22 @@ function OrderCreatePage() {
           deliveryQuoteId: quote.quoteId,
         }),
         ...(form.note.trim() && { note: form.note.trim() }),
-      })
+      }
+      const signature = JSON.stringify(payload)
+      if (!pendingOrder.current || pendingOrder.current.signature !== signature) pendingOrder.current = { payload, signature, key: crypto.randomUUID() }
+      const response = await createOrder(pendingOrder.current.payload, pendingOrder.current.key)
+      pendingOrder.current = null; setUncertainOrder(false)
+      if (response.data.status !== 'RESERVED') {
+        toast.info(response.message); navigate(`/orders/${response.data.orderId}/tracking`); return
+      }
       setSuccess(response.data)
       setNowMs(Date.now())
       window.scrollTo({ top: 0 })
       toast.success(response.message, { toastId: `order-created-${response.data.orderId}` })
     } catch (error) {
+      const unknown = !error.response || error.response.status >= 500
+      setUncertainOrder(unknown)
+      if (!unknown) pendingOrder.current = null
       const code = getErrorCode(error)
       const fields = error.response?.data?.errors?.fields || error.response?.data?.error?.details?.fields
       if (fields && !Array.isArray(fields)) {
@@ -432,8 +440,7 @@ function OrderCreatePage() {
     return (
       <div className="min-h-screen bg-slate-50 text-slate-900">
         <Header />
-        <D01DemoNotice />
-        <main>{content}</main>
+        <main className="d-workspace">{content}</main>
         <Footer />
       </div>
     )
@@ -444,8 +451,7 @@ function OrderCreatePage() {
     return (
       <div className="min-h-screen bg-slate-50 text-slate-900">
         <Header />
-        <D01DemoNotice />
-        <main className="mx-auto grid min-h-[620px] max-w-3xl place-items-center px-4 py-12 sm:px-6">
+        <main className="d-workspace mx-auto grid min-h-[620px] max-w-3xl place-items-center px-4 py-12 sm:px-6">
           <section className="min-w-0 w-full break-words rounded-2xl border border-emerald-200 bg-white p-6 text-center shadow-lg shadow-emerald-900/5 sm:p-10" aria-live="polite">
             <span className="mx-auto grid size-18 place-items-center rounded-full bg-emerald-100 text-emerald-700">
               <CheckCircle2 size={38} />
@@ -457,7 +463,7 @@ function OrderCreatePage() {
               <div><span className="text-slate-500">Trạng thái</span><strong className="mt-1 block text-emerald-700">{expired ? 'ĐÃ HẾT HẠN' : 'ĐANG GIỮ MÓN'}</strong></div>
               <div className="sm:col-span-2"><span className="text-slate-500">Sản phẩm</span><strong className="mt-1 block text-slate-900">{preview.listing.title}</strong></div>
               <div><span className="text-slate-500">Hình thức nhận</span><strong className="mt-1 block text-slate-900">{success.deliveryMethod === 'PICKUP' ? 'Tự đến lấy' : 'Giao hàng'}</strong></div>
-              <div><span className="text-slate-500">Tổng thanh toán</span><strong className="mt-1 block text-emerald-700">{formatCurrency(success.totalAmount)}</strong></div>
+              <div><span className="text-slate-500">Tổng chi phí</span><strong className="mt-1 block text-emerald-700">{formatCurrency(success.totalAmountDecimal ?? success.totalAmount)}</strong></div>
               <div className="sm:col-span-2"><span className="text-slate-500">Giữ đến</span><strong className="mt-1 block text-slate-900">{formatDateTime(success.reservedUntil)}</strong></div>
             </div>
             <div className={`mx-auto mt-5 flex max-w-lg items-center justify-center gap-2 rounded-xl px-4 py-3 font-mono text-2xl font-black ${expired ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}`}>
@@ -489,7 +495,7 @@ function OrderCreatePage() {
     return (
       <div className="min-h-screen bg-slate-50 text-slate-900">
         <Header />
-        <main>
+        <main className="d-workspace">
           <StateCard
             icon={listing.isOwnListing ? ShieldCheck : PackageCheck}
             title={listing.isOwnListing ? 'Đây là sản phẩm của bạn' : 'Sản phẩm không còn khả dụng'}
@@ -508,8 +514,7 @@ function OrderCreatePage() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <Header />
-      <D01DemoNotice />
-      <main className="mx-auto max-w-6xl px-4 py-9 sm:px-6 sm:py-12 lg:px-8">
+      <main className="d-workspace mx-auto max-w-6xl px-4 py-9 sm:px-6 sm:py-12 lg:px-8">
         <button type="button" onClick={goBack} className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">
           <ArrowLeft size={17} />
           Quay lại
@@ -538,7 +543,7 @@ function OrderCreatePage() {
               <span className="rounded-lg bg-white px-2.5 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">{conditionLabels[listing.condition] || listing.condition}</span>
             </div>
             <h2 className="mt-4 break-words text-xl font-black leading-7 text-slate-900">{listing.title}</h2>
-            <p className="mt-2 text-2xl font-black text-emerald-700">{formatCurrency(listing.price)}</p>
+            <p className="mt-2 text-2xl font-black text-emerald-700">{formatCurrency(listing.priceDecimal ?? listing.price)}</p>
             <div className="mt-5 space-y-3 border-t border-slate-200 pt-5 text-sm text-slate-600">
               <p className="flex items-center gap-2"><MapPin size={17} className="shrink-0 text-emerald-600" /> {listing.location || 'Chưa cập nhật khu vực'}</p>
               <p className="flex items-center gap-2">
@@ -554,12 +559,12 @@ function OrderCreatePage() {
             <div className="mt-5 grid gap-5 sm:grid-cols-2">
               <label className="block text-sm font-bold text-slate-700" htmlFor="receiver-name">
                 Họ và tên người nhận <span className="text-rose-600">*</span>
-                <input id="receiver-name" disabled={submitting} value={form.receiverName} onChange={(event) => updateField('receiverName', event.target.value)} className={inputClass} maxLength={100} autoComplete="name" aria-invalid={Boolean(errors.receiverName)} aria-describedby={errors.receiverName ? 'receiver-name-error' : undefined} />
+                <input id="receiver-name" disabled={submitting || uncertainOrder} value={form.receiverName} onChange={(event) => updateField('receiverName', event.target.value)} className={inputClass} maxLength={100} autoComplete="name" aria-invalid={Boolean(errors.receiverName)} aria-describedby={errors.receiverName ? 'receiver-name-error' : undefined} />
                 <FieldError id="receiver-name-error">{errors.receiverName}</FieldError>
               </label>
               <label className="block text-sm font-bold text-slate-700" htmlFor="receiver-phone">
                 Số điện thoại <span className="text-rose-600">*</span>
-                <input id="receiver-phone" disabled={submitting} type="tel" value={form.receiverPhone} onChange={(event) => updateField('receiverPhone', event.target.value)} className={inputClass} maxLength={15} autoComplete="tel" aria-invalid={Boolean(errors.receiverPhone)} aria-describedby={errors.receiverPhone ? 'receiver-phone-error' : undefined} />
+                <input id="receiver-phone" disabled={submitting || uncertainOrder} type="tel" value={form.receiverPhone} onChange={(event) => updateField('receiverPhone', event.target.value)} className={inputClass} maxLength={15} autoComplete="tel" aria-invalid={Boolean(errors.receiverPhone)} aria-describedby={errors.receiverPhone ? 'receiver-phone-error' : undefined} />
                 <FieldError id="receiver-phone-error">{errors.receiverPhone}</FieldError>
               </label>
             </div>
@@ -572,7 +577,7 @@ function OrderCreatePage() {
                   { value: 'DELIVERY', label: 'Giao hàng tận nơi', icon: Truck, description: preview.delivery.available ? 'Phí theo báo giá giao hàng' : preview.delivery.message },
                 ].map(({ value, label, icon: Icon, description }) => (
                   <label key={value} className={`flex cursor-pointer gap-3 rounded-xl border p-4 transition focus-within:ring-2 focus-within:ring-emerald-500 ${form.deliveryMethod === value ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 hover:border-emerald-200'}`}>
-                    <input type="radio" disabled={submitting} name="deliveryMethod" value={value} checked={form.deliveryMethod === value} onChange={() => handleMethodChange(value)} className="mt-1 accent-emerald-600" />
+                    <input type="radio" disabled={submitting || uncertainOrder} name="deliveryMethod" value={value} checked={form.deliveryMethod === value} onChange={() => handleMethodChange(value)} className="mt-1 accent-emerald-600" />
                     <span><span className="flex items-center gap-2 text-sm font-black text-slate-800"><Icon size={17} /> {label}</span><span className="mt-1 block text-xs text-slate-500">{description}</span></span>
                   </label>
                 ))}
@@ -583,7 +588,7 @@ function OrderCreatePage() {
               <div className="mt-5">
                 <label className="block text-sm font-bold text-slate-700" htmlFor="receiver-address">
                   Địa chỉ nhận hàng <span className="text-rose-600">*</span>
-                  <input id="receiver-address" disabled={submitting} value={form.receiverAddress} onChange={(event) => updateField('receiverAddress', event.target.value)} className={inputClass} maxLength={255} autoComplete="street-address" aria-invalid={Boolean(errors.receiverAddress)} aria-describedby={errors.receiverAddress ? 'receiver-address-error' : undefined} />
+                  <input id="receiver-address" disabled={submitting || uncertainOrder} value={form.receiverAddress} onChange={(event) => updateField('receiverAddress', event.target.value)} className={inputClass} maxLength={255} autoComplete="street-address" aria-invalid={Boolean(errors.receiverAddress)} aria-describedby={errors.receiverAddress ? 'receiver-address-error' : undefined} />
                   <FieldError id="receiver-address-error">{errors.receiverAddress}</FieldError>
                 </label>
                 {!preview.delivery.available ? (
@@ -592,7 +597,7 @@ function OrderCreatePage() {
                     <span>Dịch vụ ước tính phí giao hàng chưa sẵn sàng; hãy chọn tự đến lấy.</span>
                   </div>
                 ) : (
-                  <DeliveryQuotePanel context={preview.delivery} area={form.deliveryArea} vehicle={form.vehicleType} onChange={updateField} quote={quote} fresh={quoteFresh} accepted={quoteAccepted} estimating={estimating} disabled={submitting} onEstimate={handleEstimate} onAccept={() => { if (quoteFresh) setQuoteAccepted(true) }} />
+                  <DeliveryQuotePanel context={preview.delivery} area={form.deliveryArea} vehicle={form.vehicleType} onChange={updateField} quote={quote} fresh={quoteFresh} accepted={quoteAccepted} estimating={estimating} disabled={submitting || uncertainOrder} onEstimate={handleEstimate} onAccept={() => { if (quoteFresh) setQuoteAccepted(true) }} />
                 )}
                 <FieldError id="delivery-quote-error">{errors.deliveryQuote}</FieldError>
               </div>
@@ -600,7 +605,7 @@ function OrderCreatePage() {
 
             <label className="mt-5 block text-sm font-bold text-slate-700" htmlFor="buyer-note">
               Ghi chú <span className="font-normal text-slate-400">(không bắt buộc)</span>
-              <textarea id="buyer-note" disabled={submitting} value={form.note} onChange={(event) => updateField('note', event.target.value)} className="mt-2 min-h-24 w-full resize-y rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15" maxLength={500} placeholder="Ví dụ: Gọi điện trước khi giao" aria-invalid={Boolean(errors.note)} aria-describedby="buyer-note-help" />
+              <textarea id="buyer-note" disabled={submitting || uncertainOrder} value={form.note} onChange={(event) => updateField('note', event.target.value)} className="mt-2 min-h-24 w-full resize-y rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15" maxLength={500} placeholder="Ví dụ: Gọi điện trước khi giao" aria-invalid={Boolean(errors.note)} aria-describedby="buyer-note-help" />
               <span id="buyer-note-help" className="mt-1 flex justify-between text-xs font-normal text-slate-400"><span>{errors.note || 'Thông tin thêm cho người bán'}</span><span>{form.note.length}/500</span></span>
             </label>
 
@@ -616,6 +621,7 @@ function OrderCreatePage() {
               Giữ sản phẩm trong {preview.reservationMinutes} phút
             </div>
             {submitError && <div className="mt-4 flex gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700" role="alert"><AlertCircle size={18} className="shrink-0" /> {submitError}</div>}
+            {uncertainOrder && <div className="d-next mt-4 space-y-3 p-4 text-sm"><p>Chưa xác định được kết quả đặt hàng. Kiểm tra cùng yêu cầu để lấy lại đơn đã lưu, kể cả báo giá vừa hết hạn.</p><button type="button" disabled={submitting} className="rounded-xl bg-emerald-600 px-4 py-3 font-semibold text-white" onClick={event => handleSubmit(event, true)}>Kiểm tra lại yêu cầu đặt hàng</button></div>}
 
             <div className="mt-6 grid gap-3 sm:grid-cols-[0.7fr_1.3fr]">
               <button type="button" onClick={goBack} className="h-12 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2">Quay lại</button>
@@ -632,4 +638,8 @@ function OrderCreatePage() {
   )
 }
 
-export default OrderCreatePage
+export default function OrderCreatePage() {
+  const { listingId } = useParams()
+  // Đổi sản phẩm bằng điều hướng SPA phải bỏ form, quote và pending request của món trước.
+  return <OrderCreateContent key={listingId} />
+}

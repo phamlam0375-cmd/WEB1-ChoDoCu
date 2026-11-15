@@ -1,4 +1,4 @@
-import { Pagination } from '../admin/AdminUi'
+import { Pagination } from '../D05_TheoDoiDonHang/OrderUi'
 import { formatDateTime } from '../../lib/format'
 import { ORDER_STATUS, PAYMENT_STATUS, DELIVERY_STATUS, REFUND_STATUS } from '../../lib/labels'
 const groups = { ORDER: 'Đơn hàng', PAYMENT: 'Thanh toán', DELIVERY: 'Giao nhận', REFUND: 'Hoàn tiền' }
@@ -8,12 +8,15 @@ export default function TrackingTimeline({ histories, pagination, onPage }) {
     <h2 className="text-lg font-bold">Lịch sử tiến trình</h2>
     {!histories.length && <p className="mt-4 text-sm text-slate-500">Chưa có lịch sử được lưu cho đơn này.</p>}
     <ol className="mt-5 space-y-5 border-l-2 border-emerald-100 pl-5">
-      {histories.map(item => {
+      {histories.map((item, index) => {
+        // API D05 trả lịch sử tăng dần theo CreatedAt/HistoryId: mốc mới nhất ở cuối trang cuối.
+        const latest = index === histories.length - 1 && (!pagination || pagination.page === pagination.totalPages)
         const label = item.deliveryEvent?.action === 'RETRY' ? 'Bắt đầu giao lại' : maps[item.group]?.[item.status]
-        return <li key={item.historyId} className="relative break-words">
-          <span aria-hidden="true" className="absolute -left-[27px] top-1 size-3 rounded-full border-2 border-white bg-emerald-600" />
+        return <li key={item.historyId} aria-current={latest ? 'step' : undefined} className="relative break-words">
+          <span aria-hidden="true" className={`absolute -left-[27px] top-1 size-3 rounded-full border-2 border-white ${latest ? 'bg-emerald-600 ring-4 ring-emerald-100' : 'bg-slate-300'}`} />
           <p className="text-xs font-semibold text-slate-500">{groups[item.group] || 'Cập nhật'} · {formatDateTime(item.at)}</p>
           <p className="mt-1 text-sm font-bold">{typeof label === 'string' ? label : label?.label || 'Trạng thái khác'}</p>
+          {latest && <span className="mt-1 inline-block rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">Mốc mới nhất</span>}
           {item.note && <p className="mt-1 whitespace-pre-wrap text-sm text-slate-600">{item.note}</p>}
           {item.deliveryEvent?.attempt && <p className="mt-1 text-xs text-slate-500">Lần giao #{item.deliveryEvent.attempt}</p>}
           {item.deliveryEvent?.scheduledAt && <p className="mt-1 text-sm">Lịch giao lại: {formatDateTime(item.deliveryEvent.scheduledAt)}</p>}

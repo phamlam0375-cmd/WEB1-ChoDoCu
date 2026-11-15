@@ -11,7 +11,7 @@ test('D02 GET/PATCH dùng đúng ID, opt-in demo cùng D01, signal và envelope 
   let step = 0
   const data = { orderId: 91, status: 'CANCELLED', cancelReason: 'Lý do thực' }
   api.defaults.adapter = async config => {
-    assert.equal(config.d01Demo, true)
+    assert.equal(config.sessionOnly, true); assert.equal(config.d01Demo, undefined)
     if (step++ === 0) {
       assert.equal(api.getUri(config), '/api/v1/orders/91/cancellation-preview')
       assert.equal(config.method, 'get')

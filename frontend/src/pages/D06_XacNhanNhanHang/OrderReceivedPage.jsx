@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import Header from '../../components/Header'
 import Footer from '../../components/Footer'
-import { Card, PageHeader } from '../../components/admin/AdminUi'
+import { Card, PageHeader } from '../../components/D05_TheoDoiDonHang/OrderUi'
 import { btn } from '../../components/admin/styles'
 import { errorMessage } from '../../lib/api'
 import { clearSession, getAccessToken, rememberPostLoginUrl } from '../../lib/auth'
@@ -77,9 +77,9 @@ function ReceiptDetail({ orderId }) {
   const refresh = () => { setLoading(true); setReload(value => value + 1) }
   return <div className="min-h-screen bg-slate-50 text-slate-900">
     <Header />
-    <main className="mx-auto min-h-[600px] max-w-4xl px-4 py-10 sm:px-6">
+    <main className="d-workspace mx-auto min-h-[600px] max-w-4xl px-4 py-10 sm:px-6">
       <PageHeader title="Xác nhận đã nhận hàng" description="Chỉ xác nhận sau khi bạn đã nhận và kiểm tra sản phẩm. Thao tác này hoàn tất đơn hàng, không chuyển tiền." />
-      {notice && <p role="status" className="mb-4 rounded-xl bg-emerald-50 p-4 text-emerald-800">{notice}</p>}
+      {notice && <p role="status" className="mb-4 rounded-xl bg-green-50 p-4 text-green-800">{notice}</p>}
       {error && <p role="alert" className="mb-4 rounded-xl bg-rose-50 p-4 text-rose-700">{error}</p>}
       {loading ? <p role="status">Đang tải thông tin nhận hàng…</p> : data && <Card className="p-5 sm:p-8">
         <h2 className="text-xl font-bold">Đơn #{data.orderId} · {data.product.title || `Tin #${data.product.listingId}`}</h2>

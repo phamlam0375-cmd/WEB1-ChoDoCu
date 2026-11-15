@@ -11,8 +11,8 @@ test('D05 GET correct routes/envelope/signal, demo only without explicit dev ide
   const signal = new AbortController().signal
   api.defaults.adapter = async config => {
     assert.equal(config.method, 'get'); assert.equal(config.signal, signal)
-    if (count === 0) { assert.equal(config.url, '/orders'); assert.equal(config.d01Demo, true); assert.deepEqual(config.params, { page: 2, status: 'PAID' }) }
-    else { assert.equal(config.url, '/orders/91/tracking'); assert.equal(config.d01Demo, false); assert.equal(config.headers['x-user-id'], '3') }
+    if (count === 0) { assert.equal(config.url, '/orders'); assert.equal(config.sessionOnly, true); assert.equal(config.d01Demo, undefined); assert.deepEqual(config.params, { page: 2, status: 'PAID' }) }
+    else { assert.equal(config.url, '/orders/91/tracking'); assert.equal(config.sessionOnly, true); assert.equal(config.d01Demo, undefined); assert.equal(config.headers['x-user-id'], undefined) }
     count++
     return { config, status: 200, headers: { 'content-type': 'application/json' }, data: { success: true, data: { orderId: 91 }, pagination: { page: 2 } } }
   }

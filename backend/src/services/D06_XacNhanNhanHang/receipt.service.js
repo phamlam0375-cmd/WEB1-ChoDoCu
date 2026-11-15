@@ -5,6 +5,7 @@ const { refundEligibility } = require('../../controllers/refunds.controller');
 const v = require('../../validators/D06_XacNhanNhanHang/receipt.validator');
 const defaultRepository = require('../../repositories/D06_XacNhanNhanHang/receipt.repository');
 const { verifiedDelivery } = require('../D13_XacThucGiaoHangOTP/verification.policy');
+const { refundActivePromotionForSoldListing } = require('../listingPromotion.service');
 
 const SUCCESS = 'Đã xác nhận nhận hàng; đơn đã hoàn tất.';
 const date = value => value ? new Date(value).getTime() : NaN;
@@ -13,8 +14,8 @@ function receiptPolicy({ order: o, payment: p, deliveries = [], refunds = [], re
   const blocked = (code, reason) => ({ canConfirm: false, code, reason });
   if (o.Status === 'COMPLETED') return blocked('ALREADY_COMPLETED', 'Đơn hàng đã hoàn tất; không cần xác nhận lại.');
   if (refunds.some(row => row.Status !== 'REJECTED') || (refund && refund.Status !== 'REJECTED')) return blocked('REFUND_ACTIVE', 'Đơn đang có quy trình hoàn tiền; không thể xác nhận hoàn tất.');
-  if (o.DeliveryMethod === 'PICKUP') return blocked('PICKUP_HANDOVER_UNAVAILABLE', 'Người bán chưa ghi nhận bàn giao sản phẩm. Quy trình xác minh bàn giao tự đến lấy chưa sẵn sàng.');
-  if (o.Status !== 'DELIVERED' || o.DeliveryMethod !== 'DELIVERY') return blocked('ORDER_NOT_DELIVERED', 'Chưa thể xác nhận nhận hàng ở trạng thái hiện tại.');
+  if (o.DeliveryMethod === 'PICKUP' && (!o.PickupHandoverAt || Number(o.PickupHandoverBy) !== Number(o.SellerId))) return blocked('PICKUP_HANDOVER_REQUIRED', 'Người bán chưa ghi nhận bàn giao sản phẩm.');
+  if (o.Status !== 'DELIVERED') return blocked('ORDER_NOT_DELIVERED', 'Chưa thể xác nhận nhận hàng ở trạng thái hiện tại.');
   if (o.CompletedAt) return blocked('ORDER_DATA_MISMATCH', 'Thời điểm hoàn tất không khớp trạng thái đơn; cần kiểm tra dữ liệu.');
   if (!p || p.Status !== 'CONFIRMED' || Number(p.OrderId) !== Number(o.OrderId) || Number(p.PayerId) !== Number(o.BuyerId)
       || Number(p.PayeeId) !== Number(o.SellerId) || Number(p.ConfirmedBy) !== Number(o.SellerId)
@@ -22,6 +23,7 @@ function receiptPolicy({ order: o, payment: p, deliveries = [], refunds = [], re
       || !Number.isFinite(date(p.ReportedAt)) || !proof(p.ProofUrl) || !snapshotBank(p) || !p.TransferContent?.trim()) {
     return blocked('PAYMENT_NOT_CONFIRMED', 'Thanh toán tiền sản phẩm chưa được người bán xác nhận hợp lệ.');
   }
+  if (o.DeliveryMethod === 'PICKUP') return { canConfirm: true, code: 'READY', reason: null };
   const d = deliveries.length === 1 ? deliveries[0] : null;
   if (!d || Number(d.OrderId) !== Number(o.OrderId) || !Number.isSafeInteger(Number(d.DriverId)) || Number(d.DriverId) < 1
       || !verifiedDelivery(d, now)) {
@@ -33,7 +35,7 @@ function receiptView(state, now, alreadyCompleted = false) {
   const { order: o, payment: p, listing } = state;
   const r = refundEligibility({ ...state, windowDays: state.refundWindowDays, now });
   return { orderId: Number(o.OrderId), product: { listingId: Number(o.ListingId), title: listing?.Title || null },
-    orderStatus: o.Status, deliveryMethod: o.DeliveryMethod, productAmount: o.ProductAmount, deliveryFee: o.DeliveryFee, totalAmount: o.TotalAmount,
+    orderStatus: o.Status, deliveryMethod: o.DeliveryMethod, productAmount: o.ProductAmount, deliveryFee: o.DeliveryFee, totalAmount: o.TotalAmount, pickupHandoverAt: o.PickupHandoverAt,
     paymentStatus: p?.Status || null, completedAt: o.CompletedAt, alreadyCompleted,
     deliveries: o.DeliveryMethod === 'DELIVERY' ? state.deliveries.map(d => ({ deliveryId: d.DeliveryId, status: d.Status, deliveredAt: d.DeliveredAt, verifiedAt: d.VerifiedAt })) : [],
     policy: receiptPolicy(state, now), capabilities: {
@@ -76,6 +78,7 @@ function createReceiptService({ repository = defaultRepository, clock = () => ne
       // Giữ nguyên cơ chế B08 (kể cả fallback tỷ lệ 0 đã được nhóm xác nhận).
       await repository.createCommission(id, transaction);
       await repository.markListingSold(order, transaction); // Chỉ RESERVED -> SOLD, không mở bán hoặc ghi đè trạng thái kiểm duyệt.
+      await refundActivePromotionForSoldListing(order.ListingId, order.SellerId, now, transaction);
       await repository.createHistory({ OrderId: id, DeliveryId: null, StatusType: 'ORDER', StatusValue: 'COMPLETED', Note: 'Người mua xác nhận đã nhận và kiểm tra sản phẩm.', ChangedBy: Number(order.BuyerId), CreatedAt: now }, transaction);
       const payload = { type: 'ORDER', title: `Đơn #${id} đã hoàn tất`, message: 'Người mua đã xác nhận nhận và kiểm tra sản phẩm.', referenceType: 'ORDER', referenceId: id, createdAt: now };
       await repository.notifyUser(order.SellerId, payload, transaction);

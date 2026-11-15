@@ -1,6 +1,6 @@
-import { api, getDevUserId } from '../../lib/api.js'
-// JWT trước, rồi danh tính dev được chọn; chỉ fallback buyer demo khi chưa chọn.
-const optionsFor = options => ({ ...options, d01Demo: !getDevUserId() })
+import { api } from '../../lib/api.js'
+// D05 không gửi danh tính dev hoặc fallback sang buyer demo.
+const optionsFor = options => ({ ...options, sessionOnly: true })
 export async function listBuyerOrders(params, options = {}) {
   const response = await api.get('/orders', { ...optionsFor(options), params })
   return response.data

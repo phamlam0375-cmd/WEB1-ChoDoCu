@@ -9,20 +9,27 @@ const updateProfile = async (req, res) => {
     throw badRequest("Email không thể thay đổi tại đây.");
   }
 
-  const fullName = String(body.fullName ?? "").trim();
-  const phoneInput = String(body.phone ?? "").trim();
-  const phone = phoneInput.replace(/[\s()-]/g, "");
-  const address = String(body.address ?? "").trim();
+  const hasFullNameUpdate = Object.hasOwn(body, "fullName");
+  const hasPhoneUpdate = Object.hasOwn(body, "phone");
+  const hasAddressUpdate = Object.hasOwn(body, "address");
   const hasAvatarUpdate = Object.hasOwn(body, "avatarUrl");
+  if (!hasFullNameUpdate && !hasPhoneUpdate && !hasAddressUpdate && !hasAvatarUpdate) {
+    throw badRequest("Không có thông tin hồ sơ để cập nhật.");
+  }
+
+  const fullName = hasFullNameUpdate ? String(body.fullName ?? "").trim() : undefined;
+  const phoneInput = hasPhoneUpdate ? String(body.phone ?? "").trim() : undefined;
+  const phone = phoneInput?.replace(/[\s()-]/g, "");
+  const address = hasAddressUpdate ? String(body.address ?? "").trim() : undefined;
   const avatarUrl = body.avatarUrl === null ? null : String(body.avatarUrl ?? "").trim();
 
-  if (!fullName || fullName.length > 100) {
+  if (hasFullNameUpdate && (!fullName || fullName.length > 100)) {
     throw badRequest("Họ tên phải có từ 1 đến 100 ký tự.");
   }
-  if (phone && !/^\+?\d{7,15}$/.test(phone)) {
+  if (hasPhoneUpdate && phone && !/^\+?\d{7,15}$/.test(phone)) {
     throw badRequest("Số điện thoại phải có từ 7 đến 15 chữ số.");
   }
-  if (address.length > 255) {
+  if (hasAddressUpdate && address.length > 255) {
     throw badRequest("Địa chỉ không được vượt quá 255 ký tự.");
   }
   if (
@@ -36,7 +43,7 @@ const updateProfile = async (req, res) => {
   const user = await Users.findByPk(req.user.UserId);
   if (!user) throw notFound("Không tìm thấy tài khoản.");
 
-  if (phone) {
+  if (hasPhoneUpdate && phone) {
     const existingPhone = await Users.findOne({
       where: { Phone: phone },
       attributes: ["UserId"],
@@ -46,11 +53,10 @@ const updateProfile = async (req, res) => {
     }
   }
 
-  const updates = {
-    FullName: fullName,
-    Phone: phone || null,
-    Address: address || null,
-  };
+  const updates = {};
+  if (hasFullNameUpdate) updates.FullName = fullName;
+  if (hasPhoneUpdate) updates.Phone = phone || null;
+  if (hasAddressUpdate) updates.Address = address || null;
   if (hasAvatarUpdate) updates.AvatarUrl = avatarUrl || null;
   await user.update(updates);
 

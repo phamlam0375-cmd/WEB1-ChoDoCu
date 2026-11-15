@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { getAccessToken, rememberPostLoginUrl } from '../../lib/auth'
-import { errorMessage, getDevUserId } from '../../lib/api'
-import { isD01DemoEnabled } from '../../lib/d01Demo'
+import { errorMessage } from '../../lib/api'
 import { ORDER_STATUS } from '../../lib/labels'
 
 function publicError(error) {
@@ -22,7 +21,7 @@ export function useTrackingResource(loader, key, poll = false) {
     navigate(`/login?returnTo=${encodeURIComponent(returnTo)}`, { replace: true, state: { from: returnTo } })
   }, [location.pathname, location.search, navigate])
   useEffect(() => {
-    if (!getAccessToken() && !getDevUserId() && !isD01DemoEnabled()) { login(); return undefined }
+    if (!getAccessToken({ sessionOnly: true })) { login(); return undefined }
     let controller, disposed = false
     const load = async () => {
       controller?.abort(); controller = new AbortController()

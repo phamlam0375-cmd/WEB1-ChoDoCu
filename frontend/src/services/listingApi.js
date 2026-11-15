@@ -84,6 +84,11 @@ const promoteListings = async (listingIds, idempotencyKey, durationMinutes) => {
     return res.data;
 };
 
+const stopVipPromotion = async (ListingId) => {
+    const res = await api.patch(`/seller/listing/${ListingId}/vip/stop`);
+    return res.data;
+};
+
 export {
     getStoreListing,
     updateListing,
@@ -96,4 +101,5 @@ export {
     getListingVipStatus,
     promoteListing,
     promoteListings,
+    stopVipPromotion,
 };

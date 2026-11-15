@@ -1,16 +1,16 @@
+import { formatDecimalMoney } from '../../lib/format'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import Header from '../../components/Header'
 import Footer from '../../components/Footer'
 import CancellationForm from '../../components/D02_HuyDonHang/CancellationForm'
-import { errorMessage, getDevUserId } from '../../lib/api'
+import { errorMessage } from '../../lib/api'
 import { getAccessToken, rememberPostLoginUrl } from '../../lib/auth'
-import { isD01DemoEnabled } from '../../lib/d01Demo'
 import { ORDER_STATUS } from '../../lib/labels'
 import { cancelOrder, getCancellationPreview } from '../../services/D02_HuyDonHang/cancellationApi'
 
-const money = value => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value))
+const money = formatDecimalMoney
 const paymentLabels = { WAITING: 'Chưa báo chuyển tiền', REPORTED: 'Đã báo chuyển tiền, chờ xác minh', CONFIRMED: 'Người bán đã xác nhận nhận tiền', REJECTED: 'Người bán chưa nhận được tiền' }
 
 export default function OrderCancelPage() {
@@ -37,7 +37,7 @@ export default function OrderCancelPage() {
   }, [location.pathname, location.search, navigate])
 
   useEffect(() => {
-    if (!getAccessToken() && !getDevUserId() && !isD01DemoEnabled()) { login(); return undefined }
+    if (!getAccessToken({ sessionOnly: true })) { login(); return undefined }
     const controller = new AbortController()
     getCancellationPreview(orderId, { signal: controller.signal }).then(result => {
       if (!controller.signal.aborted) { setData(result); setError(''); setLoading(false) }
@@ -63,8 +63,8 @@ export default function OrderCancelPage() {
       setNotice({ orderId: result.data.orderId, message: result.message })
       setData(result.data)
       // Đọc lại server; không tự suy ra trạng thái từ snapshot D01.
-      const fresh = await getCancellationPreview(orderId)
-      setData(fresh)
+      try { setData(await getCancellationPreview(orderId)) }
+      catch { setError('Đã hủy đơn thành công. Chưa tải lại được dữ liệu; hãy bấm Tải lại trạng thái để kiểm tra.') }
     } catch (err) {
       if (err.response?.status === 401) { login(); return }
       setError(errorMessage(err))
@@ -81,14 +81,12 @@ export default function OrderCancelPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
-      <Header />
-      {isD01DemoEnabled() && !getAccessToken() && <p role="status" className="bg-amber-50 px-4 py-3 text-center text-sm text-amber-900">Chế độ test D01/D02: dùng tài khoản demo của nhóm, vẫn kiểm tra quyền sở hữu đơn.</p>}
-      <main className="mx-auto min-h-[600px] max-w-2xl px-4 py-10 sm:px-6">
+      <Header />      <main className="d-workspace mx-auto min-h-[600px] max-w-2xl px-4 py-10 sm:px-6">
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
           <h1 className="text-2xl font-black">Hủy đơn hàng</h1>
           {(loading || (!currentOrder && !error)) && <p role="status" className="mt-5 text-sm text-slate-500">Đang tải đơn hàng…</p>}
           {error && <p role="alert" className="mt-5 rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
-          {notice?.orderId === Number(orderId) && <p role="status" className="mt-5 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice.message}</p>}
+          {notice?.orderId === Number(orderId) && <p role="status" className="mt-5 rounded-xl bg-green-50 p-3 text-sm text-green-800">{notice.message}</p>}
           {!loading && currentOrder && <>
             <dl className="mt-6 grid grid-cols-[auto_1fr] gap-x-5 gap-y-3 border-y border-slate-200 py-5 text-sm">
               <dt>Mã đơn hàng</dt><dd className="text-right font-bold">#{data.orderId}</dd>
@@ -107,9 +105,7 @@ export default function OrderCancelPage() {
             </div>}
             {data.action === 'REFUND' && <div className="mt-5 space-y-4 text-sm">
               <p>{data.message}</p>
-              <p className="text-slate-600">Mở biểu mẫu không hủy đơn hoặc xác nhận hoàn tiền. B06–B07 chỉ cập nhật trạng thái sau khi nhận yêu cầu hợp lệ.</p>
-              {isD01DemoEnabled() && !getAccessToken() && <p className="text-amber-800">Luồng hoàn tiền giữ cơ chế tài khoản của thành viên B; tài khoản demo D01/D02 không được cấp quyền truy cập API hoàn tiền.</p>}
-              <Link to={data.refundUrl} className="inline-block rounded-xl bg-emerald-600 px-5 py-3 font-bold text-white">Tạo yêu cầu hoàn tiền</Link>
+              <p className="text-slate-600">Mở biểu mẫu không hủy đơn hoặc xác nhận hoàn tiền. B06–B07 chỉ cập nhật trạng thái sau khi nhận yêu cầu hợp lệ.</p>              <Link to={data.refundUrl} className="inline-block rounded-xl bg-emerald-600 px-5 py-3 font-bold text-white">Tạo yêu cầu hoàn tiền</Link>
             </div>}
             {['BLOCKED', 'VERIFY_PAYMENT'].includes(data.action) && <div className="mt-5 space-y-2 text-sm"><p>{data.message}</p>{data.detail && <p className="text-slate-600">{data.detail}</p>}</div>}
             {['RESERVED', 'WAITING_PAYMENT'].includes(data.status) && <Link to={`/orders/${data.orderId}/payment`} className="mt-5 inline-block text-sm font-bold text-emerald-700 underline">Thanh toán / Xem thông báo chuyển tiền</Link>}

@@ -30,6 +30,7 @@ const preparation = require('./routes/preparation.route');
 const conversations = require('./routes/conversations.route');
 const credit = require('./routes/credit.route');
 const notificationRoutes = require('./routes/notifications.route');
+const aiChatRoutes = require('./routes/aiChatRoutes');
 
 const app = express();
 
@@ -72,6 +73,7 @@ app.use('/api/v1/orders', trackingRoutes);
 app.use('/api/v1/orders', require('./routes/D06_XacNhanNhanHang/receipt.route'));
 app.use('/api/v1', require('./routes/D13_XacThucGiaoHangOTP/completion.route'));
 app.use('/api/v1/seller/orders', confirmationRoutes);
+app.use('/api/v1/seller/orders', require('./routes/C07_XacNhanBanGiao/pickupHandover.route'));
 app.use('/api/v1/driver', driverAssignmentRoutes);
 app.use('/api/v1', pickupRoutes);
 app.use('/api/v1/driver', progressRoutes);
@@ -82,6 +84,7 @@ app.use('/api/v1/driver', require('./routes/D11_HoSoVanHanhTaiXe/profile.route')
 app.use("/api/partner-applications", partnerApplicationRoutes);
 app.use("/api/stores", storeRoutes);
 app.use("/api/seller/listing", listingRoutes);
+app.use('/api/ai', aiChatRoutes);
 app.use('/api/seller/store/order', sellerOrder)
 app.use('/api/seller/orders', preparation)
 app.use('/api/conversations', conversations)

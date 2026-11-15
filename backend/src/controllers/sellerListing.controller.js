@@ -1,7 +1,7 @@
 'use strict';
 
 const { Sequelize } = require("sequelize");
-const { Listings, ListingMedia, Store } = require("../models");
+const { Listings, ListingMedia, Store, Users, Categories } = require("../models");
 
 const createListing = async (req, res) => {
     try {
@@ -139,7 +139,26 @@ const getListingId = async (req, res) => {
     try {
         const { ListingId } = req.params;
         const listing = await Listings.findOne({
-            where: { ListingId }
+            where: { ListingId },
+            include: [
+                {
+                    model: Users,
+                    as: "Seller",
+                    attributes: ["UserId", "FullName", "EmailVerified", "AvatarUrl"],
+                },
+                {
+                    model: Categories,
+                    as: "Category",
+                    attributes: ["CategoryId", "CategoryName"],
+                },
+                {
+                    model: ListingMedia,
+                    as: "Media",
+                    attributes: ["MediaId", "MediaUrl", "MediaType", "SortOrder"],
+                    separate: true,
+                    order: [["SortOrder", "ASC"]],
+                },
+            ],
         });
 
         if (!listing) {

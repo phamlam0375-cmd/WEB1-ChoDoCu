@@ -3,13 +3,15 @@
 const { Op } = require('sequelize');
 const { Listings, ListingMedia, Categories, Users, ListingPromotions } = require("../models");
 
+const PUBLIC_LISTING_STATUSES = ["ACTIVE", "RESERVED", "SOLD"];
+
 const getAllListing = async (req, res) => {
     try {
         const page = Number(req.query.page) || 1;
         const limit = Number(req.query.limit) || 20;
 
         const { count, rows } = await Listings.findAndCountAll({
-            where: { Status: "ACTIVE" },
+            where: { Status: { [Op.in]: PUBLIC_LISTING_STATUSES } },
             include: [
                 { model: Categories, as: "Category", attributes: ["CategoryId", "CategoryName"] },
                 { model: Users, as: "Seller", attributes: ["UserId", "FullName", "EmailVerified", "AvatarUrl"] },
@@ -58,4 +60,4 @@ const getAllListing = async (req, res) => {
     }
 }
 
-module.exports={getAllListing}
+module.exports = { getAllListing };

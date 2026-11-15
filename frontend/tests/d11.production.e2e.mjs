@@ -83,6 +83,11 @@ try {
   console.log('PASS D11 UI: backend 409 giữ input, chủ động bỏ thay đổi, upload QR riêng tư, QR-only AVAILABLE, ảnh tải lại sau refresh')
   stage = 'D07 nhận chuyến -> BUSY'
   await driver.getByRole('main').getByRole('link', { name: 'Chuyến tài xế', exact: true }).click()
+  await driver.getByRole('heading', { name: 'Chuyến có thể nhận', exact: true }).waitFor()
+  const receivingStatus = await context.request.get(`${origin}/api/v1/driver/status`, { headers: { Authorization: `Bearer ${await driver.evaluate(() => localStorage.getItem('accessToken'))}` } })
+  assert.equal(receivingStatus.status(), 200); assert.equal((await receivingStatus.json()).data.policy.allowed, true)
+  // DB test có các fixture cũ: chọn mới nhất qua UI thay vì giả định chuyến mới nằm ở trang FIFO đầu tiên.
+  await driver.getByRole('combobox', { name: /Thứ tự/ }).selectOption('newest')
   await driver.getByRole('heading', { name: `Chuyến #${fixture.deliveryId}`, exact: true }).locator('..').getByRole('button', { name: 'Nhận chuyến', exact: true }).click()
   await driver.getByRole('dialog').getByRole('button', { name: 'Xác nhận nhận chuyến', exact: true }).click()
   await driver.getByRole('link', { name: 'Hồ sơ tài xế', exact: true }).click()
@@ -126,6 +131,6 @@ try {
   await driver.setViewportSize({ width: 390, height: 844 })
   assert.equal(await driver.getByRole('main').evaluate(element => element.scrollWidth <= element.clientWidth), true, 'Form D11 không tràn ngang trên mobile')
   await driver.screenshot({ path: path.join(root, 'frontend/test-results/d11-profile-mobile.png'), fullPage: true })
-  console.log(`PASS D11 UI: production ${origin}/driver/profile; D08-D09-D10 thật -> FAILED khóa -> RETURNED về OFFLINE; xóa QR bền vững; không lỗi JS. D13 chưa triển khai.`)
+  console.log(`PASS D11 UI: production ${origin}/driver/profile; D08-D09-D10 thật -> FAILED khóa -> RETURNED về OFFLINE; xóa QR bền vững; không lỗi JS. D13 có bộ kiểm thử riêng.`)
 } catch (error) { console.error(`D11 production UI failed (${stage}):`, error.name, error.message); process.exitCode = 1 }
 finally { if (browser) await browser.close(); if (server) { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)) } if (child) child.kill() }

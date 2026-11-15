@@ -74,6 +74,23 @@ test("PATCH /me updates only the authenticated user's editable profile fields", 
   assert.equal(result.body.data.Email, profile.Email);
 })
 
+test("PATCH /me updates avatar without requiring profile fields", async (t) => {
+  const { request } = await setup(t);
+  const previousProfile = {
+    FullName: profile.FullName,
+    Phone: profile.Phone,
+    Address: profile.Address,
+  };
+
+  const result = await request({ avatarUrl: "/api/v1/uploads/avatar-456.png" });
+
+  assert.equal(result.status, 200);
+  assert.equal(result.body.data.FullName, previousProfile.FullName);
+  assert.equal(result.body.data.Phone, previousProfile.Phone);
+  assert.equal(result.body.data.Address, previousProfile.Address);
+  assert.equal(result.body.data.AvatarUrl, "/api/v1/uploads/avatar-456.png");
+})
+
 test("PATCH /me refuses email changes and duplicate phone numbers", async (t) => {
   const { request } = await setup(t, async () => ({ UserId: 999 }));
 

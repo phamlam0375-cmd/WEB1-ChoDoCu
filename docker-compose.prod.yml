@@ -43,6 +43,8 @@ services:
       MAIL_USER: ${MAIL_USER:?Set MAIL_USER in .env}
       MAIL_PASS: ${MAIL_PASS:?Set MAIL_PASS in .env}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?Set GOOGLE_CLIENT_ID in .env}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
     volumes:
       - uploads_data:/app/uploads
     expose:

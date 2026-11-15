@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
 import Header from '../../components/Header'
 import Footer from '../../components/Footer'
-import { Card, Loading, PageHeader } from '../../components/admin/AdminUi'
+import { Card, Loading, PageHeader } from '../../components/D05_TheoDoiDonHang/OrderUi'
 import { btn, input } from '../../components/admin/styles'
 import { getAccessToken } from '../../lib/auth'
 import { errorMessage } from '../../lib/api'
@@ -80,7 +80,7 @@ function Profile() {
   const active = data?.activeDelivery, status = data?.profile?.AvailabilityStatus || 'OFFLINE'
   return <>
     <PageHeader title="Hồ sơ tài xế" description="Thông tin vận hành và nhận phí giao hàng trực tiếp." actions={<Link className={btn.secondary} to="/driver/deliveries">Chuyến tài xế</Link>} />
-    {notice && <p role="status" className="mb-4 rounded-lg bg-emerald-50 p-4">{notice}</p>}
+    {notice && <p role="status" className="mb-4 rounded-lg bg-green-50 p-4">{notice}</p>}
     {error && <div role="alert" className="mb-4 rounded-lg bg-rose-50 p-4"><p>{error}</p>{conflict && <Link to={conflict}>Theo dõi chuyến đang phụ trách</Link>}{denied && <p>Trạng thái đối tác: {denied}. <Link to="/partner-application?type=DRIVER">Mở hồ sơ C01</Link></p>}</div>}
     {loading ? <Loading /> : data && <>
       <Card className="mb-5 space-y-3 p-5">
@@ -123,5 +123,5 @@ function Profile() {
   </>
 }
 export default function DriverProfilePage() {
-  return <div className="min-h-screen bg-slate-50"><Header /><main className="mx-auto max-w-5xl px-4 py-8"><Profile /></main><Footer /></div>
+  return <div className="min-h-screen bg-slate-50"><Header /><main className="d-workspace mx-auto max-w-5xl px-4 py-8"><Profile /></main><Footer /></div>
 }

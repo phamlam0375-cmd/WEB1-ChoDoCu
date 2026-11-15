@@ -1,4 +1,16 @@
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useState } from "react";
+
+const resolveImageUrl = (url) => {
+    if (!url) return "";
+    if (url.startsWith("/demo/listings/")) {
+        return `/api/v1/uploads/listings/${url.slice("/demo/listings/".length)}`;
+    }
+    if (url.startsWith("/listings/")) {
+        return `/api/v1/uploads${url}`;
+    }
+    return url;
+};
 
 export default function UpdateListingModal({ listing, onClose, onSubmit, loading = false }) {
     const [formData, setFormData] = useState(() => ({
@@ -9,8 +21,23 @@ export default function UpdateListingModal({ listing, onClose, onSubmit, loading
         KnownDefects: listing?.KnownDefects ?? "",
         Location: listing?.Location ?? ""
     }));
+    const images = (listing?.Media || [])
+        .filter((media) => media.MediaType === "IMAGE" && media.MediaUrl)
+        .sort((first, second) => Number(first.SortOrder || 0) - Number(second.SortOrder || 0));
+    const [activeImage, setActiveImage] = useState(0);
 
     if (!listing) return null;
+
+    const imageCount = images.length;
+    const currentImage = images[activeImage];
+
+    const showPreviousImage = () => {
+        setActiveImage((current) => (current - 1 + imageCount) % imageCount);
+    };
+
+    const showNextImage = () => {
+        setActiveImage((current) => (current + 1) % imageCount);
+    };
 
     const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
@@ -32,6 +59,42 @@ export default function UpdateListingModal({ listing, onClose, onSubmit, loading
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4 p-6">
+                    {currentImage && (
+                        <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-100 p-2">
+                            {imageCount > 1 && (
+                                    <button
+                                        type="button"
+                                        onClick={showPreviousImage}
+                                        aria-label="Ảnh trước"
+                                        className="grid size-10 shrink-0 place-items-center rounded-full bg-slate-900/70 text-white transition hover:bg-slate-900"
+                                    >
+                                        <ChevronLeft size={20} />
+                                    </button>
+                            )}
+                            <div className="relative min-w-0 flex-1">
+                                <img
+                                    src={resolveImageUrl(currentImage.MediaUrl)}
+                                    alt={`Ảnh sản phẩm ${activeImage + 1} / ${imageCount}`}
+                                    className="h-60 w-full object-contain"
+                                />
+                                {imageCount > 1 && (
+                                    <span className="absolute bottom-2 right-2 rounded-full bg-slate-900/75 px-2.5 py-1 text-xs font-semibold text-white">
+                                        {activeImage + 1}/{imageCount}
+                                    </span>
+                                )}
+                            </div>
+                            {imageCount > 1 && (
+                                    <button
+                                        type="button"
+                                        onClick={showNextImage}
+                                        aria-label="Ảnh tiếp theo"
+                                        className="grid size-10 shrink-0 place-items-center rounded-full bg-slate-900/70 text-white transition hover:bg-slate-900"
+                                    >
+                                        <ChevronRight size={20} />
+                                    </button>
+                            )}
+                        </div>
+                    )}
                     <div>
                         <label htmlFor="Title" className="mb-1 block text-sm font-medium">
                             Tên sản phẩm

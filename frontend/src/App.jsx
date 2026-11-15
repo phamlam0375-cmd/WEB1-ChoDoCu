@@ -122,7 +122,7 @@ function App() {
             </DevAccountProvider>
           }
         >
-          <Route element={<RequireSession />}>
+          <Route element={<RequireSession allowedRoles={['SELLER']} />}>
             <Route path="/seller/listings" element={<CrudListing />} />
             <Route path="/seller/listings/create" element={<CreateListing />} />
           </Route>

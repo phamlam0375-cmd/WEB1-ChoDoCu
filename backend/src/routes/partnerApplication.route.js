@@ -8,15 +8,15 @@ const {
   verifyPartnerOtp
 } = require("../controllers/partnerApplications.controller.js");
 const uploadPartner = require("../middlewares/upload/partnerApplicationUpload.js");
-const { requireTokenAuth } = require('../middlewares/auth.middleware');
+const { requireRole, requireTokenAuth } = require('../middlewares/auth.middleware');
 
 const router = express.Router();
 
 
 //Pattern applications
 router.post("/", requireTokenAuth, uploadPartner.single("IdentityImageUrl"), createPartnerApplication);
-router.get("/", getAllPatnerApplication);
-router.get("/:id", getPatnerApplicationId);
+router.get("/", requireTokenAuth, requireRole("ADMIN"), getAllPatnerApplication);
+router.get("/:id", requireTokenAuth, requireRole("ADMIN"), getPatnerApplicationId);
 router.post("/send-otp", sendPartnerOtp);
 router.post("/verify-otp", verifyPartnerOtp);
 

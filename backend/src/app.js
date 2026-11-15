@@ -73,6 +73,7 @@ app.use('/api/v1/orders', trackingRoutes);
 app.use('/api/v1/orders', require('./routes/D06_XacNhanNhanHang/receipt.route'));
 app.use('/api/v1', require('./routes/D13_XacThucGiaoHangOTP/completion.route'));
 app.use('/api/v1/seller/orders', confirmationRoutes);
+app.use('/api/v1/seller/orders', require('./routes/C07_XacNhanBanGiao/pickupHandover.route'));
 app.use('/api/v1/driver', driverAssignmentRoutes);
 app.use('/api/v1', pickupRoutes);
 app.use('/api/v1/driver', progressRoutes);

@@ -5,7 +5,7 @@ const { getSettingAt } = require('../../services/settings.service');
 
 // Một snapshot nhất quán cho tất cả SELECT, không FOR UPDATE, không ghi/prepare.
 const withSnapshot = work => sequelize.transaction({ isolationLevel: Transaction.ISOLATION_LEVELS.REPEATABLE_READ, readOnly: true }, work);
-const orderAttributes = ['OrderId', 'BuyerId', 'SellerId', 'ListingId', 'CreatedAt', 'DeliveryMethod', 'ProductAmount', 'DeliveryFee', 'TotalAmount', 'Status', 'ReservedUntil', 'CompletedAt', 'CancelReason', 'ReceiverName', 'ReceiverPhone', 'ReceiverAddress', 'BuyerNote'];
+const orderAttributes = ['OrderId', 'BuyerId', 'SellerId', 'ListingId', 'CreatedAt', 'DeliveryMethod', 'ProductAmount', 'DeliveryFee', 'TotalAmount', 'Status', 'ReservedUntil', 'CompletedAt', 'CancelReason', 'ReceiverName', 'ReceiverPhone', 'ReceiverAddress', 'BuyerNote', 'PickupHandoverAt', 'PickupHandoverBy'];
 const includes = [
   { model: Users, as: 'Seller', attributes: ['UserId', 'FullName', 'Status'] },
   { model: Listings, as: 'Listing', attributes: ['ListingId', 'Title'] },

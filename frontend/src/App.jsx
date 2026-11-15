@@ -35,6 +35,7 @@ import OrderReceivedPage from './pages/D06_XacNhanNhanHang/OrderReceivedPage'
 import OrderReviewsPage from './pages/OrderReviewsPage'
 import DeliveryFailurePage from './pages/D10_ThatBai_HoanTra/DeliveryFailurePage'
 import DriverProfilePage from './pages/D11_HoSoVanHanhTaiXe/DriverProfilePage'
+import PickupHandoverPage from './pages/C07_XacNhanBanGiao/PickupHandoverPage'
 import ChatWidget from './components/Chat/ChatWidget'
 import ProductDetail from './pages/ProductDetail'
 import AIChatWidget from "./components/AIChatWidget";
@@ -95,6 +96,7 @@ function App() {
         <Route path="/driver/deliveries/:deliveryId/complete" element={<DSessionBoundary><DeliveryCompletePage /></DSessionBoundary>} />
         <Route path="/driver/deliveries/:deliveryId/failure" element={<DSessionBoundary><DeliveryFailurePage /></DSessionBoundary>} />
         <Route path="/seller/orders/:orderId/pickup-code" element={<DSessionBoundary><PickupPage seller /></DSessionBoundary>} />
+        <Route path="/seller/orders/:orderId/pickup-handover" element={<DSessionBoundary><PickupHandoverPage /></DSessionBoundary>} />
         <Route path="store/:ownerId" element={<PublicStore />} />
         <Route path="/seller/store" element={<SellerStore />} />
         <Route path="/seller/vip" element={<VipListingsPage />} />

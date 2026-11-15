@@ -146,8 +146,12 @@ export default function CrudListing() {
         setVipBusy("bulk");
         try {
             vipRequestSequence.current += 1;
-            await promoteListings(selectedVipIds, `listing-vip-bulk-${vipRequestSequence.current}`, durationMinutes);
+            const requestId = typeof crypto?.randomUUID === "function"
+                ? crypto.randomUUID()
+                : `${Date.now()}-${vipRequestSequence.current}`;
+            await promoteListings(selectedVipIds, `listing-vip-bulk-${requestId}`, durationMinutes);
             await refreshVipInfo();
+            window.dispatchEvent(new Event("credit-balance-updated"));
             setSelectedVipIds([]);
             setVipModalOpen(false);
             toast.success(`Đã đẩy ${selectedVipIds.length} tin lên VIP.`);

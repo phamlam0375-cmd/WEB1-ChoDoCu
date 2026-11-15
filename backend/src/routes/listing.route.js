@@ -2,14 +2,14 @@ const { searchListings } = require('../controllers/search.controller');
 const express = require('express');
 const { createListing, getAllListingStore, getListingId, updateListing, hiddenListing } = require('../controllers/sellerListing.controller');
 const { getAllListing } = require('../controllers/listing.controller');
-const { requireAuth } = require('../middlewares/auth.middleware');
+const { requireAuth, requireRole } = require('../middlewares/auth.middleware');
 const promotionController = require('../controllers/listingPromotion.controller');
 const uploadListing = require('../middlewares/upload/listingUpload');
 
 const router = express.Router();
 
 
-router.post("/", requireAuth, uploadListing.array("images", 5), createListing);
+router.post("/", requireAuth, requireRole("SELLER"), uploadListing.array("images", 5), createListing);
 router.get("/store/:StoreId", getAllListingStore);
 router.get("/", getAllListing);
 router.get("/search", searchListings);

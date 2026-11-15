@@ -191,13 +191,21 @@ function Header({
     const referenceId = Number(notification.ReferenceId)
     if (!Number.isSafeInteger(referenceId) || referenceId <= 0) return null
 
-    switch (String(notification.ReferenceType || '').toUpperCase()) {
+    const referenceType = String(notification.ReferenceType || '').toUpperCase()
+    const notificationType = String(notification.Type || '').toUpperCase()
+
+    switch (referenceType) {
       case 'ORDER':
+        if (isSeller && notificationType === 'PAYMENT') {
+          return `/seller/orders/${referenceId}/payment`
+        }
         return isSeller
           ? '/seller/orders'
           : `/orders/${referenceId}/tracking`
       case 'PAYMENT':
-        return `/orders/${referenceId}/payment`
+        return isSeller
+          ? `/seller/orders/${referenceId}/payment`
+          : `/orders/${referenceId}/payment`
       case 'REFUND_REQUEST':
         return '/refunds'
       case 'COMMISSION':

@@ -117,7 +117,7 @@ function createPaymentService({ repository = defaultRepository, storage = proofS
         const changes = { Status: 'REPORTED', ProofUrl: saved.url, ReportedAt: now };
         if (await repository.reportPayment(state.payment, changes, transaction) !== 1) throw new HttpError(409, 'Giao dịch đã được xử lý. Vui lòng tải lại.', null, 'PAYMENT_CONFLICT');
         await repository.createHistory({ OrderId: id, DeliveryId: null, StatusType: 'PAYMENT', StatusValue: 'REPORTED', Note: `Biên lai: ${saved.url}`, ChangedBy: Number(state.order.BuyerId), CreatedAt: now }, transaction);
-        await repository.notifySeller(state.order.SellerId, { type: 'PAYMENT', title: 'Người mua đã báo chuyển tiền', message: `Đơn #${id}: người mua đã gửi biên lai. Vui lòng kiểm tra ngân hàng và xác nhận ở D04.`, referenceType: 'ORDER', referenceId: id, createdAt: now }, transaction);
+        await repository.notifySeller(state.order.SellerId, { type: 'PAYMENT', title: 'Người mua đã báo chuyển tiền', message: `Đơn #${id}: người mua đã gửi biên lai. Vui lòng kiểm tra ngân hàng và xác nhận ở D04.`, referenceType: 'PAYMENT', referenceId: id, createdAt: now }, transaction);
         state.payment = { ...state.payment, ...changes };
         return { message: successMessage, data: { ...preview(state), alreadyReported: false } };
       });

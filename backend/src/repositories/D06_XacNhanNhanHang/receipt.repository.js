@@ -8,7 +8,7 @@ const { getSettingAt } = require('../../services/settings.service');
 const withTransaction = work => sequelize.transaction({ isolationLevel: Transaction.ISOLATION_LEVELS.REPEATABLE_READ }, work);
 const withSnapshot = work => sequelize.transaction({ isolationLevel: Transaction.ISOLATION_LEVELS.REPEATABLE_READ, readOnly: true }, work);
 function readOrder(id, transaction, lock = false) {
-  return Orders.findByPk(id, { attributes: ['OrderId', 'BuyerId', 'SellerId', 'ListingId', 'DeliveryMethod', 'Status', 'ProductAmount', 'DeliveryFee', 'TotalAmount', 'CommissionRate', 'CreatedAt', 'CompletedAt'], transaction, ...(lock ? { lock: transaction.LOCK.UPDATE } : {}), raw: true });
+  return Orders.findByPk(id, { attributes: ['OrderId', 'BuyerId', 'SellerId', 'ListingId', 'DeliveryMethod', 'Status', 'ProductAmount', 'DeliveryFee', 'TotalAmount', 'CommissionRate', 'CreatedAt', 'CompletedAt', 'PickupHandoverAt', 'PickupHandoverBy'], transaction, ...(lock ? { lock: transaction.LOCK.UPDATE } : {}), raw: true });
 }
 async function readRelated(order, transaction, lock = false) {
   const id = order.OrderId;

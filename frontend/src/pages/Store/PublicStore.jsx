@@ -1,6 +1,7 @@
 import {
     MapPin,
     Phone,
+    Star,
 } from "lucide-react";
 import "leaflet/dist/leaflet.css";
 import { useEffect, useState } from "react";
@@ -103,6 +104,8 @@ export default function PublicStore() {
     const hasLocation =
         Number.isFinite(latitude) &&
         Number.isFinite(longitude);
+    const reviews = Array.isArray(store.Reviews) ? store.Reviews : [];
+    const rating = store.RatingSummary?.average || 0;
 
     return (
         <div className="flex min-h-screen flex-col">
@@ -188,6 +191,50 @@ export default function PublicStore() {
                                 longitude={longitude}
                                 hasLocation={hasLocation}
                             />
+
+                            <div className="rounded-2xl border border-emerald-100 bg-white shadow-sm">
+                                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-6">
+                                    <h3 className="text-lg font-bold text-slate-800">Đánh giá cửa hàng</h3>
+                                    {rating > 0 && (
+                                        <div className="flex items-center gap-1 text-amber-500">
+                                            <Star className="h-5 w-5 fill-current" />
+                                            <span className="font-bold">{rating}</span>
+                                            <span className="text-sm text-slate-500">({reviews.length} đánh giá)</span>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="divide-y divide-slate-100">
+                                    {reviews.length ? reviews.map((review) => (
+                                        <div className="p-6" key={review.ReviewId}>
+                                            <div className="flex items-center justify-between gap-3">
+                                                <p className="font-semibold text-slate-800">
+                                                    {review.reviewer?.FullName || "Khách hàng"}
+                                                </p>
+                                                <span className="text-xs text-slate-400">
+                                                    {new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium" }).format(new Date(review.CreatedAt))}
+                                                </span>
+                                            </div>
+                                            <div className="mt-2 flex gap-0.5 text-amber-500" aria-label={`${review.Rating} sao`}>
+                                                {Array.from({ length: 5 }, (_, index) => (
+                                                    <Star
+                                                        className={`h-4 w-4 ${index < review.Rating ? "fill-current" : "text-slate-200"}`}
+                                                        key={index}
+                                                    />
+                                                ))}
+                                            </div>
+                                            {review.Comment && <p className="mt-3 text-sm leading-6 text-slate-600">{review.Comment}</p>}
+                                            {review.Reply && (
+                                                <div className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
+                                                    <span className="font-semibold text-slate-700">Phản hồi của cửa hàng: </span>
+                                                    {review.Reply}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )) : (
+                                        <p className="p-6 text-sm text-slate-500">Cửa hàng chưa có đánh giá.</p>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <StoreProduct

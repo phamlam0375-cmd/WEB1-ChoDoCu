@@ -31,6 +31,8 @@ const Orders = sequelize.define(
     Status: { type: DataTypes.STRING(30), allowNull: false, defaultValue: "RESERVED" },
     ReservedUntil: { type: DataTypes.DATE, allowNull: false },
     CancelReason: { type: DataTypes.STRING(500), allowNull: true },
+    PickupHandoverAt: { type: DataTypes.DATE, allowNull: true },
+    PickupHandoverBy: { type: DataTypes.INTEGER.UNSIGNED, allowNull: true },
     CreatedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
     CompletedAt: { type: DataTypes.DATE, allowNull: true },
   },

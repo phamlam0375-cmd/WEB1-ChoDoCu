@@ -150,7 +150,8 @@ function SettingsForm({ settings, version, onSaved }) {
         })}
       </div>
 
-      <div className="sticky bottom-0 mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur">
+      {/* pr-24: chừa chỗ cho bong bóng chat nổi ở góc dưới phải (C08, A10) để không che nút Lưu. */}
+      <div className="sticky bottom-0 mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white/95 py-3 pl-4 pr-24 shadow-sm backdrop-blur">
         <p className="text-sm text-slate-600">{changes.length ? `${changes.length} thay đổi chưa lưu` : 'Không có thay đổi'}</p>
         <div className="flex gap-2">
           <button type="button" className={btn.secondary} disabled={!changes.length} onClick={() => { setDraft(initial()); setSubmitted(false) }}>

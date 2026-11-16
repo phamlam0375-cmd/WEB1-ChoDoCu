@@ -1,7 +1,8 @@
 'use strict';
 
 const { Sequelize } = require("sequelize");
-const { Listings, ListingMedia, Store, Users, Categories, ConditionOptions } = require("../models");
+const { sequelize, Listings, ListingMedia, Store, Users, Categories, ConditionOptions } = require("../models");
+const { badRequest } = require("../utils/httpError");
 const { createListingSchema, updateListingSchema } = require("../validators/sellerListing.validator");
 
 const createListing = async (req, res) => {
@@ -33,37 +34,40 @@ const createListing = async (req, res) => {
         throw badRequest("Tình trạng sản phẩm không tồn tại hoặc đang bị ẩn");
     }
 
-    const listing = await Listings.create({
-        SellerId: req.user.UserId,
-        StoreId,
-        CategoryId,
-        Title,
-        Description,
-        Price,
-        ConditionLevel,
-        KnownDefects,
-        Location
-    });
+    const result = await sequelize.transaction(async (transaction) => {
+        const listing = await Listings.create({
+            SellerId: req.user.UserId,
+            StoreId,
+            CategoryId,
+            Title,
+            Description,
+            Price,
+            ConditionLevel,
+            KnownDefects,
+            Location
+        }, { transaction });
 
-    if (req.files && req.files.length > 0) {
-        const mediaRecords = req.files.map((file, index) => ({
-            ListingId: listing.ListingId,
-            MediaType: "IMAGE",
-            MediaUrl: `/api/v1/uploads/listings/${file.filename}`,
-            SortOrder: index + 1,
-        }));
-        await ListingMedia.bulkCreate(mediaRecords);
-    }
+        if (req.files && req.files.length > 0) {
+            const mediaRecords = req.files.map((file, index) => ({
+                ListingId: listing.ListingId,
+                MediaType: "IMAGE",
+                MediaUrl: `/api/v1/uploads/listings/${file.filename}`,
+                SortOrder: index + 1,
+            }));
+            await ListingMedia.bulkCreate(mediaRecords, { transaction });
+        }
 
-    const result = await Listings.findOne({
-        where: { ListingId: listing.ListingId },
-        include: [{
-            model: ListingMedia,
-            as: "Media",
-            attributes: ["MediaId", "MediaUrl", "MediaType", "SortOrder"],
-            separate: true,
-            order: [["SortOrder", "ASC"]],
-        }],
+        return Listings.findOne({
+            where: { ListingId: listing.ListingId },
+            include: [{
+                model: ListingMedia,
+                as: "Media",
+                attributes: ["MediaId", "MediaUrl", "MediaType", "SortOrder"],
+                separate: true,
+                order: [["SortOrder", "ASC"]],
+            }],
+            transaction,
+        });
     });
 
     return res.status(201).json({

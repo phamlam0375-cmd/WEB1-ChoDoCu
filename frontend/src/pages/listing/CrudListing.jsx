@@ -284,10 +284,10 @@ export default function CrudListing() {
                                 <input
                                     type="checkbox"
                                     aria-label="Chọn tất cả tin có thể đẩy VIP"
-                                    checked={listing.filter((item) => item.Status === "ACTIVE" && !getPromotion(item)).length > 0
-                                        && listing.filter((item) => item.Status === "ACTIVE" && !getPromotion(item)).every((item) => selectedVipIds.includes(item.ListingId))}
+                                    checked={listing.filter((item) => item.Status === "ACTIVE" && !getPromotion(item.ListingId)).length > 0
+                                        && listing.filter((item) => item.Status === "ACTIVE" && !getPromotion(item.ListingId)).every((item) => selectedVipIds.includes(item.ListingId))}
                                     onChange={(event) => {
-                                        const eligibleIds = listing.filter((item) => item.Status === "ACTIVE" && !getPromotion(item)).map((item) => item.ListingId);
+                                        const eligibleIds = listing.filter((item) => item.Status === "ACTIVE" && !getPromotion(item.ListingId)).map((item) => item.ListingId);
                                         setSelectedVipIds(event.target.checked ? eligibleIds : []);
                                     }}
                                 />
@@ -308,7 +308,7 @@ export default function CrudListing() {
                                                 type="checkbox"
                                                 aria-label={`Chọn sản phẩm ${item.Title}`}
                                                 checked={selectedVipIds.includes(item.ListingId)}
-                                                disabled={item.Status !== "ACTIVE" || Boolean(getPromotion(item))}
+                                                disabled={item.Status !== "ACTIVE" || Boolean(getPromotion(item.ListingId))}
                                                 onChange={() => toggleVipSelection(item.ListingId)}
                                                 className="mt-1"
                                             />
@@ -332,9 +332,9 @@ export default function CrudListing() {
                                                 {item.KnownDefects || "Không có"}
                                             </span>
                                         </p>
-                                        {getPromotion(item) && (
+                                        {getPromotion(item.ListingId) && (
                                             <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">
-                                                <Sparkles size={12} /> VIP đến {new Date(getPromotion(item).EndsAt).toLocaleDateString("vi-VN")}
+                                                <Sparkles size={12} /> VIP đến {new Date(getPromotion(item.ListingId).EndsAt).toLocaleDateString("vi-VN")}
                                             </span>
                                         )}
                                             </div>
@@ -365,15 +365,15 @@ export default function CrudListing() {
                                     <div className="flex items-center justify-end gap-2 whitespace-nowrap">
                                         <button
                                             type="button"
-                                            disabled={vipBusy === item.ListingId || item.Status !== "ACTIVE" || Boolean(getPromotion(item))}
+                                            disabled={vipBusy === item.ListingId || item.Status !== "ACTIVE" || Boolean(getPromotion(item.ListingId))}
                                             onClick={() => handlePromote(item)}
-                                            title={getPromotion(item) ? "Tin đang VIP" : "Đẩy tin lên VIP trong 7 ngày"}
+                                            title={getPromotion(item.ListingId) ? "Tin đang VIP" : "Đẩy tin lên VIP trong 7 ngày"}
                                             className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 transition hover:border-amber-300 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
                                         >
                                             {vipBusy === item.ListingId
                                                 ? <Loader2 size={14} className="animate-spin" />
                                                 : <Sparkles size={14} />}
-                                            {getPromotion(item) ? "Đang VIP" : "Đẩy VIP"}
+                                            {getPromotion(item.ListingId) ? "Đang VIP" : "Đẩy VIP"}
                                         </button>
                                         <button
                                             type="button"

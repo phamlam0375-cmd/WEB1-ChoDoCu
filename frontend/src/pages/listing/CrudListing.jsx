@@ -560,6 +560,7 @@ export default function CrudListing() {
                 />
             }
             <ListingDetailModal
+                key={selectedDetailListing?.ListingId || "empty"}
                 listing={selectedDetailListing}
                 onClose={() => setSelectedDetailListing(null)}
             />

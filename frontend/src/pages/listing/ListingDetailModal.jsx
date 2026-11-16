@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 const statusLabels = {
     PENDING: "Chờ duyệt",
@@ -27,10 +27,6 @@ const resolveImageUrl = (url) => {
 
 export default function ListingDetailModal({ listing, onClose }) {
     const [activeImage, setActiveImage] = useState(0);
-
-    useEffect(() => {
-        setActiveImage(0);
-    }, [listing?.ListingId]);
 
     if (!listing) return null;
 

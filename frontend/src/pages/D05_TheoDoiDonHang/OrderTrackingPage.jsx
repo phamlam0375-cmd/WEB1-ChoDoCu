@@ -27,7 +27,7 @@ function TrackingDetail({ orderId }) {
     expiredDeadline.current = deadline
     refresh()
   }, [deadline, refresh])
-  return <>
+  return <div className="d-order-tracking min-w-0">
     <PageHeader title={`Theo dõi đơn hàng${data ? ` #${data.orderId}` : ''}`} actions={<>
       <Link to="/orders" className={btn.secondary}>Đơn mua của tôi</Link>
       <button className={btn.secondary} type="button" disabled={loading} onClick={refresh}><RefreshCw size={16} /> Làm mới</button>
@@ -96,7 +96,7 @@ function TrackingDetail({ orderId }) {
       </Card>
       <TrackingTimeline histories={data.histories} pagination={data.historyPagination} onPage={setHistoryPage} />
     </>}
-  </>
+  </div>
 }
 export default function OrderTrackingPage() {
   const { orderId } = useParams()

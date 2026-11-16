@@ -6,6 +6,7 @@ const defaultDeliveryFeeService = require('./deliveryFee.service');
 const defaultRepository = require('../repositories/order.repository');
 const { validateCreateOrder } = require('../validators/order.validator');
 const { addMoney, asApiNumber, toCents } = require('../utils/money');
+const orderRequest = require('./D01_DatHang_GiuMon/orderRequest');
 
 const EXPIRED_REASON = 'Hết thời gian giữ sản phẩm.';
 
@@ -59,6 +60,7 @@ function createOrderService({
         title: listing.Title,
         description: listing.Description,
         price: asApiNumber(listing.Price),
+        priceDecimal: String(listing.Price),
         condition: listing.ConditionLevel,
         location: listing.Location,
         status: listing.Status,
@@ -77,8 +79,9 @@ function createOrderService({
     };
   }
 
-  async function createOrder(payload, buyerId) {
+  async function createOrder(payload, buyerId, requestKey) {
     const data = validateCreateOrder(payload);
+    const requestId = orderRequest.key(requestKey), signature = requestId && orderRequest.hash(data);
     const normalizedBuyerId = Number(buyerId);
     if (!Number.isSafeInteger(normalizedBuyerId) || normalizedBuyerId <= 0) {
       throw orderError(401, 'UNAUTHORIZED', 'Vui lòng đăng nhập để tiếp tục.');
@@ -87,7 +90,11 @@ function createOrderService({
     try {
       return await repository.withTransaction(async (transaction) => {
         const now = clock();
+        const prior = requestId && await repository.findOrderRequest(normalizedBuyerId, requestId, transaction);
+        if (prior) return orderRequest.replay(prior, signature);
         const listing = await repository.findListingByIdForUpdate(data.listingId, transaction);
+        const committed = requestId && await repository.findOrderRequest(normalizedBuyerId, requestId, transaction);
+        if (committed) return orderRequest.replay(committed, signature);
         if (!listing) throw orderError(404, 'LISTING_NOT_FOUND', 'Không tìm thấy sản phẩm.');
         if (Number(listing.SellerId) === normalizedBuyerId) {
           throw orderError(403, 'CANNOT_BUY_OWN_LISTING', 'Bạn không thể mua sản phẩm của chính mình.');
@@ -134,6 +141,8 @@ function createOrderService({
           DeliveryMethod: data.deliveryMethod,
           DeliveryFeeRuleId: deliveryFeeRuleId,
           DeliveryQuoteSnapshot: deliverySnapshot,
+          D01RequestId: requestId,
+          D01RequestHash: signature,
           ReceiverName: data.receiverName,
           ReceiverPhone: data.receiverPhone,
           ReceiverAddress: data.receiverAddress,
@@ -179,12 +188,19 @@ function createOrderService({
             productAmount: asApiNumber(productAmount),
             deliveryFee: asApiNumber(deliveryFee),
             totalAmount: asApiNumber(totalAmount),
+            productAmountDecimal: productAmount,
+            deliveryFeeDecimal: deliveryFee,
+            totalAmountDecimal: totalAmount,
             reservedUntil: reservedUntil.toISOString()
           }
         };
       });
     } catch (error) {
       const code = error.original?.code || error.parent?.code;
+      if (requestId && (code === 'ER_DUP_ENTRY' || error.name === 'SequelizeUniqueConstraintError')) {
+        const existing = await repository.findOrderRequest(normalizedBuyerId, requestId);
+        if (existing) return orderRequest.replay(existing, signature);
+      }
       if (['ER_LOCK_DEADLOCK', 'ER_LOCK_WAIT_TIMEOUT'].includes(code)) {
         throw orderError(409, 'RESERVATION_CONFLICT', 'Sản phẩm vừa được người khác giữ.');
       }

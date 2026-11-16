@@ -77,6 +77,10 @@ function createPaymentService({ repository = defaultRepository, storage = proofS
     const bank = payment ? {
       bankName: payment.BankName, accountNumber: payment.BankAccountSnapshot, accountHolder: payment.BankAccountHolderSnapshot,
     } : v.bankDetails(store);
+    const currentBank = v.bankDetails(store);
+    const sameBank = bank && currentBank && ['bankName', 'accountNumber', 'accountHolder'].every(key => bank[key] === currentBank[key]);
+    const qrUrl = sameBank && typeof store?.QrImageUrl === 'string'
+      && /^\/api\/v1\/uploads\/qrStore\/\d+-[a-f0-9]{16}\.(?:png|jpg)$/i.test(store.QrImageUrl) ? store.QrImageUrl : null;
     return {
       orderId: Number(order.OrderId), listingId: Number(order.ListingId), title: listing?.Title || null,
       seller: { userId: Number(order.SellerId), name: seller?.FullName || null, storeId: store?.StoreId || null, storeName: store?.StoreName || null },
@@ -84,7 +88,7 @@ function createPaymentService({ repository = defaultRepository, storage = proofS
       productAmount: order.ProductAmount, deliveryFee: order.DeliveryFee, totalAmount: order.TotalAmount, sellerAmount: order.ProductAmount,
       bank, transferContent: payment?.TransferContent || transferContent(order.OrderId),
       // Điểm tích hợp C02: chỉ nhận QR theo Orders.SellerId, không dùng QR phí website.
-      qr: { sellerId: Number(order.SellerId), storeId: store?.StoreId || null, imageUrl: null },
+      qr: { sellerId: Number(order.SellerId), storeId: store?.StoreId || null, imageUrl: qrUrl },
       proofUrl: payment?.ProofUrl || null, reportedAt: payment?.ReportedAt || null,
       confirmedAt: payment?.ConfirmedAt || null, policy: paymentPolicy(state),
       orderUrl: `/orders/${order.OrderId}/payment`, cancelUrl: `/orders/${order.OrderId}/cancel`,

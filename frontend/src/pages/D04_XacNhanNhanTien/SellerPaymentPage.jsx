@@ -8,6 +8,7 @@ import { btn, input } from '../../components/admin/styles'
 import { errorMessage } from '../../lib/api'
 import { formatDateTime, formatDecimalMoney } from '../../lib/format'
 import { ORDER_STATUS } from '../../lib/labels'
+import SavedPaymentImage from '../../components/D03_ThanhToan/SavedPaymentImage'
 import { getSellerPayment, decideSellerPayment } from '../../services/D04_XacNhanNhanTien/confirmationApi'
 
 const labels = { REPORTED: 'Chờ người bán đối chiếu', REJECTED: 'Người bán chưa nhận được tiền', CONFIRMED: 'Đã xác nhận nhận đủ tiền', WAITING: 'Người mua chưa báo chuyển tiền' }
@@ -100,7 +101,7 @@ function PaymentDetail({ orderId }) {
       </Card>
       <Card className="p-5 sm:p-6">
         <h2 className="text-lg font-bold text-slate-900">Biên lai người mua gửi</h2>
-        {proof ? <a href={proof} target="_blank" rel="noopener noreferrer" className="mt-4 block"><img src={proof} referrerPolicy="no-referrer" alt="Biên lai chuyển khoản đang đối chiếu" className="h-72 w-full rounded-xl border border-slate-200 bg-slate-50 object-contain" /><span className="mt-2 block text-xs text-emerald-700">Mở biên lai để xem rõ hơn</span></a> : <p className="mt-4 rounded-xl bg-slate-50 p-6 text-sm text-slate-500">Chưa có biên lai hợp lệ.</p>}
+        {proof ? <><SavedPaymentImage key={proof} url={proof} alt="Biên lai chuyển khoản đang đối chiếu" /><a href={proof} target="_blank" rel="noopener noreferrer" className="mt-2 block text-xs text-emerald-700">Mở biên lai để xem rõ hơn</a></> : <p className="mt-4 rounded-xl bg-slate-50 p-6 text-sm text-slate-500">Chưa có biên lai hợp lệ.</p>}
         <p className="mt-4 flex items-start gap-2 text-sm text-slate-600"><ShieldCheck size={20} className="shrink-0 text-emerald-600" />Kiểm tra ứng dụng ngân hàng trước khi quyết định. Ảnh biên lai không tự chứng minh đã nhận tiền.</p>
         <p className="mt-4 text-sm font-medium text-slate-700">{data.policy.message}</p>
         {data.lastDecision && <div className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-600"><p>Kết quả đối chiếu gần nhất: {data.lastDecision.action === 'CONFIRM' ? 'Đã nhận đủ tiền' : 'Chưa nhận được tiền'} · #{data.lastDecision.userId} · {formatDateTime(data.lastDecision.at)}</p><p className="mt-2 whitespace-pre-wrap break-words">Ghi chú: {data.lastDecision.note || 'Không có'}</p></div>}

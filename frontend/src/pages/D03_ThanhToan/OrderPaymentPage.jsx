@@ -6,6 +6,7 @@ import { Copy, LoaderCircle, RefreshCw, ShieldCheck } from 'lucide-react'
 import Header from '../../components/Header'
 import Footer from '../../components/Footer'
 import ReceiptUpload from '../../components/D03_ThanhToan/ReceiptUpload'
+import SavedPaymentImage from '../../components/D03_ThanhToan/SavedPaymentImage'
 import { errorMessage } from '../../lib/api'
 import { getAccessToken, rememberPostLoginUrl } from '../../lib/auth'
 import { ORDER_STATUS } from '../../lib/labels'
@@ -120,7 +121,7 @@ export default function OrderPaymentPage() {
           </section>
           <section>
             <h2 className="border-b border-slate-200 pb-3 text-lg font-black">Thông tin nhận tiền</h2>
-            <div aria-label="Khu vực QR người bán" className="mt-5 flex min-h-44 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center text-sm text-slate-600">{data.qr?.imageUrl ? <img src={data.qr.imageUrl} alt="QR nhận tiền của người bán" className="max-h-64 max-w-full object-contain" onError={e => { e.currentTarget.hidden = true; e.currentTarget.nextElementSibling.hidden = false }} /> : null}<p hidden={Boolean(data.qr?.imageUrl)}>Chưa có QR phù hợp với thông tin nhận tiền của đơn. {data.bank ? 'Bạn có thể chuyển khoản theo tài khoản và nội dung bên dưới.' : 'Vui lòng liên hệ người bán cập nhật thông tin ngân hàng trước khi chuyển tiền.'}</p></div>
+            <div aria-label="Khu vực QR người bán" className="mt-5 flex min-h-44 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center text-sm text-slate-600">{data.qr?.imageUrl ? <SavedPaymentImage key={data.qr.imageUrl} url={data.qr.imageUrl} alt="QR nhận tiền của người bán" kind="QR" /> : <p>Chưa có QR phù hợp với thông tin nhận tiền của đơn. {data.bank ? 'Bạn có thể chuyển khoản theo tài khoản và nội dung bên dưới.' : 'Vui lòng liên hệ người bán cập nhật thông tin ngân hàng trước khi chuyển tiền.'}</p>}</div>
             <dl>
               <CopyField label="Ngân hàng" value={data.bank?.bankName} onCopy={copy} />
               <CopyField label="Số tài khoản" value={data.bank?.accountNumber} onCopy={copy} />
@@ -128,7 +129,7 @@ export default function OrderPaymentPage() {
             </dl>
             {!data.bank && <p className="mt-4 text-sm text-amber-800">Người bán chưa cập nhật thông tin nhận tiền.</p>}
             {data.policy.canReport && <ReceiptUpload key={orderId} disabled={busy} onChange={file => setProof({ orderId, file })} />}
-            {data.proofUrl && <p className="mt-5 text-sm"><a href={data.proofUrl} target="_blank" rel="noreferrer" className="font-bold text-emerald-700 underline">Xem biên lai đã gửi</a>{data.reportedAt && <span className="mt-1 block text-xs text-slate-500">Báo lúc {new Date(data.reportedAt).toLocaleString('vi-VN')}</span>}</p>}
+            {data.proofUrl && <div className="mt-5 text-sm"><SavedPaymentImage key={data.proofUrl} url={data.proofUrl} alt="Biên lai đã gửi" /><a href={data.proofUrl} target="_blank" rel="noreferrer" className="font-bold text-emerald-700 underline">Xem biên lai đã gửi</a>{data.reportedAt && <span className="mt-1 block text-xs text-slate-500">Báo lúc {new Date(data.reportedAt).toLocaleString('vi-VN')}</span>}</div>}
           </section>
         </div>
         <p className="mt-7 flex items-start gap-2 border-t border-slate-200 pt-5 text-sm text-slate-600"><ShieldCheck size={18} className="shrink-0 text-emerald-600" /> Chỉ báo sau khi đã chuyển tiền. Người bán sẽ kiểm tra ngân hàng và xác nhận ở D04.</p>

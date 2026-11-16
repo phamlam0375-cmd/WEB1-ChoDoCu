@@ -13,11 +13,13 @@ import { copyText } from '../../lib/vietqr'
 //   /payment?type=fee&ids=12,13&amount=125000&ref=HH000020
 //   /payment?type=refund&id=7&amount=300000&ref=HT000007
 // Người nộp quét ảnh mã VietQR của tài khoản nhận (MoMo hoặc app ngân hàng).
-// Giả lập nhận tiền: sau 10 giây trang tự kiểm tra giao dịch, coi như đã nhận đủ tiền và báo
+// Giả lập nhận tiền: sau 1 phút trang tự kiểm tra giao dịch, coi như đã nhận đủ tiền và báo
 // nộp phí (chờ quản trị đối soát) hoặc báo đã chuyển trả hoàn tiền.
 const MOMO = '#a50064'
 const QR_IMAGE = '/vietqr-bidv.png'
-const WAIT_SECONDS = 10
+const WAIT_SECONDS = 60
+// Hiển thị đếm ngược dạng phút:giây, ví dụ 60 -> "1:00".
+const clock = (seconds) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
 
 const newTransactionCode = () => `MOMO${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 100).toString().padStart(2, '0')}`
 
@@ -66,7 +68,7 @@ export default function MomoPaymentPage() {
 
   const ready = Boolean(payment && account)
 
-  // Đếm ngược 10 giây kể từ khi hiện mã QR.
+  // Đếm ngược 1 phút kể từ khi hiện mã QR.
   useEffect(() => {
     if (!ready || result || failure || secondsLeft <= 0) return undefined
     const timer = setTimeout(() => setSecondsLeft((value) => value - 1), 1000)
@@ -158,7 +160,7 @@ export default function MomoPaymentPage() {
                     <span className="flex items-center gap-2">
                       <Loader2 size={16} className="animate-spin" style={{ color: MOMO }} /> Đang chờ nhận tiền
                     </span>
-                    <b className="tabular-nums">Kiểm tra sau {secondsLeft} giây</b>
+                    <b className="tabular-nums">Kiểm tra sau {clock(secondsLeft)}</b>
                   </p>
                   <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
                     <div
@@ -168,7 +170,7 @@ export default function MomoPaymentPage() {
                   </div>
                 </div>
               )}
-              <p className="mt-2 text-center text-xs text-slate-500">Giả lập: sau {WAIT_SECONDS} giây hệ thống coi như đã nhận đủ tiền.</p>
+              <p className="mt-2 text-center text-xs text-slate-500">Giả lập: sau 1 phút hệ thống coi như đã nhận đủ tiền.</p>
             </div>
           </>
         )}

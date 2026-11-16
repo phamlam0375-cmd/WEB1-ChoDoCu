@@ -13,6 +13,10 @@ const iconMap = {
 }
 
 function CategorySection({ categories, products, selectedCategory, onSelect }) {
+  const popularCategories = categories.map(category => ({
+    ...category,
+    count: products.filter(product => matchesProductCategory(product, category.id, categories)).length,
+  })).sort((a, b) => b.count - a.count)
   return (
     <section id="danh-muc" className="scroll-mt-24 py-16 sm:py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -22,16 +26,16 @@ function CategorySection({ categories, products, selectedCategory, onSelect }) {
             <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">Danh mục phổ biến</h2>
           </div>
           {selectedCategory !== 'all' && (
-            <button type="button" onClick={() => onSelect('all')} className="hidden text-sm font-semibold text-emerald-700 hover:text-emerald-800 sm:block">
+            <button type="button" onClick={() => onSelect('all')} className="shrink-0 text-sm font-semibold text-emerald-700 hover:text-emerald-800">
               Xem tất cả
             </button>
           )}
         </div>
 
-        <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
-          {categories.map((category) => {
-            const Icon = iconMap[category.icon]
-            const count = products.filter((product) => matchesProductCategory(product, category.id, categories)).length
+        <div aria-label="Danh mục phổ biến" tabIndex={0} className="mt-8 flex max-w-full gap-3 overflow-x-auto overscroll-x-contain pb-3 pt-1 focus-visible:outline-2 focus-visible:outline-emerald-600">
+          {popularCategories.map((category) => {
+            const Icon = iconMap[category.icon] || BookOpen
+            const count = category.count
             const isActive = selectedCategory === category.id
 
             return (
@@ -39,7 +43,8 @@ function CategorySection({ categories, products, selectedCategory, onSelect }) {
                 key={category.id}
                 type="button"
                 onClick={() => onSelect(category.id)}
-                className={`group flex min-h-36 flex-col items-center justify-center rounded-2xl border p-3 text-center transition duration-200 hover:-translate-y-1 hover:shadow-lg ${isActive ? 'border-emerald-500 bg-emerald-50 shadow-md shadow-emerald-900/5' : 'border-slate-200 bg-white hover:border-emerald-200'}`}
+                aria-pressed={isActive}
+                className={`group flex min-h-36 w-36 shrink-0 flex-col items-center justify-center rounded-2xl border p-3 text-center transition duration-200 hover:-translate-y-1 hover:shadow-lg ${isActive ? 'border-emerald-500 bg-emerald-50 shadow-md shadow-emerald-900/5' : 'border-slate-200 bg-white hover:border-emerald-200'}`}
               >
                 <span className={`grid size-12 place-items-center rounded-2xl transition ${isActive ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700 group-hover:bg-emerald-100'}`}>
                   <Icon size={23} strokeWidth={1.8} />

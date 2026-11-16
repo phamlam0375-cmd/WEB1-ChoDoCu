@@ -1,76 +1,76 @@
 'use strict';
 
 const { Sequelize } = require("sequelize");
-const { Listings, ListingMedia, Store, Users, Categories } = require("../models");
+const { Listings, ListingMedia, Store, Users, Categories, ConditionOptions } = require("../models");
+const { createListingSchema } = require("../validators/sellerListing.validator");
 
 const createListing = async (req, res) => {
-    try {
-        const {
-            StoreId,
-            CategoryId,
-            Title,
-            Description,
-            Price,
-            ConditionLevel,
-            KnownDefects,
-            Location
-        } = req.body;
-        const store = await Store.findOne({
-            where: { StoreId, OwnerId: req.user.UserId },
-        });
-        if (!store) {
-            return res.status(403).json({
-                success: false,
-                message: "Bạn không có quyền đăng sản phẩm cho cửa hàng này",
-            });
-        }
-        const listing = await Listings.create({
-            SellerId: req.user.UserId,
-            StoreId,
-            CategoryId,
-            Title,
-            Description,
-            Price,
-            ConditionLevel,
-            KnownDefects,
-            Location
-        });
-
-        // Lưu ảnh vào ListingMedia nếu có
-        if (req.files && req.files.length > 0) {
-            const mediaRecords = req.files.map((file, index) => ({
-                ListingId: listing.ListingId,
-                MediaType: "IMAGE",
-                MediaUrl: `/api/v1/uploads/listings/${file.filename}`,
-                SortOrder: index + 1,
-            }));
-            await ListingMedia.bulkCreate(mediaRecords);
-        }
-
-        // Trả về listing kèm media
-        const result = await Listings.findOne({
-            where: { ListingId: listing.ListingId },
-            include: [{
-                model: ListingMedia,
-                as: "Media",
-                attributes: ["MediaId", "MediaUrl", "MediaType", "SortOrder"],
-                separate: true,
-                order: [["SortOrder", "ASC"]],
-            }],
-        });
-
-        return res.status(201).json({
-            success: true,
-            message: "Tạo bài đăng thành công",
-            data: result
-        })
-    }
-    catch (error) {
-        return res.status(500).json({
+    const validationResult = createListingSchema.safeParse(req.body || {});
+    if (!validationResult.success) {
+        return res.status(400).json({
             success: false,
-            message: "Lỗi tạo không thành công",
+            message: "Dữ liệu đăng tin không hợp lệ",
+            errors: validationResult.error.issues.map((issue) => issue.message),
         });
     }
+    const { StoreId, CategoryId, Title, Description, Price, ConditionLevel, KnownDefects, Location } = validationResult.data;
+
+    const [store, category, condition] = await Promise.all([
+        Store.findOne({ where: { StoreId, OwnerId: req.user.UserId } }),
+        Categories.findOne({ where: { CategoryId, Status: "ACTIVE" } }),
+        ConditionOptions.findOne({ where: { ConditionCode: ConditionLevel, Status: "ACTIVE" } }),
+    ]);
+    if (!store) {
+        return res.status(403).json({
+            success: false,
+            message: "Bạn không có quyền đăng sản phẩm cho cửa hàng này",
+        });
+    }
+    if (!category) {
+        throw badRequest("Danh mục không tồn tại hoặc đang bị ẩn");
+    }
+    if (!condition) {
+        throw badRequest("Tình trạng sản phẩm không tồn tại hoặc đang bị ẩn");
+    }
+
+    const listing = await Listings.create({
+        SellerId: req.user.UserId,
+        StoreId,
+        CategoryId,
+        Title,
+        Description,
+        Price,
+        ConditionLevel,
+        KnownDefects,
+        Location
+    });
+
+    if (req.files && req.files.length > 0) {
+        const mediaRecords = req.files.map((file, index) => ({
+            ListingId: listing.ListingId,
+            MediaType: "IMAGE",
+            MediaUrl: `/api/v1/uploads/listings/${file.filename}`,
+            SortOrder: index + 1,
+        }));
+        await ListingMedia.bulkCreate(mediaRecords);
+    }
+
+    const result = await Listings.findOne({
+        where: { ListingId: listing.ListingId },
+        include: [{
+            model: ListingMedia,
+            as: "Media",
+            attributes: ["MediaId", "MediaUrl", "MediaType", "SortOrder"],
+            separate: true,
+            order: [["SortOrder", "ASC"]],
+        }],
+    });
+
+    return res.status(201).json({
+        success: true,
+        message: "Tạo bài đăng thành công",
+        data: result
+    });
 }
 
 const getAllListingStore = async (req, res) => {

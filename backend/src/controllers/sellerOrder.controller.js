@@ -57,24 +57,22 @@ const updateSellerOrderStatus = async (req, res) => {
             });
         }
 
-        const order = await Orders.findOne({
-            where: {
-                OrderId: orderId,
-                SellerId: sellerId,
-                Status: "RESERVED",
-            },
-        });
-        if (!order) {
-            return res.status(404).json({
-                success: false,
-                message:
-                    "Không tìm thấy đơn hàng hoặc đơn hàng không còn chờ xử lý.",
-            });
-        }
         const nextStatus = ["CONFIRM", "CONFIRMED"].includes(status)
             ? "WAITING_PAYMENT"
             : "CANCELLED";
+        let order = null;
         await sequelize.transaction(async (transaction) => {
+            order = await Orders.findOne({
+                where: {
+                    OrderId: orderId,
+                    SellerId: sellerId,
+                    Status: "RESERVED",
+                },
+                transaction,
+                lock: transaction.LOCK.UPDATE,
+            });
+            if (!order) return;
+
             await order.update({
                 Status: nextStatus,
                 CancelReason:
@@ -91,6 +89,13 @@ const updateSellerOrderStatus = async (req, res) => {
                 }, { transaction });
             }
         });
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                message:
+                    "Không tìm thấy đơn hàng hoặc đơn hàng không còn chờ xử lý.",
+            });
+        }
         return res.status(200).json({
             success: true,
             message:

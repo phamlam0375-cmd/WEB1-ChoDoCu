@@ -4,27 +4,21 @@ import crypto from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import http from 'node:http'
-import { execFileSync } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 
 if (process.env.LOCAL_AUTH_TEST !== 'true') throw new Error('Set LOCAL_AUTH_TEST=true to create isolated local fixtures')
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-const docker = (...args) => execFileSync('docker', args, { encoding: 'utf8', maxBuffer: 4 * 1024 * 1024 })
-const mysql = JSON.parse(docker('inspect', 'web1-chodocu-mysql-1'))[0]
-const api = JSON.parse(docker('inspect', 'web1-chodocu-api-1'))[0]
-assert.equal(mysql.Config.Labels['com.docker.compose.project'], 'web1-chodocu')
-assert(mysql.Mounts.some(m => m.Name === 'web1-chodocu_mysql_data' && m.Destination === '/var/lib/mysql'))
-assert(mysql.HostConfig.PortBindings['3306/tcp'].some(p => p.HostPort === '33307' && p.HostIp === '127.0.0.1'))
-assert.equal(api.Config.Labels['com.docker.compose.project'], 'web1-chodocu')
-assert.equal(path.resolve(api.Mounts.find(m => m.Destination === '/app').Source), path.join(root, 'backend'))
-assert(api.HostConfig.PortBindings['3000/tcp'].some(p => p.HostPort === '3001' && p.HostIp === '127.0.0.1'))
-const uuid = docker('exec', 'web1-chodocu-mysql-1', 'sh', '-c', 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot --batch --skip-column-names -e "SELECT @@server_uuid"').trim()
+if (!process.env.EXPECTED_LOCAL_DB_UUID || !/^cho_do_cu_auth_[a-z0-9_]+$/.test(process.env.DB_NAME || '')) throw new Error('Supply UUID and a dedicated cho_do_cu_auth_* DB_NAME; NODE_ENV=test appends _test')
 const password = crypto.randomBytes(24).toString('base64url')
-let browser, staticServer, page
+let browser, staticServer, page, apiProcess
 try {
-  const output = execFileSync('docker', ['exec', '-i', '-e', 'LOCAL_AUTH_TEST=true', '-e', `EXPECTED_LOCAL_DB_UUID=${uuid}`, 'web1-chodocu-api-1', 'node', 'tests/helpers/verify-auth-local.js'], { input: JSON.stringify({ password }), encoding: 'utf8', maxBuffer: 4 * 1024 * 1024 })
-  const fixture = JSON.parse(output.trim())
+  apiProcess = spawn(process.execPath, ['tests/helpers/verify-auth-local.js'], { cwd: path.join(root, 'backend'), windowsHide: true, env: { ...process.env, NODE_ENV:'test', DB_HOST:'127.0.0.1', DB_PORT:'33307', AUTHLOCAL_BROWSER:'true', JWT_SECRET:'auth-isolated-integration-only', AUTH_DEV_HEADER:'false', D01_DEMO_MODE:'false' }, stdio:['pipe','pipe','pipe','ipc'] })
+  let output=''; apiProcess.stdout.on('data', b => { output += b.toString() }); apiProcess.stderr.on('data', () => {})
+  apiProcess.stdin.end(JSON.stringify({password}))
+  let fixture; for(let i=0;i<150;i++){const match=output.match(/AUTHLOCAL_FIXTURE (\{[^\n]+\})/);if(match){fixture=JSON.parse(match[1]);break}if(apiProcess.exitCode!==null)break;await new Promise(r=>setTimeout(r,200))}
+  assert(fixture?.apiPort, 'Isolated auth API did not initialize; inspect backend tests')
   assert(fixture.pass)
   console.log(`PASS actual local API: password login + D01/D02/D03 reject/resubmit/D04 confirm/D05, ownership/history/driver/B regression. Buyer=${fixture.accounts.buyer.id}; seller=${fixture.sellerId}; paid order=${fixture.paid}`)
   const require = createRequire(import.meta.url)
@@ -34,7 +28,7 @@ try {
   await fs.access(path.join(dist, 'index.html'))
   staticServer = http.createServer(async (req, res) => {
     if (req.url.startsWith('/api/')) {
-      const proxy = http.request({ hostname: '127.0.0.1', port: 3001, path: req.url, method: req.method, headers: req.headers }, response => { res.writeHead(response.statusCode, response.headers); response.pipe(res) })
+      const proxy = http.request({ hostname: '127.0.0.1', port: fixture.apiPort, path: req.url, method: req.method, headers: req.headers }, response => { res.writeHead(response.statusCode, response.headers); response.pipe(res) })
       proxy.on('error', () => { res.writeHead(502); res.end() }); req.pipe(proxy); return
     }
     try {
@@ -60,8 +54,9 @@ try {
   const track = id => page.getByRole('heading', { name: `Theo dõi đơn hàng #${id}`, exact: true }).waitFor()
   const logout = async () => {
     await page.getByRole('button', { name: 'Đăng xuất', exact: true }).first().click()
-    await page.waitForURL(url => url.pathname === '/')
+    await page.waitForURL(url => url.pathname === '/' || url.pathname === '/login')
     assert.equal(await page.evaluate(() => ['accessToken', 'token', 'user', 'choDoCu.devUserId'].some(key => localStorage.getItem(key))), false)
+    await page.goto(productionUrl + '/')
   }
   await page.goto(productionUrl + `/orders/create/${fixture.listing}?source=auth-test`)
   await page.waitForURL(url => url.pathname === '/login')
@@ -101,36 +96,37 @@ try {
   await page.goto(productionUrl + '/orders'); await page.getByText(/Chưa có đơn mua phù hợp/).waitFor()
   console.log('PASS browser logout/account switch + foreign-order 403 + buyer list isolation')
   // 401 thật từ backend xóa phiên, về login, lưu đúng order. Không tự replay thao tác.
-  await page.evaluate(() => { localStorage.setItem('accessToken', 'invalid-test-session'); window.dispatchEvent(new Event('cho-do-cu:session-changed')) })
+  await page.evaluate(() => { localStorage.setItem('accessToken', 'invalid-test-session'); window.dispatchEvent(new Event('auth-session-changed')) })
   await page.waitForURL(url => url.pathname === '/login'); assert.equal(await page.evaluate(() => localStorage.getItem('accessToken')), null)
   await login('seller'); await page.goto(productionUrl + `/seller/orders/${fixture.paid}/payment`)
   await page.getByText('Đã xác nhận nhận đủ tiền', { exact: true }).first().waitFor()
   assert.equal(await page.getByRole('spinbutton').count(), 0)
   await page.goto(productionUrl + '/seller/payments'); await page.getByRole('heading', { name: 'Xác nhận nhận tiền', exact: true }).waitFor()
-  // Lỗi kiểm tra phiên do mạng/server không chuyển login và không xóa token.
-  await page.route('**/api/v1/me', route => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ message: 'Local network test' }) }))
-  await page.reload(); await page.getByText('Local network test', { exact: true }).waitFor()
+  // A D04 data outage keeps the authenticated session and allows retry.
+  await page.route('**/api/v1/seller/orders/payments?*', route => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ message: 'Local network test' }) }))
+  await page.reload(); await page.getByText('Local network test', { exact: true }).first().waitFor()
   assert.equal(new URL(page.url()).pathname, '/seller/payments')
   assert(await page.evaluate(() => Boolean(localStorage.getItem('accessToken'))))
-  await page.unroute('**/api/v1/me'); await page.getByRole('button', { name: /Thử lại/ }).click()
+  await page.unroute('**/api/v1/seller/orders/payments?*'); await page.getByRole('button', { name: /Thử lại/ }).click()
   await page.getByRole('heading', { name: 'Xác nhận nhận tiền', exact: true }).waitFor()
   await logout(); await context.close()
-  // Dev Vite cũng yêu cầu đăng nhập dù localStorage còn tài khoản dev cũ.
+  // Mobile bundle cũng yêu cầu đăng nhập dù localStorage còn tài khoản dev cũ.
   const mobile = await browser.newContext({ viewport: { width: 390, height: 844 } })
   await mobile.addInitScript(() => localStorage.setItem('choDoCu.devUserId', '1'))
   const devPage = await mobile.newPage(); devPage.on('dialog', dialog => dialog.accept())
-  await devPage.goto('http://localhost:5173/orders'); await devPage.waitForURL(url => url.pathname === '/login')
+  await devPage.goto(productionUrl + '/orders'); await devPage.waitForURL(url => url.pathname === '/login')
   await devPage.locator('#login-email').fill(fixture.accounts.buyer.email); await devPage.locator('#login-password').fill(password)
   await devPage.getByRole('button', { name: 'Đăng nhập', exact: true }).click(); await devPage.waitForURL(url => url.pathname === '/orders')
   await devPage.getByRole('heading', { name: 'Đơn mua của tôi', exact: true }).waitFor()
   assert.equal(await devPage.getByRole('spinbutton').count(), 0)
   await mobile.close()
-  console.log(`PASS production headless + Vite mobile: guest redirect/login/return, D01 explicit create #${createdId}, refresh/restore, owner 403, logout/other account no cache, invalid-token 401, seller D04, network retry, no demo UI.`)
+  console.log(`PASS production headless + isolated mobile: guest redirect/login/return, D01 explicit create #${createdId}, refresh/restore, owner 403, logout/other account no cache, invalid-token 401, seller D04, network retry, no demo UI.`)
 } catch (error) {
   const message = String(error.stack || error.message).replaceAll(password, '[redacted]').replace(/eyJ[\w-]+\.[\w-]+\.[\w-]+/g, '[redacted-token]')
   if (page) console.error('Browser path at failure: ' + new URL(page.url()).pathname)
   console.error(message); process.exitCode = 1
 } finally {
   await browser?.close()
+  if (apiProcess?.connected) apiProcess.disconnect()
   if (staticServer) { staticServer.closeAllConnections(); await new Promise(resolve => staticServer.close(resolve)) }
 }

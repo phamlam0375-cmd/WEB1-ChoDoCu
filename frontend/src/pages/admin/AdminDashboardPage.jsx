@@ -138,7 +138,7 @@ export default function AdminDashboardPage() {
             <StatCard
               label="Doanh thu website"
               value={formatMoney(summary.revenue)}
-              hint={`Hoa hồng đã thu ${formatMoney(summary.commissionCollected)} + phí VIP ${formatMoney(summary.vipFees)}`}
+              hint={`Hoa hồng đã thu ${formatMoney(summary.commissionCollected)} + phí VIP (nạp credit) ${formatMoney(summary.vipFees)}`}
               tone="green"
               icon={CircleDollarSign}
               compare={{ current: summary.revenue, previous: previous?.revenue, compareLabel }}

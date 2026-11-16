@@ -5,13 +5,30 @@ const { sequelize, Listings, ListingMedia, Store, Users, Categories, ConditionOp
 const { badRequest } = require("../utils/httpError");
 const { createListingSchema, updateListingSchema } = require("../validators/sellerListing.validator");
 
+const listingFieldLabels = {
+    StoreId: "Mã cửa hàng",
+    CategoryId: "Mã danh mục",
+    Title: "Tên sản phẩm",
+    Description: "Mô tả sản phẩm",
+    Price: "Giá bán",
+    ConditionLevel: "Tình trạng sản phẩm",
+    KnownDefects: "Lỗi hoặc khuyết điểm",
+    Location: "Địa điểm giao dịch",
+};
+
+const validationMessages = (issues) => issues.map((issue) => {
+    const field = listingFieldLabels[issue.path[0]] || "Dữ liệu";
+    const message = issue.message === "Invalid input" ? "giá trị không hợp lệ" : issue.message;
+    return `${field}: ${message}`;
+});
+
 const createListing = async (req, res) => {
     const validationResult = createListingSchema.safeParse(req.body || {});
     if (!validationResult.success) {
         return res.status(400).json({
             success: false,
             message: "Dữ liệu đăng tin không hợp lệ",
-            errors: validationResult.error.issues.map((issue) => issue.message),
+            errors: validationMessages(validationResult.error.issues),
         });
     }
     const { StoreId, CategoryId, Title, Description, Price, ConditionLevel, KnownDefects, Location } = validationResult.data;
@@ -257,7 +274,7 @@ const updateListing = async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: "Dữ liệu cập nhật không hợp lệ",
-                errors: validationResult.error.issues.map((issue) => issue.message),
+                errors: validationMessages(validationResult.error.issues),
             });
         }
 

@@ -80,7 +80,8 @@ const periodTotals = async (from, to) => {
        (SELECT COALESCE(SUM(ProductAmount), 0) FROM Orders WHERE Status IN ('COMPLETED','REFUND_PENDING','REFUNDED') AND CompletedAt BETWEEN :from AND :to) AS gmv,
        (SELECT COALESCE(SUM(c.AmountDue), 0) FROM Commissions c JOIN Orders o ON o.OrderId = c.OrderId WHERE c.Status <> 'WAIVED' AND o.CompletedAt BETWEEN :from AND :to) AS commissionDue,
        (SELECT COALESCE(SUM(AmountDue), 0) FROM Commissions WHERE Status = 'PAID' AND ConfirmedAt BETWEEN :from AND :to) AS commissionCollected,
-       (SELECT COALESCE(SUM(FeeAmount), 0) FROM ListingPromotions WHERE Status IN ('ACTIVE','EXPIRED') AND ConfirmedAt BETWEEN :from AND :to) AS vipFees,
+       (SELECT COALESCE(SUM(FeeAmount), 0) FROM ListingPromotions WHERE Status IN ('ACTIVE','EXPIRED') AND ConfirmedAt BETWEEN :from AND :to)
+         + (SELECT COALESCE(SUM(MoneyAmount), 0) FROM CreditTransactions WHERE Type = 'DEPOSIT' AND Status = 'SUCCESS' AND CompletedAt BETWEEN :from AND :to) AS vipFees,
        (SELECT COALESCE(SUM(Amount), 0) FROM RefundRequests WHERE Status = 'COMPLETED' AND CompletedAt BETWEEN :from AND :to) AS refundAmount`,
     { from, to }
   );
@@ -118,9 +119,16 @@ const getStatistics = async (req, res) => {
          FROM Commissions WHERE Status = 'PAID' AND ConfirmedAt BETWEEN :from AND :to GROUP BY period`,
       params
     ),
+    // Phí VIP: từ C05, đẩy tin VIP trừ credit (FeeAmount = 0); tiền thật website nhận là lúc
+    // admin xác nhận nạp credit. Cộng cả phí VIP trả tiền trực tiếp (dữ liệu cũ). count = số lượt VIP.
     seriesQuery(
-      `SELECT ${bucket("ConfirmedAt", groupBy)} AS period, COALESCE(SUM(FeeAmount), 0) AS amount, COUNT(*) AS count
-         FROM ListingPromotions WHERE Status IN ('ACTIVE','EXPIRED') AND ConfirmedAt BETWEEN :from AND :to GROUP BY period`,
+      `SELECT period, COALESCE(SUM(amount), 0) AS amount, COALESCE(SUM(pushes), 0) AS count FROM (
+         SELECT ${bucket("ConfirmedAt", groupBy)} AS period, FeeAmount AS amount, 1 AS pushes
+           FROM ListingPromotions WHERE Status IN ('ACTIVE','EXPIRED') AND ConfirmedAt BETWEEN :from AND :to
+         UNION ALL
+         SELECT ${bucket("CompletedAt", groupBy)} AS period, MoneyAmount AS amount, 0 AS pushes
+           FROM CreditTransactions WHERE Type = 'DEPOSIT' AND Status = 'SUCCESS' AND CompletedAt BETWEEN :from AND :to
+       ) vip GROUP BY period`,
       params
     ),
     seriesQuery(

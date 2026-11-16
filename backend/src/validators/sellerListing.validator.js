@@ -26,4 +26,9 @@ const createListingSchema = z.object({
   Location: optionalText(255),
 });
 
-module.exports = { createListingSchema };
+const updateListingSchema = createListingSchema.partial().refine(
+  (data) => Object.keys(data).length > 0,
+  "Vui lòng nhập ít nhất một trường cần cập nhật",
+);
+
+module.exports = { createListingSchema, updateListingSchema };

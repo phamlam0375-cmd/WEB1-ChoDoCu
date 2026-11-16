@@ -2,7 +2,7 @@
 
 const { Sequelize } = require("sequelize");
 const { Listings, ListingMedia, Store, Users, Categories, ConditionOptions } = require("../models");
-const { createListingSchema } = require("../validators/sellerListing.validator");
+const { createListingSchema, updateListingSchema } = require("../validators/sellerListing.validator");
 
 const createListing = async (req, res) => {
     const validationResult = createListingSchema.safeParse(req.body || {});
@@ -233,12 +233,57 @@ const updateListing = async (req, res) => {
         }
 
 
-        const { CategoryId, Title, Description, Price, ConditionLevel, KnownDefects, Location } = req.body;
-        const updateListing = await listing.update({ CategoryId, Title, Description, Price, ConditionLevel, KnownDefects, Location });
+        const validationResult = updateListingSchema.safeParse(req.body || {});
+        if (!validationResult.success) {
+            return res.status(400).json({
+                success: false,
+                message: "Dữ liệu cập nhật không hợp lệ",
+                errors: validationResult.error.issues.map((issue) => issue.message),
+            });
+        }
+
+        const updateData = validationResult.data;
+        if (updateData.CategoryId !== undefined) {
+            const category = await Categories.findOne({
+                where: { CategoryId: updateData.CategoryId, Status: "ACTIVE" },
+            });
+            if (!category) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Danh mục không tồn tại hoặc đang bị ẩn",
+                });
+            }
+        }
+        if (updateData.ConditionLevel !== undefined) {
+            const condition = await ConditionOptions.findOne({
+                where: { ConditionCode: updateData.ConditionLevel, Status: "ACTIVE" },
+            });
+            if (!condition) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Tình trạng sản phẩm không tồn tại hoặc đang bị ẩn",
+                });
+            }
+        }
+
+        const changed = Object.keys(updateData).some((field) => {
+            if (field === "Price") {
+                return Number(listing[field]) !== Number(updateData[field]);
+            }
+            const current = listing[field] == null ? null : String(listing[field]);
+            const next = updateData[field] == null ? null : String(updateData[field]);
+            return current !== next;
+        });
+        if (changed && listing.Status === "ACTIVE") {
+            updateData.Status = "PENDING";
+            updateData.ModerationNote = null;
+        }
+
+        const updated = await listing.update(updateData);
         return res.status(200).json({
             success: true,
             message: "Sửa sản phẩm thành công ",
-            data: updateListing
+            data: updated
         })
 
     }

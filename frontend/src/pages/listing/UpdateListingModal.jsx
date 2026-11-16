@@ -43,7 +43,12 @@ export default function UpdateListingModal({ listing, onClose, onSubmit, loading
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        onSubmit({ ListingId: listing.ListingId, ...formData, Price: Number(formData.Price) });
+        onSubmit({
+            ListingId: listing.ListingId,
+            UpdatedAt: listing.UpdatedAt || listing.CreatedAt,
+            ...formData,
+            Price: Number(formData.Price),
+        });
     };
 
     return (
@@ -114,7 +119,7 @@ export default function UpdateListingModal({ listing, onClose, onSubmit, loading
                             <label htmlFor="Price" className="mb-1 block text-sm font-medium">
                                 Giá bán (VNĐ)
                             </label>
-                            <input id="Price" name="Price" type="number" min="0" step="any" value={formData.Price} onChange={handleChange} required className="w-full rounded-lg border border-slate-300 p-3 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100" />
+                            <input id="Price" name="Price" type="number" min="0" step="0.01" value={formData.Price} onChange={handleChange} required className="w-full rounded-lg border border-slate-300 p-3 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100" />
                         </div>
 
                         <div>

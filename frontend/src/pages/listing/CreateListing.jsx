@@ -6,11 +6,13 @@ import { createListing } from "../../services/listingApi";
 import { toast } from "react-toastify";
 import { useState } from "react";
 import { errorMessage } from "../../lib/api";
+import { useApi } from "../../hooks/useApi";
 
 const CreateListing = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const storeId = Number(searchParams.get("storeId"));
+    const { data: categories, loading: categoriesLoading, error: categoriesError } = useApi("/categories");
 
     const [images, setImages] = useState([]);
     const [formData, setFormData] = useState({
@@ -232,16 +234,19 @@ const CreateListing = () => {
                                             className={inputClass}
                                         >
                                             <option value="">
-                                                Chọn danh mục
+                                                {categoriesLoading ? "Đang tải danh mục..." : "Chọn danh mục"}
                                             </option>
-
-                                            {/* Thay bằng danh mục lấy từ API */}
-                                            <option value="1">Thời trang</option>
-                                            <option value="2">Điện tử</option>
-                                            <option value="3">Đồ gia dụng</option>
-                                            <option value="4">Sách và văn phòng phẩm</option>
-                                            <option value="5">Khác</option>
+                                            {categories?.map((category) => (
+                                                <option key={category.CategoryId} value={category.CategoryId}>
+                                                    {category.CategoryName}
+                                                </option>
+                                            ))}
                                         </select>
+                                        {categoriesError && (
+                                            <p className="mt-1.5 text-xs text-red-600">
+                                                Không tải được danh mục. Vui lòng tải lại trang.
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
 

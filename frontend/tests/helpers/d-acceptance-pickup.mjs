@@ -10,6 +10,7 @@ export async function pickupFromHome({ buyer, seller, fixture, links, image }) {
   await buyer.setViewportSize({ width: 1440, height: 1100 })
   await buyer.getByRole('link', { name: 'Trang chủ', exact: true }).filter({ visible: true }).first().click()
   await buyer.locator('article').filter({ hasText: fixture.pickupTitle }).locator('h3').click()
+  await buyer.getByRole('heading', { name: fixture.pickupTitle, exact: true }).waitFor()
   await buyer.locator('.product-actions').getByRole('button', { name: 'Mua ngay', exact: true }).click()
   await buyer.getByRole('radio', { name: /Tự đến lấy/ }).check()
   await buyer.locator('#receiver-name').fill('Pickup Buyer'); await buyer.locator('#receiver-phone').fill('0900000111')

@@ -63,8 +63,8 @@ Orders.hasOne(Commissions, { foreignKey: "OrderId", as: "Commission" });
 Orders.hasMany(RefundRequests, { foreignKey: "OrderId", as: "RefundRequests" });
 Orders.hasMany(Reviews, { foreignKey: "OrderId", as: "Reviews" });
 
-Reviews.belongsTo(Users, { foreignKey: "ReviewerId", as: "reviewer" });
-Reviews.belongsTo(Users, { foreignKey: "TargetUserId", as: "target" });
+Reviews.belongsTo(Users, { foreignKey: "ReviewerId", as: "Reviewer" });
+Reviews.belongsTo(Users, { foreignKey: "TargetUserId", as: "Target" });
 
 RefundRequests.belongsTo(Orders, { foreignKey: "OrderId", as: "Order" });
 RefundRequests.belongsTo(Users, { foreignKey: "RequestedBy", as: "Requester" });

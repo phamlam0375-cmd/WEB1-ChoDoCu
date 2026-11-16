@@ -1,29 +1,57 @@
 'use strict';
 
 const { Sequelize } = require("sequelize");
-const { Listings, ListingMedia, Store, Users, Categories } = require("../models");
+const { sequelize, Listings, ListingMedia, Store, Users, Categories, ConditionOptions } = require("../models");
+const { badRequest } = require("../utils/httpError");
+const { createListingSchema, updateListingSchema } = require("../validators/sellerListing.validator");
+
+const listingFieldLabels = {
+    StoreId: "Mã cửa hàng",
+    CategoryId: "Mã danh mục",
+    Title: "Tên sản phẩm",
+    Description: "Mô tả sản phẩm",
+    Price: "Giá bán",
+    ConditionLevel: "Tình trạng sản phẩm",
+    KnownDefects: "Lỗi hoặc khuyết điểm",
+    Location: "Địa điểm giao dịch",
+};
+
+const validationMessages = (issues) => issues.map((issue) => {
+    const field = listingFieldLabels[issue.path[0]] || "Dữ liệu";
+    const message = issue.message === "Invalid input" ? "giá trị không hợp lệ" : issue.message;
+    return `${field}: ${message}`;
+});
 
 const createListing = async (req, res) => {
-    try {
-        const {
-            StoreId,
-            CategoryId,
-            Title,
-            Description,
-            Price,
-            ConditionLevel,
-            KnownDefects,
-            Location
-        } = req.body;
-        const store = await Store.findOne({
-            where: { StoreId, OwnerId: req.user.UserId },
+    const validationResult = createListingSchema.safeParse(req.body || {});
+    if (!validationResult.success) {
+        return res.status(400).json({
+            success: false,
+            message: "Dữ liệu đăng tin không hợp lệ",
+            errors: validationMessages(validationResult.error.issues),
         });
-        if (!store) {
-            return res.status(403).json({
-                success: false,
-                message: "Bạn không có quyền đăng sản phẩm cho cửa hàng này",
-            });
-        }
+    }
+    const { StoreId, CategoryId, Title, Description, Price, ConditionLevel, KnownDefects, Location } = validationResult.data;
+
+    const [store, category, condition] = await Promise.all([
+        Store.findOne({ where: { StoreId, OwnerId: req.user.UserId } }),
+        Categories.findOne({ where: { CategoryId, Status: "ACTIVE" } }),
+        ConditionOptions.findOne({ where: { ConditionCode: ConditionLevel, Status: "ACTIVE" } }),
+    ]);
+    if (!store) {
+        return res.status(403).json({
+            success: false,
+            message: "Bạn không có quyền đăng sản phẩm cho cửa hàng này",
+        });
+    }
+    if (!category) {
+        throw badRequest("Danh mục không tồn tại hoặc đang bị ẩn");
+    }
+    if (!condition) {
+        throw badRequest("Tình trạng sản phẩm không tồn tại hoặc đang bị ẩn");
+    }
+
+    const result = await sequelize.transaction(async (transaction) => {
         const listing = await Listings.create({
             SellerId: req.user.UserId,
             StoreId,
@@ -34,9 +62,8 @@ const createListing = async (req, res) => {
             ConditionLevel,
             KnownDefects,
             Location
-        });
+        }, { transaction });
 
-        // Lưu ảnh vào ListingMedia nếu có
         if (req.files && req.files.length > 0) {
             const mediaRecords = req.files.map((file, index) => ({
                 ListingId: listing.ListingId,
@@ -44,11 +71,10 @@ const createListing = async (req, res) => {
                 MediaUrl: `/api/v1/uploads/listings/${file.filename}`,
                 SortOrder: index + 1,
             }));
-            await ListingMedia.bulkCreate(mediaRecords);
+            await ListingMedia.bulkCreate(mediaRecords, { transaction });
         }
 
-        // Trả về listing kèm media
-        const result = await Listings.findOne({
+        return Listings.findOne({
             where: { ListingId: listing.ListingId },
             include: [{
                 model: ListingMedia,
@@ -57,20 +83,15 @@ const createListing = async (req, res) => {
                 separate: true,
                 order: [["SortOrder", "ASC"]],
             }],
+            transaction,
         });
+    });
 
-        return res.status(201).json({
-            success: true,
-            message: "Tạo bài đăng thành công",
-            data: result
-        })
-    }
-    catch (error) {
-        return res.status(500).json({
-            success: false,
-            message: "Lỗi tạo không thành công",
-        });
-    }
+    return res.status(201).json({
+        success: true,
+        message: "Tạo bài đăng thành công",
+        data: result
+    });
 }
 
 const getAllListingStore = async (req, res) => {
@@ -105,7 +126,15 @@ const getAllListingStore = async (req, res) => {
                 order: [["SortOrder", "ASC"]],
             }],
             order: [
-                [Sequelize.literal("CASE WHEN Status = 'SOLD' THEN 1 ELSE 0 END"), "ASC"],
+                [Sequelize.literal(`
+                    CASE Status
+                        WHEN 'ACTIVE' THEN 0
+                        WHEN 'PENDING' THEN 1
+                        WHEN 'RESERVED' THEN 2
+                        WHEN 'SOLD' THEN 3
+                        ELSE 4
+                    END
+                `), "ASC"],
                 ["createdAt", "ASC"],
             ],
             limit,
@@ -231,14 +260,75 @@ const updateListing = async (req, res) => {
                 message: "Bạn không có quyền sửa sản phẩm này",
             });
         }
+        if (["RESERVED", "SOLD"].includes(listing.Status)) {
+            return res.status(409).json({
+                success: false,
+                message: listing.Status === "SOLD"
+                    ? "Không thể sửa tin đã bán"
+                    : "Không thể sửa tin đã được đặt",
+            });
+        }
 
+        const validationResult = updateListingSchema.safeParse(req.body || {});
+        if (!validationResult.success) {
+            return res.status(400).json({
+                success: false,
+                message: "Dữ liệu cập nhật không hợp lệ",
+                errors: validationMessages(validationResult.error.issues),
+            });
+        }
 
-        const { CategoryId, Title, Description, Price, ConditionLevel, KnownDefects, Location } = req.body;
-        const updateListing = await listing.update({ CategoryId, Title, Description, Price, ConditionLevel, KnownDefects, Location });
+        const { UpdatedAt: expectedUpdatedAt, ...updateData } = validationResult.data;
+        const currentUpdatedAt = listing.UpdatedAt || listing.CreatedAt;
+        if (!currentUpdatedAt || new Date(expectedUpdatedAt).getTime() !== new Date(currentUpdatedAt).getTime()) {
+            return res.status(409).json({
+                success: false,
+                message: "Tin đăng đã được cập nhật ở nơi khác. Dữ liệu của bạn đã cũ",
+            });
+        }
+
+        if (updateData.CategoryId !== undefined) {
+            const category = await Categories.findOne({
+                where: { CategoryId: updateData.CategoryId, Status: "ACTIVE" },
+            });
+            if (!category) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Danh mục không tồn tại hoặc đang bị ẩn",
+                });
+            }
+        }
+        if (updateData.ConditionLevel !== undefined) {
+            const condition = await ConditionOptions.findOne({
+                where: { ConditionCode: updateData.ConditionLevel, Status: "ACTIVE" },
+            });
+            if (!condition) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Tình trạng sản phẩm không tồn tại hoặc đang bị ẩn",
+                });
+            }
+        }
+
+        const changed = Object.keys(updateData).some((field) => {
+            if (field === "Price") {
+                return Number(listing[field]) !== Number(updateData[field]);
+            }
+            const current = listing[field] == null ? null : String(listing[field]);
+            const next = updateData[field] == null ? null : String(updateData[field]);
+            return current !== next;
+        });
+        if (changed && listing.Status === "ACTIVE") {
+            updateData.Status = "PENDING";
+            updateData.ModerationNote = null;
+        }
+        if (changed) updateData.UpdatedAt = new Date();
+
+        const updated = await listing.update(updateData);
         return res.status(200).json({
             success: true,
             message: "Sửa sản phẩm thành công ",
-            data: updateListing
+            data: updated
         })
 
     }

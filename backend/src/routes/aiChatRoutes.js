@@ -415,6 +415,11 @@ function hasSearchIntent(text) {
     .test(clean(text));
 }
 
+function requestsFullCatalog(text) {
+  return /\b(danh sach|liet ke|tat ca|toan bo|cac san pham|san pham nao)\b/
+    .test(clean(text));
+}
+
 // ===== 6. LỊCH SỬ HỘI THOẠI =====
 
 function getUserHistory(history) {
@@ -494,6 +499,7 @@ router.post('/chat', async (req, res) => {
     }
 
     const input = clean(message);
+    const fullCatalogRequest = requestsFullCatalog(message);
     const history = getUserHistory(req.body?.history);
 
     // ===== XỬ LÝ KHÁCH CHỌN NGƯỜI BÁN =====
@@ -597,7 +603,8 @@ router.post('/chat', async (req, res) => {
 
       if (
         aiInterpretation &&
-        ['CHAT', 'CLARIFY'].includes(aiInterpretation.intent)
+        ['CHAT', 'CLARIFY'].includes(aiInterpretation.intent) &&
+        !fullCatalogRequest
       ) {
         return respond(
           res,
@@ -617,11 +624,14 @@ router.post('/chat', async (req, res) => {
       );
 
     const localIntent = detectChatIntent(message);
-    const intent = aiInterpretation?.intent === 'SEARCH' &&
+    const intent = fullCatalogRequest
+      ? 'SEARCH'
+      : aiInterpretation?.intent === 'SEARCH' &&
       localIntent !== 'SEARCH'
       ? localIntent
       : aiInterpretation?.intent || localIntent;
     const availability =
+      !fullCatalogRequest &&
       aiInterpretation?.availability &&
       aiInterpretation.availability !== 'ANY'
         ? aiInterpretation.availability
@@ -648,7 +658,9 @@ router.post('/chat', async (req, res) => {
     let sellerName =
     extractSellerName(message) || aiInterpretation?.sellerName;
     let keyword =
-      aiInterpretation?.keyword || extractKeyword(message);
+      fullCatalogRequest
+        ? extractKeyword(message)
+        : aiInterpretation?.keyword || extractKeyword(message);
     let price = aiInterpretation &&
       (aiInterpretation.minPrice || aiInterpretation.maxPrice)
       ? {
@@ -1029,7 +1041,8 @@ router.post('/chat', async (req, res) => {
       !seller &&
       !keyword &&
       !price &&
-      !hasSearchIntent(message)
+      !hasSearchIntent(message) &&
+      !fullCatalogRequest
     ) {
       return reply(
         'Mình có thể tìm sản phẩm theo tên, giá hoặc người bán. Ví dụ: "Tìm điện thoại dưới 500k" hoặc "Chị Ngọc Anh bán gì?".'
@@ -1040,7 +1053,8 @@ router.post('/chat', async (req, res) => {
     if (
       !seller &&
       !keyword &&
-      !price
+      !price &&
+      !fullCatalogRequest
     ) {
       return reply(
         'Bạn muốn tìm loại sản phẩm nào? Ví dụ: điện thoại, laptop hoặc sản phẩm dưới 300k.'

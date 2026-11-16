@@ -44,6 +44,20 @@ test('D03 GET QR null, tiền tách biệt, snapshot ổn định; không báo/c
   assert.equal(f.state.histories.length, 0); assert.equal(f.state.notifications.length, 0);
 });
 
+test('D03 nhận QR C02 đúng snapshot; không nhận QR ngoài cơ chế upload hoặc ngân hàng đã đổi', async () => {
+  const f = fixture(), url = '/api/v1/uploads/qrStore/1794500000000-0123456789abcdef.png';
+  f.state.store.QrImageUrl = url;
+  assert.equal((await f.service.getPaymentInfo(91, buyer)).qr.imageUrl, url);
+  f.state.store.BankAccountNumber = '00000999';
+  const stale = await f.service.getPaymentInfo(91, buyer);
+  assert.equal(stale.qr.imageUrl, null); assert.equal(stale.bank.accountNumber, '0001234567');
+  f.state.store.BankAccountNumber = '0001234567';
+  for (const invalid of [null, 'https://example.test/qr.png', '/api/v1/uploads/qrStore/../fees.png', '/api/v1/uploads/fees.png']) {
+    f.state.store.QrImageUrl = invalid;
+    assert.equal((await f.service.getPaymentInfo(91, buyer)).qr.imageUrl, null);
+  }
+});
+
 test('D03 RESERVED chờ C06, thiếu ngân hàng vẫn đọc đơn nhưng không tạo payment hoặc nhận báo', async () => {
   for (const variant of ['RESERVED', 'BANK', 'HOLDER', 'INVALID_ACCOUNT', 'STORE']) {
     const f = fixture();
@@ -167,7 +181,8 @@ test('D03 router/controller thật: demo production scoped, GET đúng contract;
     server.closeAllConnections(); await new Promise(resolve => server.close(resolve));
   });
   const url = `http://127.0.0.1:${server.address().port}/api/v1`;
-  const demo = { 'x-d01-demo': 'true' };
+  const demo = { authorization: require('./helpers/d-jwt')(71) };
+  assert.equal((await fetch(`${url}/orders/91/payment-info`, { headers: { 'x-d01-demo': 'true' } })).status, 401);
   let response = await fetch(`${url}/orders/91/payment-info`, { headers: demo });
   assert.equal(response.status, 200); const body = await response.json(); assert.equal(body.data.qr.imageUrl, null); assert.equal(body.data.productAmount, '123456.10');
   for (const headers of [{}, { 'x-user-id': '71' }, { ...demo, authorization: 'Bearer invalid' }]) {
@@ -177,11 +192,11 @@ test('D03 router/controller thật: demo production scoped, GET đúng contract;
   assert.equal((await fetch(`${url}/orders/99/payment-info`, { headers: demo })).status, 404);
   assert.equal((await fetch(`${url}/orders/abc/payment-info`, { headers: demo })).status, 400);
   f.state.order.BuyerId = 82; assert.equal((await fetch(`${url}/orders/91/payment-info`, { headers: demo })).status, 403); f.state.order.BuyerId = 71;
-  assert.equal((await fetch(`${url}/me`, { headers: demo })).status, 401);
+  assert.equal((await fetch(`${url}/me`, { headers: { 'x-d01-demo': 'true' } })).status, 401);
   const forged = new FormData(); forged.append('proof', new Blob(['not an image'], { type: 'image/png' }), 'fake.png');
   assert.equal((await fetch(`${url}/orders/91/payment-notice`, { method: 'POST', headers: demo, body: forged })).status, 400);
   response = await fetch(`${url}/orders/91/payment-notice`, { method: 'POST', headers: { ...demo, 'Content-Type': 'application/json' }, body: JSON.stringify({ proofUrl: '/api/v1/uploads/fake.png' }) }); assert.equal(response.status, 400);
   assert.equal((await fetch(`${url}/orders/91/payment-notice`, { method: 'POST', headers: { ...demo, 'Content-Type': 'application/json' }, body: '{}' })).status, 400);
-  process.env.D01_DEMO_MODE = 'false'; assert.equal((await fetch(`${url}/orders/91/payment-info`, { headers: demo })).status, 401);
+  process.env.D01_DEMO_MODE = 'false'; assert.equal((await fetch(`${url}/orders/91/payment-info`, { headers: { 'x-d01-demo': 'true' } })).status, 401);
   assert.equal(f.state.saved.length, 0);
 });

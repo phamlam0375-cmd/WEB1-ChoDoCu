@@ -1,5 +1,7 @@
 /* Phạm vi D duy nhất. Token lấy trực tiếp từ Màu giao diện hiện có. */
 .d-workspace { color: var(--color-text); overflow-wrap: anywhere; }
+.d-order-tracking :is(.d-card, .grid) { min-width: 0; }
+.d-order-tracking .break-words { overflow-wrap: anywhere; }
 .d-workspace :is(h1, h2, h3, dl, dd, section, form, fieldset) { min-width: 0; }
 .d-workspace :is(input, select, textarea) { max-width: 100%; }
 .d-workspace input[type="file"] { width: 100%; font-size: .875rem; }

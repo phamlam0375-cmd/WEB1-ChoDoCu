@@ -33,4 +33,5 @@ const markListingSold = (order, transaction) => Listings.update({ Status: 'SOLD'
 const createHistory = (data, transaction) => StatusHistories.create(data, { transaction });
 const createCommission = (id, transaction) => createCommissionForOrder(id, { transaction });
 const notifyUser = (id, payload, transaction) => notify(id, payload, { transaction });
-module.exports = { withTransaction, withSnapshot, readOrder, readRelated, markCompleted, markListingSold, createHistory, createCommission, notifyUser };
+const refundPromotion = (order, now, transaction) => require('../../services/listingPromotion.service').refundActivePromotionForSoldListing(order.ListingId, order.SellerId, now, transaction);
+module.exports = { withTransaction, withSnapshot, readOrder, readRelated, markCompleted, markListingSold, createHistory, createCommission, notifyUser, refundPromotion };

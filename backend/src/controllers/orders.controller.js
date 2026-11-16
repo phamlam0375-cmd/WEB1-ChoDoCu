@@ -12,7 +12,7 @@ async function getOrderPreview(req, res) {
 }
 
 async function createOrder(req, res) {
-  const result = await orderService.createOrder(req.body, req.user.UserId);
+  const result = await orderService.createOrder(req.body, req.user.UserId, req.get('Idempotency-Key'));
   return res.status(201).json({ success: true, ...result });
 }
 

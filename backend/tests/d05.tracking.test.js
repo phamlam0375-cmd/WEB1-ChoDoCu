@@ -100,10 +100,11 @@ test('D05 actual router production JWT/demo scoped; dev header denied, no identi
   t.after(async () => { Object.assign(actual, original); models.Users.findByPk = findUser; for (const key of keys) if (env[key] === undefined) delete process.env[key]; else process.env[key] = env[key]; server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); });
   const root = `http://127.0.0.1:${server.address().port}/api/v1`, marker = { 'x-d01-demo': 'true' };
   for (const headers of [{}, { 'x-user-id': '1' }, { authorization: 'Bearer invalid', ...marker }]) assert.equal((await fetch(`${root}/orders/91/tracking`, { headers })).status, 401);
-  const response = await fetch(`${root}/orders/91/tracking`, { headers: marker }); assert.equal(response.status, 200); assert.match(response.headers.get('cache-control'), /no-store/); assert.equal((await response.json()).data.viewer.userId, 1);
-  assert.equal((await fetch(`${root}/orders`, { headers: marker })).status, 200);
-  assert.equal((await fetch(`${root}/orders?BuyerId=3`, { headers: marker })).status, 400);
-  assert.equal((await fetch(`${root}/orders/92/tracking`, { headers: marker })).status, 404);
+  assert.equal((await fetch(`${root}/orders/91/tracking`, { headers: marker })).status, 401);
+  const response = await fetch(`${root}/orders/91/tracking`, { headers: { authorization: `Bearer ${token(1)}` } }); assert.equal(response.status, 200); assert.match(response.headers.get('cache-control'), /no-store/); assert.equal((await response.json()).data.viewer.userId, 1);
+  assert.equal((await fetch(`${root}/orders`, { headers: { authorization: `Bearer ${token(1)}` } })).status, 200);
+  assert.equal((await fetch(`${root}/orders?BuyerId=3`, { headers: { authorization: `Bearer ${token(1)}` } })).status, 400);
+  assert.equal((await fetch(`${root}/orders/92/tracking`, { headers: { authorization: `Bearer ${token(1)}` } })).status, 404);
   assert.equal((await fetch(`${root}/orders/91/tracking`, { headers: { authorization: `Bearer ${token(2)}` } })).status, 403);
   assert.equal((await fetch(`${root}/orders/91/tracking`, { headers: { authorization: `Bearer ${token(1)}` } })).status, 200);
   for (const endpoint of ['/me', '/admin/users', '/seller/orders/91/payment']) assert.equal((await fetch(root + endpoint, { headers: marker })).status, 401);

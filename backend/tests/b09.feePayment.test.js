@@ -201,3 +201,34 @@ test('B09: xác nhận hàng loạt giới hạn 50 khoản và không nhận da
   const tooMany = Array.from({ length: 51 }, (_, i) => i + 1);
   await assert.rejects(bulkReviewFeePayments({ user: admin, body: { action: 'CONFIRM', ids: tooMany } }, fakeResponse()), { status: 400 });
 });
+
+// ── Tiền về tài khoản (webhook ngân hàng giả lập) ──
+const { parseTransferContent, pickTransferMatch, simulateBankTransfer } = require('../src/controllers/commissions.controller');
+
+test('B09 webhook: đọc mã đối soát trong nội dung chuyển khoản, không phân biệt hoa thường', () => {
+  assert.deepEqual(parseTransferContent('CT DEN:1234 hh000012 nop phi web'), { commissionRefs: ['HH000012'], sellerIds: [] });
+  assert.deepEqual(parseTransferContent('PHI000012 thanh toan'), { commissionRefs: [], sellerIds: [12] });
+  assert.deepEqual(parseTransferContent('chuyen tien an trua'), { commissionRefs: [], sellerIds: [] });
+  assert.deepEqual(parseTransferContent('HH0000123'), { commissionRefs: [], sellerIds: [] }, 'mã dài hơn 6 số không phải mã đối soát');
+});
+
+test('B09 webhook: chỉ xác nhận khi số tiền khớp đúng tổng phải nộp', () => {
+  const rows = [fee(1, { AmountDue: '3100.00' })];
+  assert.equal(pickTransferMatch(rows, 3100).matched.length, 1);
+  assert.match(pickTransferMatch(rows, 3000).error, /không khớp tổng phải nộp 3\.100đ/);
+  assert.match(pickTransferMatch([fee(2, { Status: 'PAID' })], 50000).error, /Không có khoản nào còn nợ/);
+});
+
+test('B09 webhook: nộp gộp (PHI...) ưu tiên các khoản đã báo nộp, rồi mới tới mọi khoản còn nợ', () => {
+  const rows = [fee(1, { Status: 'REPORTED', AmountDue: '1000.00' }), fee(2, { AmountDue: '2000.00' })];
+  assert.deepEqual(pickTransferMatch(rows, 1000, { bySeller: true }).matched.map((row) => row.CommissionId), [1]);
+  assert.deepEqual(pickTransferMatch(rows, 3000, { bySeller: true }).matched.map((row) => row.CommissionId), [1, 2]);
+  assert.ok(pickTransferMatch(rows, 2500, { bySeller: true }).error);
+});
+
+test('B09 webhook: thiếu nội dung, sai số tiền hoặc không có mã đối soát thì báo lỗi trước khi đụng dữ liệu', async () => {
+  const call = (body) => simulateBankTransfer({ body, user: { UserId: 1 } }, fakeResponse());
+  await assert.rejects(call({ amount: 3100 }), /Vui lòng nhập nội dung chuyển khoản/);
+  await assert.rejects(call({ content: 'HH000012', amount: 0 }), /Số tiền phải lớn hơn 0/);
+  await assert.rejects(call({ content: 'tien an trua', amount: 3100 }), /không có mã đối soát/);
+});

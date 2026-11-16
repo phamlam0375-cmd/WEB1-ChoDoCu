@@ -31,6 +31,7 @@ const AUDIT_ACTIONS = {
   COMMISSION_SYNC: "Tạo hoa hồng cho đơn hoàn tất",
   COMMISSION_REMIND: "Nhắc nợ phí quá hạn",
   FEE_CONFIRM: "Xác nhận đã thu phí",
+  FEE_AUTO_CONFIRM: "Tự xác nhận thu phí (tiền về khớp mã)",
   FEE_REJECT: "Từ chối báo nộp phí",
   FEE_WAIVE: "Miễn phí hoa hồng",
   SETTING_UPDATE: "Đổi cấu hình",

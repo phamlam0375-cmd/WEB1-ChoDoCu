@@ -296,7 +296,8 @@ const FEE_ACTIONS = {
 
 // PATCH /admin/fee-payments/:id { action: CONFIRM | REJECT | WAIVE, note }
 // Xác nhận đã thu / từ chối / miễn một khoản phí trong một transaction (ghi nhật ký, báo người bán).
-const applyFeeAction = (req, id, action, note) =>
+// options.audit: mã nhật ký khác mặc định; options.transactionCode: mã giao dịch ngân hàng báo về.
+const applyFeeAction = (req, id, action, note, options = {}) =>
   sequelize.transaction(async (transaction) => {
     const rule = FEE_ACTIONS[action];
     const item = await Commissions.findByPk(id, { transaction, lock: transaction.LOCK.UPDATE });
@@ -309,6 +310,7 @@ const applyFeeAction = (req, id, action, note) =>
     let changes;
     if (action === "CONFIRM") {
       changes = { Status: "PAID", ConfirmedBy: req.user.UserId, ConfirmedAt: new Date() };
+      if (options.transactionCode && !item.PaymentTransactionCode) changes.PaymentTransactionCode = options.transactionCode;
     } else if (action === "REJECT") {
       changes = { Status: Number(item.AdjustmentAmount) !== 0 ? "ADJUSTED" : "UNPAID", PaymentProofUrl: null, PaymentTransactionCode: null, ReportedAt: null };
     } else {
@@ -319,7 +321,7 @@ const applyFeeAction = (req, id, action, note) =>
     await logAdminAction(
       req,
       {
-        action: rule.audit,
+        action: options.audit || rule.audit,
         targetType: "COMMISSION",
         targetId: id,
         oldValue: before,
@@ -396,8 +398,72 @@ const bulkReviewFeePayments = async (req, res) => {
   });
 };
 
+// ── Tiền về tài khoản (webhook ngân hàng, bản giả lập) ──
+// Bản thật: dịch vụ báo biến động số dư (SePay, Casso...) gọi về backend mỗi khi tài khoản nhận
+// tiền, kèm nội dung chuyển khoản và số tiền. Ở đồ án chạy local, admin nhập tay các thông tin đó
+// để giả lập; phần đối chiếu dưới đây là phần bản thật cũng dùng.
+const TRANSFER_CODE = /\b(HH|PHI)(\d{6})\b/gi;
+const formatVnd = (value) => `${Math.round(Number(value)).toLocaleString("vi-VN")}đ`;
+
+// Lấy mã đối soát trong nội dung: HH000012 = một khoản, PHI000012 = người bán #12 nộp gộp.
+const parseTransferContent = (content) => {
+  const commissionRefs = new Set();
+  const sellerIds = new Set();
+  for (const [, kind, digits] of String(content || "").matchAll(TRANSFER_CODE)) {
+    if (kind.toUpperCase() === "HH") commissionRefs.add(`HH${digits}`);
+    else sellerIds.add(Number(digits));
+  }
+  return { commissionRefs: [...commissionRefs], sellerIds: [...sellerIds] };
+};
+
+// Chọn các khoản được trả bởi số tiền này; chỉ chấp nhận khi khớp đúng tổng phải nộp.
+// Nộp gộp (PHI...) thì ưu tiên các khoản người bán đã báo nộp, sau đó mới tới mọi khoản còn nợ.
+const pickTransferMatch = (rows, amount, { bySeller = false } = {}) => {
+  const open = rows.filter((row) => OUTSTANDING_STATUSES.includes(row.Status));
+  if (!open.length) return { error: "Không có khoản nào còn nợ khớp mã đối soát trong nội dung chuyển khoản" };
+  const total = (list) => list.reduce((sum, row) => sum + Math.round(Number(row.AmountDue)), 0);
+  const groups = bySeller ? [open.filter((row) => row.Status === "REPORTED"), open] : [open];
+  const matched = groups.find((list) => list.length && total(list) === Math.round(Number(amount)));
+  if (matched) return { matched };
+  return { error: `Số tiền ${formatVnd(amount)} không khớp tổng phải nộp ${formatVnd(total(open))}` };
+};
+
+// POST /admin/fee-payments/bank-notify { content, amount, transactionCode? }
+const simulateBankTransfer = async (req, res) => {
+  const content = text(req.body.content, "nội dung chuyển khoản", { max: 255 });
+  const amount = Number(req.body.amount);
+  const transactionCode = text(req.body.transactionCode, "mã giao dịch", { max: 50 }) || `BANK${Date.now()}`;
+  if (!content) throw badRequest("Vui lòng nhập nội dung chuyển khoản");
+  if (!Number.isFinite(amount) || amount <= 0) throw badRequest("Số tiền phải lớn hơn 0");
+
+  const { commissionRefs, sellerIds } = parseTransferContent(content);
+  if (!commissionRefs.length && !sellerIds.length) {
+    throw badRequest("Nội dung chuyển khoản không có mã đối soát (HH... hoặc PHI...)");
+  }
+  const bySeller = !commissionRefs.length;
+  const rows = await Commissions.findAll({
+    where: { ...(bySeller ? { SellerId: sellerIds[0] } : { PaymentReference: commissionRefs }), Status: OUTSTANDING_STATUSES },
+  });
+  const result = pickTransferMatch(rows, amount, { bySeller });
+  if (result.error) throw conflict(result.error);
+
+  const note = `Tự xác nhận: ngân hàng báo nhận ${formatVnd(amount)}, nội dung "${content}", mã giao dịch ${transactionCode}`;
+  for (const row of result.matched) {
+    await applyFeeAction(req, row.CommissionId, "CONFIRM", note, { audit: "FEE_AUTO_CONFIRM", transactionCode });
+  }
+  const refs = result.matched.map((row) => row.PaymentReference);
+  return res.status(200).json({
+    success: true,
+    message: `Tiền về khớp ${refs.join(", ")}: đã tự chuyển sang "Đã thu"`,
+    data: { confirmed: refs, amount: Math.round(amount), transactionCode },
+  });
+};
+
 module.exports = {
   bulkReviewFeePayments,
+  parseTransferContent,
+  pickTransferMatch,
+  simulateBankTransfer,
   listCommissions,
   remindOverdue,
   syncCommissions,

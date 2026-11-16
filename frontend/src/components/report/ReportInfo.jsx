@@ -1,4 +1,5 @@
 import { Badge, InfoRow, StatusBadge } from '../admin/AdminUi'
+import ProofImage from '../admin/ProofImage'
 import { formatDateTime } from '../../lib/format'
 import { LISTING_STATUS, ORDER_STATUS, REPORT_STATUS, REPORT_TARGET, USER_STATUS } from '../../lib/labels'
 
@@ -16,9 +17,7 @@ export default function ReportInfo({ report, onOpenListing }) {
         <InfoRow label="Mô tả">{report.Description}</InfoRow>
         <InfoRow label="Ảnh bằng chứng">
           {report.EvidenceUrl ? (
-            <a href={report.EvidenceUrl} target="_blank" rel="noreferrer">
-              <img src={report.EvidenceUrl} alt="Ảnh bằng chứng" className="max-h-48 rounded-lg border border-slate-200 object-contain" />
-            </a>
+            <ProofImage url={report.EvidenceUrl} alt="Ảnh bằng chứng" />
           ) : (
             '—'
           )}

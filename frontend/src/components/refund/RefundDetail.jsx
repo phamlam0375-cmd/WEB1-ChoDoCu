@@ -8,6 +8,7 @@ import { errorMessage } from '../../lib/api'
 import { formatDateTime, formatMoney } from '../../lib/format'
 import { ORDER_STATUS, REFUND_STATUS } from '../../lib/labels'
 import QrPaymentPanel from '../QrPaymentPanel'
+import ProofImage from '../admin/ProofImage'
 import { usePaymentDone } from '../../lib/paymentChannel'
 
 // Thao tác của từng vai trò: viewer = 'admin' | 'buyer' | 'seller'.
@@ -101,9 +102,7 @@ export default function RefundDetail({ id, viewer, onClose, onSaved }) {
             {refund.Description && <InfoRow label="Mô tả">{refund.Description}</InfoRow>}
             <InfoRow label="Bằng chứng">
               {refund.EvidenceUrl ? (
-                <a href={refund.EvidenceUrl} target="_blank" rel="noreferrer">
-                  <img src={refund.EvidenceUrl} alt="Ảnh bằng chứng" className="max-h-40 rounded-lg border border-slate-200 object-contain" />
-                </a>
+                <ProofImage url={refund.EvidenceUrl} alt="Ảnh bằng chứng" className="max-h-40" />
               ) : '—'}
             </InfoRow>
             <InfoRow label="Phản hồi người bán">{refund.SellerResponse}</InfoRow>
@@ -111,7 +110,7 @@ export default function RefundDetail({ id, viewer, onClose, onSaved }) {
             {(refund.RefundTransactionCode || refund.RefundProofUrl) && (
               <InfoRow label="Chứng từ chuyển trả">
                 {refund.RefundTransactionCode && <span className="font-mono">{refund.RefundTransactionCode}</span>}{' '}
-                {refund.RefundProofUrl && <a className="text-emerald-700 underline" href={refund.RefundProofUrl} target="_blank" rel="noreferrer">Xem ảnh</a>}
+                {refund.RefundProofUrl && <ProofImage url={refund.RefundProofUrl} alt="Ảnh chuyển khoản" className="max-h-40" />}
               </InfoRow>
             )}
           </dl>

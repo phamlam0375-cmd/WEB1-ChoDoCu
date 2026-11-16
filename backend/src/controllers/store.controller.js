@@ -1,4 +1,4 @@
-const { Store, Users } = require("../models");
+const { Store, Users, Reviews } = require("../models");
 const {
     ownerIdSchema,
     updateStoreSchema,
@@ -53,10 +53,25 @@ const getStore = async (req, res) => {
             })
         }
 
+        const reviews = await Reviews.findAll({
+            where: { TargetUserId: ownerIdResult.data, TargetType: "SELLER" },
+            include: [{ model: Users, as: "reviewer", attributes: ["UserId", "FullName", "AvatarUrl"] }],
+            attributes: ["ReviewId", "Rating", "Comment", "Reply", "ReplyAt", "CreatedAt"],
+            order: [["CreatedAt", "DESC"]],
+        });
+        const ratingTotal = reviews.reduce((total, review) => total + Number(review.Rating), 0);
+
         return res.status(200).json({
             success: true,
             message: "Lấy cửa hàng thành công",
-            data: store
+            data: {
+                ...store.toJSON(),
+                Reviews: reviews,
+                RatingSummary: {
+                    average: reviews.length ? Number((ratingTotal / reviews.length).toFixed(1)) : 0,
+                    count: reviews.length,
+                },
+            },
         })
     }
     catch (err) {

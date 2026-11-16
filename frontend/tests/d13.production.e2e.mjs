@@ -2,22 +2,30 @@ import assert from 'node:assert/strict'
 import { createHmac, randomBytes } from 'node:crypto'
 import { spawn } from 'node:child_process'
 import http from 'node:http'
-import { readFile, mkdir } from 'node:fs/promises'
+import { readFile, mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { createRequire } from 'node:module'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createLinkChecks, enterDriverProfile } from './helpers/d-link-checks.mjs'
+import { buyerReopensOrder, loginFromHome, sellerQrFromStore } from './helpers/d-acceptance-navigation.mjs'
+import { pickupFromHome } from './helpers/d-acceptance-pickup.mjs'
+import { createSystemAudit, runSystemBefore, runSystemAfter } from './helpers/system-acceptance.mjs'
+import { runSystemBusiness } from './helpers/system-business.mjs'
+import { formatDecimalMoney } from '../src/lib/format.js'
 if (process.env.D13_BROWSER_TEST !== 'true' || !process.env.D13_EXPECTED_MYSQL_UUID || !process.env.D13_PLAYWRIGHT_MODULE) throw new Error('Cần D13_BROWSER_TEST, UUID MySQL local và module Playwright đã cài.')
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..'), backend = path.join(root, 'backend'), dist = path.join(root, 'frontend/dist')
 const prefix = `d13_ui_${Date.now()}_${randomBytes(2).toString('hex')}`, password = randomBytes(24).toString('base64url')
 const { pngReceipt } = createRequire(import.meta.url)(path.join(backend, 'tests/D03_ThanhToan/fixtures'))
 const linked = process.env.D_LINK_TEST === 'true'
-let child, server, browser, output = '', stage = 'khởi tạo'
+const acceptance = process.env.D_ACCEPTANCE_TEST === 'true'
+const systemAcceptance = process.env.D_SYSTEM_ACCEPTANCE === 'true'
+if (acceptance) assert.equal(linked, true, 'Nghiệm thu phải đối chiếu DB chỉ đọc')
+let child, server, browser, systemAudit, systemPages, output = '', stage = 'khởi tạo'
 try {
-  child = spawn(process.execPath, ['scripts/serve-completion-test.js'], { cwd: backend, windowsHide: true, env: { ...process.env,
+  child = spawn(process.execPath, [systemAcceptance ? 'scripts/serve-system-acceptance.js' : 'scripts/serve-completion-test.js'], { cwd: backend, windowsHide: true, env: { ...process.env,
     NODE_ENV: 'test', DB_HOST: '127.0.0.1', DB_PORT: '33307', DB_NAME: 'cho_do_cu_d13_20261109', DB_LOGGING: 'false', AUTH_DEV_HEADER: 'false', D01_DEMO_MODE: 'false',
     D13_INTEGRATION_TEST: 'true', D13_BROWSER_PREFIX: prefix, D13_BROWSER_TEST_PASSWORD: password, D13_BROWSER_PORT: '0', D13_BROWSER_HOST: '127.0.0.1',
-    JWT_SECRET: 'd13-browser-isolated-test-no-real-users', EMAIL_USER: '', EMAIL_PASS: '', MAIL_USER: '', MAIL_PASS: '', SMTP_USER: '', SMTP_PASS: '' }, stdio: ['ignore', 'pipe', 'pipe', 'ipc'] })
+    JWT_SECRET: 'd13-browser-isolated-test-no-real-users', GEMINI_API_KEY: '', ANTHROPIC_API_KEY: '', EMAIL_USER: '', EMAIL_PASS: '', MAIL_USER: '', MAIL_PASS: '', SMTP_USER: '', SMTP_PASS: '' }, stdio: ['ignore', 'pipe', 'pipe', 'ipc'] })
   child.stdout.on('data', bytes => { output += bytes.toString() }); child.stderr.on('data', () => {})
   let fixture
   for (let i = 0; i < 100; i++) {
@@ -28,7 +36,7 @@ try {
   }
   assert.ok(fixture?.apiPort, 'D13 source fixture chưa sẵn sàng')
   server = http.createServer(async (req, res) => {
-    if (req.url.startsWith('/api/')) {
+    if (req.url.startsWith('/api/') || req.url.startsWith('/socket.io')) {
       const upstream = http.request({ host: '127.0.0.1', port: fixture.apiPort, path: req.url, method: req.method, headers: req.headers }, response => { res.writeHead(response.statusCode, response.headers); response.pipe(res) })
       upstream.on('error', () => { res.writeHead(502); res.end() }); req.pipe(upstream); return
     }
@@ -36,6 +44,15 @@ try {
     if (target !== dist && !target.startsWith(dist + path.sep)) { res.writeHead(400); res.end(); return }
     try { res.setHeader('Content-Type', ({ '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png' })[path.extname(target)] || 'application/octet-stream'); res.end(await readFile(target)) }
     catch { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.end(await readFile(path.join(dist, 'index.html'))) }
+  })
+  if (systemAcceptance) server.on('upgrade', (req, socket, head) => {
+    if (!req.url.startsWith('/socket.io')) { socket.destroy(); return }
+    const upstream = http.request({ host: '127.0.0.1', port: fixture.apiPort, path: req.url, headers: req.headers })
+    upstream.on('upgrade', (response, target, upstreamHead) => {
+      socket.write('HTTP/1.1 101 Switching Protocols\r\n' + Object.entries(response.headers).map(([key, value]) => `${key}: ${value}\r\n`).join('') + '\r\n')
+      if (head.length) target.write(head); if (upstreamHead.length) socket.write(upstreamHead)
+      socket.pipe(target); target.pipe(socket)
+    }); upstream.on('error', () => socket.destroy()); upstream.end()
   })
   server.listen(0, '127.0.0.1'); await new Promise(resolve => server.once('listening', resolve))
   const origin = `http://127.0.0.1:${server.address().port}`, { chromium } = await import(pathToFileURL(process.env.D13_PLAYWRIGHT_MODULE).href)
@@ -48,8 +65,20 @@ try {
   const buyerContext = await context(), buyer = await buyerContext.newPage(), seller = await (await context()).newPage(), driver = await (await context()).newPage(), pageErrors = []
   const links = linked ? createLinkChecks(child, fixture, origin, { buyer, seller, driver }) : null
   let pickupFingerprint = null, sellerQr = null
-  for (const page of [buyer, seller, driver]) { page.setDefaultTimeout(15000); page.on('pageerror', () => pageErrors.push(true)) }
+  const network = []
+  for (const [role, page] of Object.entries({ buyer, seller, driver })) {
+    page.setDefaultTimeout(15000); page.on('pageerror', () => pageErrors.push(true))
+    page.on('response', response => {
+      const request = response.request(), url = new URL(response.url())
+      if (url.pathname.startsWith('/api/') && request.method() !== 'GET') network.push({ role, method: request.method(), path: url.pathname, status: response.status() })
+    })
+    if (acceptance) {
+      const goto = page.goto.bind(page)
+      page.goto = (url, ...options) => { assert.equal(new URL(url).pathname, '/', 'Không dùng URL nội bộ để vượt một bước giao diện'); return goto(url, ...options) }
+    }
+  }
   const login = async (page, label, destination) => {
+    if (acceptance) return loginFromHome(page, { origin, email: `${prefix}_${label}@example.test`, password, destination })
     await page.goto(`${origin}/login?returnTo=${encodeURIComponent(destination)}`)
     await page.locator('#login-email').fill(`${prefix}_${label}@example.test`); await page.locator('#login-password').fill(password)
     await page.locator('.login-submit').click(); await page.waitForURL(origin + destination)
@@ -75,13 +104,25 @@ try {
     const luminance = value => value.match(/[\d.]+/g).slice(0, 3).map(Number).map(n => n / 255).map(n => n <= .04045 ? n / 12.92 : ((n + .055) / 1.055) ** 2.4).reduce((total, n, i) => total + n * [.2126, .7152, .0722][i], 0)
     const a = luminance(background), b = luminance(color); assert.ok((Math.max(a, b) + .05) / (Math.min(a, b) + .05) >= 4.5, 'D primary button contrast >= 4.5')
   }
+  if (systemAcceptance) {
+    stage = 'A/B/C before D: register/profile/partner approval -> post -> moderate -> Home'
+    systemAudit = createSystemAudit(child, root)
+    const admin = await (await context()).newPage(), extra = await (await context()).newPage()
+    systemPages = { admin, extra }
+    admin.setDefaultTimeout(10000); extra.setDefaultTimeout(10000)
+    await runSystemBefore({ audit: systemAudit, origin, prefix, password, fixture, buyer, seller, driver, admin, extra, image: pngReceipt() })
+  }
   if (linked) {
     stage = 'D11 profile -> D07 readiness'
     await enterDriverProfile({ driver, login, fixture, receiving: process.env.D_LINK_RECEIVING || 'bank', image: pngReceipt(), links })
   }
   stage = 'Home → JWT → D01 → C05 → D03 → D04'
   await buyer.goto(origin + '/')
-  await buyer.locator('article').filter({ hasText: fixture.title }).getByRole('button', { name: 'Mua ngay', exact: true }).click()
+  if (acceptance) {
+    await buyer.locator('article').filter({ hasText: fixture.title }).locator('h3').click()
+    await buyer.waitForURL(`${origin}/products/${fixture.listingId}`)
+    await buyer.locator('.product-actions').getByRole('button', { name: 'Mua ngay', exact: true }).click()
+  } else await buyer.locator('article').filter({ hasText: fixture.title }).getByRole('button', { name: 'Mua ngay', exact: true }).click()
   await buyer.waitForURL(/\/login\?returnTo=/)
   await buyer.locator('#login-email').fill(`${prefix}_buyer@example.test`); await buyer.locator('#login-password').fill(password); await buyer.locator('.login-submit').click()
   await buyer.waitForURL(`${origin}/orders/create/${fixture.listingId}`)
@@ -111,9 +152,13 @@ try {
     assert.equal(s.histories.filter(h => h.StatusValue === 'RESERVED' && h.ChangedBy === fixture.buyerId).length, 1)
     await buyer.getByRole('button', { name: 'Theo dõi đơn hàng', exact: true }).click()
     await buyer.getByRole('heading', { name: 'Chờ người bán chấp nhận', exact: true }).waitFor()
+    if (acceptance) await buyerReopensOrder(buyer, orderId)
   }
   await login(seller, 'seller', '/seller/orders')
-  if (linked) {
+  if (acceptance) {
+    stage = 'seller Home -> C02 QR -> D04 -> C05'
+    sellerQr = await sellerQrFromStore(seller, { sellerId: fixture.sellerId, image: pngReceipt() })
+  } else if (linked) {
     const uploaded = await links.api(seller, `/api/stores/${fixture.sellerId}/qr`, { method: 'POST', data: pngReceipt(), headers: { 'Content-Type': 'image/png' } })
     assert.equal(uploaded.status(), 201); sellerQr = (await uploaded.json()).data.url
     const current = await links.api(seller, `/api/stores/${fixture.sellerId}`), store = (await current.json()).data
@@ -131,6 +176,8 @@ try {
     const qr = buyer.getByRole('img', { name: 'QR nhận tiền của người bán', exact: true })
     await qr.waitFor(); assert.equal(await qr.getAttribute('src'), sellerQr)
     await qr.evaluate(image => image.decode())
+    await buyer.getByText('0012345678', { exact: true }).waitFor()
+    await buyer.getByText(formatDecimalMoney(fixture.productAmount || '100000.10'), { exact: true }).first().waitFor()
     assert.equal((await links.api(buyer, `/api/v1/orders/${orderId}/payment-info`)).status(), 200)
     console.log('PASS LINK C02 -> D03: seller-owned upload API -> store QR -> payment UI renders real file with unchanged bank snapshot')
   }
@@ -147,8 +194,8 @@ try {
     await seller.getByRole('navigation', { name: 'Tài khoản', exact: true }).getByRole('link', { name: 'Xác nhận nhận tiền', exact: true }).click()
     await seller.locator(`a[href="/seller/orders/${orderId}/payment"]`).click()
   } else await seller.goto(`${origin}/seller/orders/${orderId}/payment`)
-  if (process.env.D_QUALITY_TEST === 'true') {
-    await buyer.getByText('Bạn có thể chuyển khoản theo tài khoản và nội dung bên dưới.', { exact: false }).waitFor()
+  if (process.env.D_QUALITY_TEST === 'true' || acceptance) {
+    if (!acceptance) await buyer.getByText('Bạn có thể chuyển khoản theo tài khoản và nội dung bên dưới.', { exact: false }).waitFor()
     await theme(seller, 'Xanh dương', 'ocean')
     await seller.getByRole('button', { name: 'Đã nhận đủ tiền', exact: true }).click()
     const blue = await themeButton(seller); assert.equal(blue.background, 'rgb(29, 78, 216)'); contrast(blue)
@@ -160,6 +207,12 @@ try {
     assert.equal((await themeButton(seller)).background, 'rgb(109, 40, 217)')
     await mkdir(path.join(root, 'frontend/test-results'), { recursive: true })
     await seller.screenshot({ path: path.join(root, 'frontend/test-results/d-quality-payment-dialog.png'), fullPage: true })
+    await seller.setViewportSize({ width: 390, height: 500 })
+    const mobileDialog = seller.getByRole('dialog'), box = await mobileDialog.boundingBox()
+    assert.ok(box && box.y >= 0 && box.height <= 500, 'D04 dialog fits short phone viewport')
+    await mobileDialog.getByRole('button', { name: 'Lưu kết quả đối chiếu', exact: true }).scrollIntoViewIfNeeded()
+    assert.equal(await seller.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
+    await seller.setViewportSize({ width: 1440, height: 1100 })
   } else await seller.getByRole('button', { name: 'Đã nhận đủ tiền', exact: true }).click()
   await seller.getByRole('button', { name: 'Lưu kết quả đối chiếu', exact: true }).click()
   await seller.getByText('Đã xác nhận nhận đủ tiền', { exact: true }).first().waitFor()
@@ -167,6 +220,7 @@ try {
     const s = await links.checkpoint('D04 -> preparation', { orderId }, 'PAID')
     assert.equal(s.payment.Status, 'CONFIRMED'); assert.equal(s.payment.ConfirmedBy, fixture.sellerId)
     assert.ok(Date.parse(s.payment.ConfirmedAt) >= Date.parse(s.payment.ReportedAt))
+    if (acceptance) { await buyerReopensOrder(buyer, orderId); await buyer.getByRole('heading', { name: 'Đã thanh toán · chờ giao nhận', exact: true }).waitFor() }
   }
   stage = 'C07 → D07 → D08 → D09'
   if (linked) await seller.getByRole('link', { name: 'Theo dõi đơn hàng', exact: true }).click()
@@ -187,6 +241,7 @@ try {
     await driver.getByRole('link', { name: 'Xác nhận đã lấy hàng', exact: true }).first().waitFor()
     const s = await links.checkpoint('D07 -> D08', { orderId, deliveryId }, 'PAID', 'ACCEPTED')
     assert.equal(s.driver.profile.availability, 'BUSY'); assert.equal(s.driver.active, 1)
+    if (acceptance) { await buyerReopensOrder(buyer, orderId); await buyer.getByText('Tài xế đã được phân công. Theo dõi dữ liệu giao nhận bên dưới.', { exact: true }).waitFor() }
     await driver.reload(); await driver.getByRole('link', { name: 'Xác nhận đã lấy hàng', exact: true }).first().waitFor()
     await seller.getByRole('button', { name: 'Làm mới', exact: true }).click()
     await seller.getByRole('link', { name: 'Bàn giao và cấp mã lấy hàng', exact: true }).click()
@@ -205,7 +260,8 @@ try {
     const s = await links.checkpoint('D08 -> D09/D05', { orderId, deliveryId }, 'PAID', 'PICKED_UP')
     assert.ok(s.deliveries[0].pickupHashStored); assert.ok(s.deliveries[0].pickupProofAvailable)
     assert.equal(s.deliveries[0].PickedUpAt, s.deliveries[0].PickupCodeUsedAt); pickupFingerprint = s.deliveries[0].pickupProofFingerprint
-    await buyer.getByRole('link', { name: 'Theo dõi đơn hàng', exact: true }).click()
+    if (acceptance) await buyerReopensOrder(buyer, orderId)
+    else await buyer.getByRole('link', { name: 'Theo dõi đơn hàng', exact: true }).click()
     await buyer.getByRole('heading', { name: 'Tài xế đã lấy hàng · chờ bắt đầu giao', exact: true }).waitFor()
     await seller.getByRole('link', { name: 'Quay lại đơn/chuyến', exact: true }).click()
   }
@@ -217,18 +273,25 @@ try {
     await links.checkpoint('D09 -> D13', { orderId, deliveryId }, 'IN_DELIVERY', 'DELIVERING')
     await buyer.getByRole('button', { name: 'Làm mới', exact: true }).click()
     await buyer.getByRole('heading', { name: 'Đang giao hàng', exact: true }).waitFor()
+    if (acceptance) {
+      await driver.locator('#delivery-progress-status').selectOption('DELIVERING')
+      await driver.locator('#delivery-progress-note').fill('Nghiem thu: tai xe dang tren duong giao kien hang.')
+      await driver.getByRole('button', { name: 'Lưu ghi chú tiến độ mới', exact: true }).click()
+      await buyerReopensOrder(buyer, orderId)
+      await buyer.getByText('Nghiem thu: tai xe dang tren duong giao kien hang.', { exact: true }).waitFor()
+    }
   }
-  console.log('PASS D13 production UI: JWT → D01/D12 → C05/D03/D04/C07 → D07/D08/D09, không đường tắt nghiệp vụ')
+  console.log('PASS D13 production UI: JWT → D01/D12 → C06/D03/D04/C07 → D07/D08/D09, không đường tắt nghiệp vụ')
   stage = 'D05 explicit buyer OTP, privacy/cooldown, wrong code/proof validation'
   let issues = 0
   buyerContext.on('request', req => { if (req.method() === 'POST' && req.url().endsWith('/delivery-code')) issues++ })
   if (linked) await buyer.getByRole('button', { name: 'Làm mới', exact: true }).click()
   else await buyer.goto(`${origin}/orders/${orderId}/tracking`)
   const createCode = buyer.getByRole('button', { name: 'Tạo mã giao hàng', exact: true }); await createCode.waitFor()
-  if (process.env.D_QUALITY_TEST === 'true') {
+  if (process.env.D_QUALITY_TEST === 'true' || acceptance) {
     await theme(buyer, 'Xanh dương', 'ocean'); const blue = await themeButton(buyer); assert.equal(blue.background, 'rgb(29, 78, 216)'); contrast(blue)
     await buyer.reload(); await buyer.getByRole('button', { name: 'Tạo mã giao hàng', exact: true }).waitFor(); assert.equal(await buyer.evaluate(() => document.documentElement.dataset.colorTheme), 'ocean')
-    assert.match(await buyer.locator('li[aria-current="step"]').innerText(), /Đang giao hàng/)
+    assert.match(await buyer.locator('li[aria-current="step"]').innerText(), acceptance ? /Ghi chú tiến độ giao hàng/ : /Đang giao hàng/)
     await buyer.screenshot({ path: path.join(root, 'frontend/test-results/d-quality-order-ocean.png'), fullPage: true })
   }
   assert.equal(issues, 0)
@@ -236,14 +299,15 @@ try {
   assert.equal(await buyer.getByRole('button', { name: 'Tạo lại mã giao hàng', exact: true }).isDisabled(), true)
   assert.equal(await buyer.evaluate(value => JSON.stringify(localStorage).includes(value) || JSON.stringify(sessionStorage).includes(value), code), false)
   const refreshed = await buyerContext.newPage()
-  await refreshed.goto(`${origin}/orders/${orderId}/tracking`)
+  if (acceptance) { await refreshed.goto(origin + '/'); await buyerReopensOrder(refreshed, orderId) }
+  else await refreshed.goto(`${origin}/orders/${orderId}/tracking`)
   await refreshed.getByRole('button', { name: 'Tạo lại mã giao hàng', exact: true }).waitFor()
   assert.equal(await refreshed.getByLabel('Mã giao hàng', { exact: true }).count(), 0)
   assert.equal(issues, 1); await refreshed.close()
   await buyer.setViewportSize({ width: 390, height: 844 }); assert.equal(await buyer.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
   await driver.getByRole('link', { name: 'Xác thực giao hàng bằng mã và ảnh bàn giao', exact: true }).click()
   await driver.waitForURL(`${origin}/driver/deliveries/${deliveryId}/complete`)
-  if (process.env.D_QUALITY_TEST === 'true') {
+  if (process.env.D_QUALITY_TEST === 'true' || acceptance) {
     await theme(driver, 'Cam', 'amber'); contrast(await themeButton(driver))
     await theme(driver, 'Tím', 'violet'); assert.equal((await themeButton(driver)).background, 'rgb(109, 40, 217)')
     await driver.screenshot({ path: path.join(root, 'frontend/test-results/d-quality-delivery-violet.png'), fullPage: true })
@@ -286,7 +350,7 @@ try {
   assert.equal(await buyer.getByLabel('Mã giao hàng', { exact: true }).count(), 0)
   await buyer.getByRole('img', { name: `Bằng chứng giao hàng chuyến #${deliveryId}`, exact: true }).waitFor()
   await buyer.getByRole('img', { name: `Bằng chứng lấy hàng chuyến #${deliveryId}`, exact: true }).waitFor()
-  if (process.env.D_QUALITY_TEST === 'true') {
+  if (process.env.D_QUALITY_TEST === 'true' || acceptance) {
     await theme(buyer, 'Tím', 'violet'); await buyer.setViewportSize({ width: 390, height: 844 })
     let failedProof = false
     await buyer.route('**/completion-proof', async route => { if (!failedProof) { failedProof = true; await route.abort('failed') } else await route.continue() })
@@ -295,6 +359,7 @@ try {
     assert.equal(await buyer.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
     await buyer.screenshot({ path: path.join(root, 'frontend/test-results/d-quality-order-mobile.png'), fullPage: true })
   }
+  if (acceptance) await buyerReopensOrder(buyer, orderId)
   await buyer.getByRole('link', { name: 'Xác nhận nhận hàng', exact: true }).first().click()
   if (linked) {
     let refundPosts = 0
@@ -314,23 +379,68 @@ try {
     assert.equal(before.commissions[0].SellerId, fixture.sellerId)
     assert.equal(Number(before.commissions[0].OriginalAmount), Math.round(Number(before.order.ProductAmount) * Number(before.commissions[0].Rate) / 100))
     assert.equal(before.histories.filter(h => h.StatusValue === 'COMPLETED' && h.ChangedBy === fixture.buyerId).length, 1)
-    assert.equal((await links.api(buyer, `/api/v1/orders/${orderId}/received`, { method: 'PATCH', data: { received: true } })).status(), 200)
-    const replay = await links.api(driver, `/api/v1/driver/deliveries/${deliveryId}/complete`, { method: 'PATCH', headers: { 'Idempotency-Key': completionKey }, data: {} })
-    assert.equal(replay.status(), 200); assert.equal((await replay.json()).data.orderStatus, 'COMPLETED')
+    if (!acceptance) {
+      assert.equal((await links.api(buyer, `/api/v1/orders/${orderId}/received`, { method: 'PATCH', data: { received: true } })).status(), 200)
+      const replay = await links.api(driver, `/api/v1/driver/deliveries/${deliveryId}/complete`, { method: 'PATCH', headers: { 'Idempotency-Key': completionKey }, data: {} })
+      assert.equal(replay.status(), 200); assert.equal((await replay.json()).data.orderStatus, 'COMPLETED')
+    }
     const after = await links.read({ orderId, deliveryId })
     for (const key of ['histories', 'commissions', 'notifications']) assert.equal(after[key].length, before[key].length)
     assert.equal(after.order.CompletedAt, before.order.CompletedAt)
     console.log(`PASS LINK FINAL ${process.env.D_LINK_RECEIVING || 'bank'}: one product/order/delivery through D11/D12/D01/C05/D03/D04/C07/D07/D08/D09/D13/D05/D06; B06 form only, B08 once; no direct state updates`)
+    if (acceptance) {
+      assert.ok(network.some(row => row.path === `/api/v1/orders/${orderId}/received` && row.status === 200))
+      assert.ok(network.filter(row => row.path === `/api/v1/driver/deliveries/${deliveryId}/status` && row.status === 200).length >= 2)
+      await mkdir(path.join(root, 'frontend/test-results'), { recursive: true })
+      await writeFile(path.join(root, `frontend/test-results/d-acceptance-${process.env.D_LINK_RECEIVING || 'bank'}.json`), JSON.stringify({ listingId: fixture.listingId, orderId, deliveryId, uiOnlyBusinessSteps: true, network, final: { orderStatus: after.order.Status, deliveryStatus: after.deliveries[0].Status, money: [after.order.ProductAmount, after.order.DeliveryFee, after.order.TotalAmount], commissions: after.commissions.length, driverAvailability: after.driver.profile.availability } }, null, 2))
+      console.log('PASS ACCEPTANCE: Home/product detail -> menus only; buyer reopened order list at each handoff; D09 note visible; Network + DB evidence saved without tokens/OTP')
+    }
   }
   await driver.reload(); await driver.getByText('Chuyến: DELIVERED · Đơn: COMPLETED', { exact: true }).waitFor()
   assert.equal(await driver.locator('#completion-code').count(), 0)
   assert.equal(issues, 1); assert.equal(pageErrors.length, 0)
+  if (acceptance) {
+    stage = 'PICKUP UI through payment, inspect missing C07 handover'
+    const pickupResult = await pickupFromHome({ buyer, seller, fixture, links, image: pngReceipt() })
+    const target = path.join(root, `frontend/test-results/d-acceptance-${process.env.D_LINK_RECEIVING || 'bank'}.json`)
+    const evidence = JSON.parse(await readFile(target, 'utf8')); evidence.pickup = pickupResult
+    await writeFile(target, JSON.stringify(evidence, null, 2))
+    if (systemAcceptance) {
+      stage = 'A/B/C administration, reviews and branches after actual D order'
+      await runSystemAfter({ audit: systemAudit, origin, prefix, password, fixture, buyer, seller, driver, ...systemPages, orderId, deliveryId, pickupResult, image: pngReceipt() })
+      await runSystemBusiness({ audit: systemAudit, origin, prefix, password, fixture, buyer, seller, driver, ...systemPages, orderId, deliveryId, pickupResult, image: pngReceipt() })
+      await buyerReopensOrder(buyer, pickupResult.orderId)
+      await systemAudit.record('C06', 'Đạt', 'UI + API/DB', `Seller chấp nhận Order#${orderId} trước D03; race với hủy cần diagnostic riêng`)
+      await systemAudit.bug('C07', 'Thiếu đường bàn giao tự đến lấy', `PICKUP#${pickupResult.orderId} PAID, fee=0, không Delivery/OTP; UI không có bàn giao để D06 đủ điều kiện, policy ${pickupResult.blocked}`)
+      await systemAudit.record('C07', 'Lỗi', 'UI + API/DB', `Giao hàng Order#${orderId} chuẩn bị -> Delivery#${deliveryId} thành công; PICKUP#${pickupResult.orderId} bị chặn ở bàn giao`)
+      for (const code of ['D01','D02','D03','D04','D05','D06','D07','D08','D09','D11','D12','D13']) await systemAudit.record(code, 'Đạt', 'UI + API/DB', `Main Order#${orderId}, Delivery#${deliveryId}; nhánh PICKUP#${pickupResult.orderId} bàn giao C07 còn bị chặn`)
+    }
+    stage = 'session expires while driver profile form is submitted'
+    await driver.setViewportSize({ width: 1440, height: 1100 })
+    await driver.getByRole('link', { name: 'Chuyến tài xế', exact: true }).first().click()
+    await driver.getByRole('link', { name: 'Hồ sơ tài xế', exact: true }).click()
+    const areaBefore = (await links.read({})).driver.profile.area
+    await driver.locator('#driver-ServiceArea').fill(areaBefore + ' EXPIRED')
+    const activeToken = await driver.evaluate(() => localStorage.getItem('accessToken')), [h, p] = activeToken.split('.')
+    const oldClaims = JSON.parse(Buffer.from(p, 'base64url').toString()), content = h + '.' + Buffer.from(JSON.stringify({ ...oldClaims, exp: 1 })).toString('base64url')
+    const expired = content + '.' + createHmac('sha256', 'd13-browser-isolated-test-no-real-users').update(content).digest('base64url')
+    await driver.route('**/api/v1/driver/profile', route => route.request().method() === 'PATCH' ? route.continue({ headers: { ...route.request().headers(), authorization: `Bearer ${expired}` } }) : route.continue())
+    const rejectedSave = driver.waitForResponse(r => r.url().endsWith('/api/v1/driver/profile') && r.request().method() === 'PATCH')
+    await driver.getByRole('button', { name: 'Lưu hồ sơ', exact: true }).click()
+    assert.equal((await rejectedSave).status(), 401)
+    await driver.waitForURL(/\/login\?returnTo=/)
+    assert.equal((await links.read({})).driver.profile.area, areaBefore)
+    assert.equal(await driver.locator('#driver-ServiceArea').count(), 0)
+    console.log('PASS ACCEPTANCE expired form: actual backend 401 on profile save, DB unchanged, login shown and prior form removed')
+  }
   if (linked) {
     stage = 'cross-tab identity change clears prior D order data'
+    const privateTitle = acceptance ? fixture.pickupTitle : fixture.title
+    assert.ok(await buyer.getByRole('main').getByText(privateTitle, { exact: false }).count())
     const switchTab = await buyerContext.newPage()
     await login(switchTab, 'outsider', '/')
     assert.equal((await links.api(buyer, `/api/v1/orders/${orderId}/tracking`)).status(), 403)
-    await buyer.waitForFunction(title => !document.querySelector('main')?.textContent.includes(title), fixture.title, { timeout: 3000 })
+    await buyer.waitForFunction(title => !document.querySelector('main')?.textContent.includes(title), privateTitle, { timeout: 3000 })
     console.log('PASS LINK session: another tab logged into outsider; prior D order data removed and API ownership denied')
     const liveToken = await switchTab.evaluate(() => localStorage.getItem('accessToken'))
     const [header, payload] = liveToken.split('.'), claims = JSON.parse(Buffer.from(payload, 'base64url').toString())
@@ -340,9 +450,16 @@ try {
     assert.equal(rejected.status(), 401); assert.equal((await rejected.json()).code, 'TOKEN_EXPIRED')
     await switchTab.evaluate(token => localStorage.setItem('accessToken', token), expiredToken)
     await buyer.waitForURL(/\/login\?returnTo=/)
-    assert.equal(await buyer.locator('main').getByText(fixture.title, { exact: false }).count(), 0)
+    assert.equal(await buyer.locator('main').getByText(privateTitle, { exact: false }).count(), 0)
     console.log('PASS LINK expired fixture JWT: backend TOKEN_EXPIRED 401, D redirects login and clears old data; no business state advanced')
     await switchTab.close()
+  }
+  if (acceptance) {
+    const target = path.join(root, `frontend/test-results/d-acceptance-${process.env.D_LINK_RECEIVING || 'bank'}.json`)
+    const evidence = JSON.parse(await readFile(target, 'utf8'))
+    evidence.network = network; evidence.browserSuiteComplete = true
+    evidence.sessionTests = { expiredForm401NoWrite: true, crossTabOldDataRemoved: true, expiredJwt401: true }
+    await writeFile(target, JSON.stringify(evidence, null, 2))
   }
   if (process.env.D_QUALITY_TEST === 'true') {
     await buyer.unroute('**/api/v1/orders')
@@ -376,5 +493,5 @@ try {
     console.log('PASS D quality: D01 lost-response same key, D02 PICKUP cancellation, large decimal/mobile long text; ocean/violet + amber contrast; D04 native focus trap/Escape/restore; theme persists across pages/reload. Screenshots redact/no OTP.')
   }
   console.log(`PASS D13 production UI ${origin}: buyer/driver tách phiên, explicit OTP/cooldown, thiếu proof/checkbox, D08 code sai, lost response retry một key, D05 ảnh private → D06 COMPLETED, refresh đúng trạng thái, không JS error.`)
-} catch (error) { console.error(`D13 production UI failed (${stage}):`, error.name, error.message); process.exitCode = 1 }
+} catch (error) { if (systemAudit) await systemAudit.record('FLOW', 'Bị chặn', 'UI', `${stage}: ${error.name} ${String(error.message).replace(/\b\d{6}\b/g, '[code]').slice(0, 800)}`); console.error(`D13 production UI failed (${stage}):`, error.name, error.message); process.exitCode = 1 }
 finally { if (browser) await browser.close(); if (server) { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)) } if (child) child.kill() }

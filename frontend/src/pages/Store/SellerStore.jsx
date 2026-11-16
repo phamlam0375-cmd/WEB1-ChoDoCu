@@ -157,10 +157,6 @@ export default function SellerStore() {
         Number.isFinite(latitude) &&
         Number.isFinite(longitude);
 
-    const isActive =
-        String(store.Status || "").toUpperCase() ===
-        "ACTIVE";
-
     return (
         <>
             <Header />
@@ -171,7 +167,6 @@ export default function SellerStore() {
                         <div className="lg:col-span-2">
                             <StoreInformation
                                 store={store}
-                                isActive={isActive}
                             />
                             <StoreMap
                                 store={store}

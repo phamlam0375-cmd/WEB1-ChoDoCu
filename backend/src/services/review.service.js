@@ -89,8 +89,8 @@ async function listOrderReviews(orderId, userId) {
     return Reviews.findAll({
         where: { OrderId: orderId },
         include: [
-            { model: Users, as: 'reviewer', attributes: ['UserId', 'FullName', 'AvatarUrl'] },
-            { model: Users, as: 'target', attributes: ['UserId', 'FullName', 'AvatarUrl'] }
+            { association: Reviews.associations.Reviewer, attributes: ['UserId', 'FullName', 'AvatarUrl'] },
+            { association: Reviews.associations.Target, attributes: ['UserId', 'FullName', 'AvatarUrl'] }
         ],
         order: [['CreatedAt', 'ASC']]
     });

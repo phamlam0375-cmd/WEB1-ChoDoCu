@@ -4,8 +4,8 @@ import { useAuth } from '../hooks/useAuth'
 import { rememberPostLoginUrl } from '../lib/auth'
 import { ErrorState, Loading } from './admin/AdminUi'
 
-export default function RequireSession() {
-  const { status, error, retry, signedOutHere } = useAuth()
+export default function RequireSession({ allowedRoles }) {
+  const { status, user, error, retry, signedOutHere } = useAuth()
   const location = useLocation()
   const returnTo = `${location.pathname}${location.search}${location.hash}`
   useEffect(() => { if (status === 'guest' && !signedOutHere) rememberPostLoginUrl(returnTo) }, [status, returnTo, signedOutHere])
@@ -13,5 +13,8 @@ export default function RequireSession() {
   if (status === 'error') return <ErrorState message={error || 'Chưa kiểm tra được phiên đăng nhập.'} onRetry={retry} />
   if (status === 'guest' && signedOutHere) return <Navigate to="/" replace />
   if (status === 'guest') return <Navigate to={`/login?returnTo=${encodeURIComponent(returnTo)}`} replace state={{ from: returnTo }} />
+  if (allowedRoles?.length && !allowedRoles.some((role) => user?.roles?.includes(role) || user?.Roles?.some((item) => item.RoleName === role))) {
+    return <Navigate to="/" replace />
+  }
   return <Outlet />
 }

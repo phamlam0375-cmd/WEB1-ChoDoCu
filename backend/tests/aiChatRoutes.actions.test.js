@@ -115,6 +115,24 @@ test('trợ lý tìm món đắt nhất theo giá tin đăng', async () => {
   assert.match(response.body.reply, /15\.000\.000đ/);
 });
 
+test('trợ lý hiển thị tất cả tin công khai phù hợp, kể cả tin đã đặt và đã bán', async () => {
+  const listings = Array.from({ length: 507 }, (_, index) =>
+    listing(
+      index + 1,
+      `Điện thoại mẫu ${index + 1}`,
+      1000000 + index * 10000,
+      index === 1 ? 'RESERVED' : index === 2 ? 'SOLD' : 'ACTIVE'
+    )
+  );
+
+  const response = await postChat('Tìm điện thoại', listings);
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.products.length, listings.length);
+  assert.match(response.body.reply, /Đang có người đặt/);
+  assert.match(response.body.reply, /Đã bán/);
+});
+
 test('trợ lý so sánh giá, tình trạng và trạng thái từ hai tin đăng thật', async () => {
   const samsung = listing(2, 'Samsung A52', 2500000, 'RESERVED');
   samsung.ConditionLevel = 'FAIR';

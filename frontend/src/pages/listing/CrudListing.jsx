@@ -343,7 +343,7 @@ export default function CrudListing() {
 
                                     <div>
                                         <p className="font-bold text-emerald-700">
-                                            {Number(item.Price)}
+                                            {Number(item.Price).toLocaleString("vi-VN")} VNĐ
                                         </p>
                                     </div>
 

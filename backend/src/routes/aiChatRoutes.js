@@ -1053,18 +1053,25 @@ router.post('/chat', async (req, res) => {
       );
     }
 
-    const candidates = await Listings.findAll({
-      where,
-      attributes: LISTING_ATTRIBUTES,
-      order: [['Price', 'ASC']],
-      limit: 1000
-    });
+    const products = [];
+    const pageSize = 500;
+    let offset = 0;
+    let batch;
 
-    const products = candidates
-      .filter(product =>
-        matchProduct(product, keyword)
-      )
-      .slice(0, 5);
+    do {
+      batch = await Listings.findAll({
+        where,
+        attributes: LISTING_ATTRIBUTES,
+        order: [['Price', 'ASC'], ['ListingId', 'ASC']],
+        limit: pageSize,
+        offset,
+      });
+
+      products.push(
+        ...batch.filter(product => matchProduct(product, keyword))
+      );
+      offset += pageSize;
+    } while (batch.length === pageSize);
 
     if (!products.length) {
       return reply(

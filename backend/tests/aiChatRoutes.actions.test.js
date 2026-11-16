@@ -133,6 +133,27 @@ test('trợ lý hiển thị mọi tin công khai phù hợp khi hỏi món còn
   assert.match(response.body.reply, /Đã bán/);
 });
 
+test('trợ lý liệt kê toàn bộ tin công khai khi người dùng yêu cầu danh sách chung', async () => {
+  const statuses = [
+    ...Array(6).fill('ACTIVE'),
+    ...Array(7).fill('RESERVED'),
+    ...Array(5).fill('SOLD'),
+    ...Array(4).fill('PENDING'),
+  ];
+  const listings = statuses.map((status, index) =>
+    listing(index + 1, `Sản phẩm mẫu ${index + 1}`, 100000 + index, status)
+  );
+
+  const response = await postChat('Cho tôi xem tất cả sản phẩm', listings);
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.products.length, 18);
+  assert.match(response.body.reply, /Đang bán/);
+  assert.match(response.body.reply, /Đang có người đặt/);
+  assert.match(response.body.reply, /Đã bán/);
+  assert.doesNotMatch(response.body.reply, /Chờ duyệt/);
+});
+
 test('trợ lý so sánh giá, tình trạng và trạng thái từ hai tin đăng thật', async () => {
   const samsung = listing(2, 'Samsung A52', 2500000, 'RESERVED');
   samsung.ConditionLevel = 'FAIR';

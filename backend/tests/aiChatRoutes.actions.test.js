@@ -115,7 +115,7 @@ test('trợ lý tìm món đắt nhất theo giá tin đăng', async () => {
   assert.match(response.body.reply, /15\.000\.000đ/);
 });
 
-test('trợ lý hiển thị tất cả tin công khai phù hợp, kể cả tin đã đặt và đã bán', async () => {
+test('trợ lý hiển thị mọi tin công khai phù hợp khi hỏi món còn hàng', async () => {
   const listings = Array.from({ length: 507 }, (_, index) =>
     listing(
       index + 1,
@@ -125,7 +125,7 @@ test('trợ lý hiển thị tất cả tin công khai phù hợp, kể cả tin
     )
   );
 
-  const response = await postChat('Tìm điện thoại', listings);
+  const response = await postChat('Có những điện thoại còn hàng?', listings);
 
   assert.equal(response.status, 200);
   assert.equal(response.body.products.length, listings.length);

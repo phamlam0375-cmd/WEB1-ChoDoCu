@@ -993,12 +993,6 @@ router.post('/chat', async (req, res) => {
         );
       }
 
-      if (availability !== 'ANY') {
-        const requestedStatuses = availability === 'UNAVAILABLE'
-          ? ['RESERVED', 'SOLD']
-          : ['ACTIVE'];
-        where.Status = { [Op.in]: requestedStatuses };
-      }
       if (!keyword && !seller) {
         return reply(
           availability === 'UNAVAILABLE'
@@ -1086,11 +1080,7 @@ router.post('/chat', async (req, res) => {
       : seller
       ? `Sản phẩm của ${seller.FullName}:`
       : intent === 'AVAILABILITY'
-      ? availability === 'UNAVAILABLE'
-        ? 'Các sản phẩm đã có người đặt hoặc đã bán:'
-        : availability === 'AVAILABLE'
-        ? 'Các sản phẩm đang còn hàng:'
-        : 'Các tin phù hợp; trạng thái hiển thị bên dưới:'
+      ? 'Các tin phù hợp; trạng thái hiện tại hiển thị bên dưới:'
       : 'Mình tìm thấy các sản phẩm phù hợp:';
 
     const conditionOptions = await getConditionOptions(products);

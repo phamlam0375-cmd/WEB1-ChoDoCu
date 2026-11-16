@@ -15,6 +15,12 @@ const { badRequest, conflict, forbidden, notFound } = require('../utils/httpErro
 const DEFAULT_DURATION_MINUTES = 7 * 24 * 60;
 const CREDIT_VALUE_VND = 1000;
 
+const findExistingPromotionOrder = (sellerId, idempotencyKey) =>
+  PromotionOrders.findOne({
+    where: { BuyerId: sellerId, IdempotencyKey: idempotencyKey },
+    include: [{ model: ListingPromotions, as: 'items' }],
+  });
+
 const getOwnedListing = async (listingId, sellerId, transaction) => {
   const listing = await Listings.findOne({
     where: { ListingId: listingId },
@@ -172,20 +178,29 @@ async function promoteListing(sellerId, listingId, { idempotencyKey, durationMin
     throw badRequest('Idempotency key không được vượt quá 100 ký tự.');
   }
 
-  return sequelize.transaction(async (transaction) => {
-    if (normalizedKey) {
-      const existing = await PromotionOrders.findOne({
-        where: { BuyerId: sellerId, IdempotencyKey: normalizedKey },
-        include: [{ model: ListingPromotions, as: 'items' }],
-        transaction,
-      });
-      if (existing) return existing;
-    }
+  try {
+    return await sequelize.transaction(async (transaction) => {
+      if (normalizedKey) {
+        const existing = await PromotionOrders.findOne({
+          where: { BuyerId: sellerId, IdempotencyKey: normalizedKey },
+          include: [{ model: ListingPromotions, as: 'items' }],
+          transaction,
+        });
+        if (existing) {
+          const wallet = await UserCredits.findOne({ where: { UserId: sellerId }, transaction });
+          return {
+            order: existing,
+            promotion: existing.items?.[0] || null,
+            balance: wallet ? Number(wallet.Balance) : 0,
+            creditUsed: Number(existing.TotalCredit),
+          };
+        }
+      }
 
-    const listing = await getOwnedListing(listingId, sellerId, transaction);
-    if (listing.Status !== 'ACTIVE') {
-      throw conflict('Chỉ có thể đẩy tin đang hoạt động lên VIP.');
-    }
+      const listing = await getOwnedListing(listingId, sellerId, transaction);
+      if (listing.Status !== 'ACTIVE') {
+        throw conflict('Chỉ có thể đẩy tin đang hoạt động lên VIP.');
+      }
 
     const now = new Date();
     const activePromotion = await ListingPromotions.findOne({
@@ -255,13 +270,28 @@ async function promoteListing(sellerId, listingId, { idempotencyKey, durationMin
       DurationMinutes: cost.durationMinutes,
     }, { transaction });
 
-    return {
-      order,
-      promotion,
-      balance: nextBalance,
-      creditUsed: cost.creditUsed,
-    };
-  });
+      return {
+        order,
+        promotion,
+        balance: nextBalance,
+        creditUsed: cost.creditUsed,
+      };
+    });
+  } catch (error) {
+    if (error.name === 'SequelizeUniqueConstraintError' && normalizedKey) {
+      const existing = await findExistingPromotionOrder(sellerId, normalizedKey);
+      if (existing) {
+        const wallet = await UserCredits.findOne({ where: { UserId: sellerId } });
+        return {
+          order: existing,
+          promotion: existing.items?.[0] || null,
+          balance: wallet ? Number(wallet.Balance) : 0,
+          creditUsed: Number(existing.TotalCredit),
+        };
+      }
+    }
+    throw error;
+  }
 }
 
 async function promoteListings(sellerId, listingIds, { idempotencyKey, durationMinutes } = {}) {
@@ -272,15 +302,23 @@ async function promoteListings(sellerId, listingIds, { idempotencyKey, durationM
   }
   const normalizedKey = typeof idempotencyKey === 'string' ? idempotencyKey.trim() : '';
 
-  return sequelize.transaction(async (transaction) => {
-    if (normalizedKey) {
-      const existing = await PromotionOrders.findOne({
-        where: { BuyerId: sellerId, IdempotencyKey: normalizedKey },
-        include: [{ model: ListingPromotions, as: 'items' }],
-        transaction,
-      });
-      if (existing) return existing;
-    }
+  try {
+    return await sequelize.transaction(async (transaction) => {
+      if (normalizedKey) {
+        const existing = await PromotionOrders.findOne({
+          where: { BuyerId: sellerId, IdempotencyKey: normalizedKey },
+          include: [{ model: ListingPromotions, as: 'items' }],
+          transaction,
+        });
+        if (existing) {
+          const wallet = await UserCredits.findOne({ where: { UserId: sellerId }, transaction });
+          return {
+            order: existing,
+            balance: wallet ? Number(wallet.Balance) : 0,
+            creditUsed: Number(existing.TotalCredit),
+          };
+        }
+      }
 
     const now = new Date();
     const listings = [];
@@ -348,8 +386,22 @@ async function promoteListings(sellerId, listingIds, { idempotencyKey, durationM
       DurationMinutes: cost.durationMinutes,
     })), { transaction });
 
-    return { order, balance: nextBalance, creditUsed: totalCredit };
-  });
+      return { order, balance: nextBalance, creditUsed: totalCredit };
+    });
+  } catch (error) {
+    if (error.name === 'SequelizeUniqueConstraintError' && normalizedKey) {
+      const existing = await findExistingPromotionOrder(sellerId, normalizedKey);
+      if (existing) {
+        const wallet = await UserCredits.findOne({ where: { UserId: sellerId } });
+        return {
+          order: existing,
+          balance: wallet ? Number(wallet.Balance) : 0,
+          creditUsed: Number(existing.TotalCredit),
+        };
+      }
+    }
+    throw error;
+  }
 }
 
 module.exports = {

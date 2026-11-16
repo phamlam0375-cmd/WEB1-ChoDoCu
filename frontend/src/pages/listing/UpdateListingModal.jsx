@@ -43,7 +43,12 @@ export default function UpdateListingModal({ listing, onClose, onSubmit, loading
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        onSubmit({ ListingId: listing.ListingId, ...formData, Price: Number(formData.Price) });
+        onSubmit({
+            ListingId: listing.ListingId,
+            UpdatedAt: listing.UpdatedAt || listing.CreatedAt,
+            ...formData,
+            Price: Number(formData.Price),
+        });
     };
 
     return (

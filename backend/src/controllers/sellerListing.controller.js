@@ -232,7 +232,6 @@ const updateListing = async (req, res) => {
             });
         }
 
-
         const validationResult = updateListingSchema.safeParse(req.body || {});
         if (!validationResult.success) {
             return res.status(400).json({
@@ -242,7 +241,15 @@ const updateListing = async (req, res) => {
             });
         }
 
-        const updateData = validationResult.data;
+        const { UpdatedAt: expectedUpdatedAt, ...updateData } = validationResult.data;
+        const currentUpdatedAt = listing.UpdatedAt || listing.CreatedAt;
+        if (!currentUpdatedAt || new Date(expectedUpdatedAt).getTime() !== new Date(currentUpdatedAt).getTime()) {
+            return res.status(409).json({
+                success: false,
+                message: "Tin đăng đã được cập nhật ở nơi khác. Dữ liệu của bạn đã cũ",
+            });
+        }
+
         if (updateData.CategoryId !== undefined) {
             const category = await Categories.findOne({
                 where: { CategoryId: updateData.CategoryId, Status: "ACTIVE" },
@@ -278,6 +285,7 @@ const updateListing = async (req, res) => {
             updateData.Status = "PENDING";
             updateData.ModerationNote = null;
         }
+        if (changed) updateData.UpdatedAt = new Date();
 
         const updated = await listing.update(updateData);
         return res.status(200).json({

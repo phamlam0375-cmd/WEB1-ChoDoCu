@@ -26,8 +26,10 @@ const createListingSchema = z.object({
   Location: optionalText(255),
 });
 
-const updateListingSchema = createListingSchema.partial().refine(
-  (data) => Object.keys(data).length > 0,
+const updateListingSchema = createListingSchema.partial().extend({
+  UpdatedAt: z.string().datetime({ offset: true }),
+}).refine(
+  (data) => Object.keys(data).some((key) => key !== "UpdatedAt"),
   "Vui lòng nhập ít nhất một trường cần cập nhật",
 );
 

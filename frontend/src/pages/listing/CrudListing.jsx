@@ -176,7 +176,16 @@ export default function CrudListing() {
             setVipInfo(vipResponse.data);
         }
         catch (error) {
-            console.error("Loi cap nhat ", error)
+            if (error?.response?.status === 409) {
+                toast.warning(errorMessage(error));
+                setOpenUpdate(false);
+                setSelectedListing(null);
+                const res = await getStoreListing(storeId, page, 10);
+                setListing(res.data);
+                setTotalPages(res.pagination.totalPages);
+                return;
+            }
+            toast.error(errorMessage(error));
         }
     }
 

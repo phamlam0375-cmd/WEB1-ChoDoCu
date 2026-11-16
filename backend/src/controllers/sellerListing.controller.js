@@ -105,7 +105,15 @@ const getAllListingStore = async (req, res) => {
                 order: [["SortOrder", "ASC"]],
             }],
             order: [
-                [Sequelize.literal("CASE WHEN Status = 'SOLD' THEN 1 ELSE 0 END"), "ASC"],
+                [Sequelize.literal(`
+                    CASE Status
+                        WHEN 'ACTIVE' THEN 0
+                        WHEN 'PENDING' THEN 1
+                        WHEN 'RESERVED' THEN 2
+                        WHEN 'SOLD' THEN 3
+                        ELSE 4
+                    END
+                `), "ASC"],
                 ["createdAt", "ASC"],
             ],
             limit,
@@ -229,6 +237,14 @@ const updateListing = async (req, res) => {
             return res.status(403).json({
                 success: false,
                 message: "Bạn không có quyền sửa sản phẩm này",
+            });
+        }
+        if (["RESERVED", "SOLD"].includes(listing.Status)) {
+            return res.status(409).json({
+                success: false,
+                message: listing.Status === "SOLD"
+                    ? "Không thể sửa tin đã bán"
+                    : "Không thể sửa tin đã được đặt",
             });
         }
 

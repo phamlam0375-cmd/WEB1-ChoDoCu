@@ -11,6 +11,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 
 import Header from "../../components/Header";
 import UpdateListingModal from "./UpdateListingModal";
+import ListingDetailModal from "./ListingDetailModal";
 import { errorMessage } from "../../lib/api";
 import { getStoreByOwnerId } from "../../services/storeApi";
 import { toast } from "react-toastify";
@@ -22,6 +23,7 @@ export default function CrudListing() {
     const setListing = useListingStore((state) => state.setListing);
     const [openUpdate, setOpenUpdate] = useState(false);
     const [selectedListing, setSelectedListing] = useState(null);
+    const [selectedDetailListing, setSelectedDetailListing] = useState(null);
 
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
@@ -275,9 +277,9 @@ export default function CrudListing() {
                         </div>
                     )}
 
-                    <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+                    <div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm">
                         <div
-                            className="grid grid-cols-[2.8fr_1.2fr_1fr_1.2fr_1fr]  items-center gap-4 border-b border-emerald-100/60 bg-emerald-50/60 px-6 py-3.5  text-xs font-bold uppercase tracking-wider text-emerald-800 " >
+                            className="grid min-w-[1050px] grid-cols-[minmax(0,2.8fr)_1.2fr_1fr_1.2fr_minmax(190px,1fr)] items-center gap-4 border-b border-emerald-100/60 bg-emerald-50/60 px-6 py-3.5 text-xs font-bold uppercase tracking-wider text-emerald-800" >
                             <span className="flex items-center gap-2">
                                 <input
                                     type="checkbox"
@@ -299,7 +301,7 @@ export default function CrudListing() {
 
                         <div className="divide-y divide-slate-100">
                             {listing.map((item) => (
-                                <div key={item.ListingId} className=" grid grid-cols-[2.8fr_1.2fr_1fr_1.2fr_1fr] items-center gap-4 px-6 py-4.5 transition-colors duration-150 hover:bg-emerald-50/20">
+                                <div key={item.ListingId} className="grid min-w-[1050px] grid-cols-[minmax(0,2.8fr)_1.2fr_1fr_1.2fr_minmax(190px,1fr)] items-center gap-4 px-6 py-4.5 transition-colors duration-150 hover:bg-emerald-50/20">
                                     <div className="min-w-0 pr-2">
                                         <div className="flex items-start gap-2">
                                             <input
@@ -311,9 +313,14 @@ export default function CrudListing() {
                                                 className="mt-1"
                                             />
                                             <div className="min-w-0">
-                                        <h3 className="truncate font-semibold text-slate-900">
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedDetailListing(item)}
+                                            className="block max-w-full truncate text-left font-semibold text-slate-900 transition-colors hover:text-emerald-700 hover:underline"
+                                            aria-label={`Xem sản phẩm ${item.Title}`}
+                                        >
                                             {item.Title}
-                                        </h3>
+                                        </button>
 
                                         <p className="mt-0.5 truncate text-sm text-slate-500">
                                             {item.Description}
@@ -355,13 +362,13 @@ export default function CrudListing() {
                                         </span>
                                     </div>
 
-                                    <div className="flex items-center justify-end gap-3">
+                                    <div className="flex items-center justify-end gap-2 whitespace-nowrap">
                                         <button
                                             type="button"
                                             disabled={vipBusy === item.ListingId || item.Status !== "ACTIVE" || Boolean(getPromotion(item))}
                                             onClick={() => handlePromote(item)}
                                             title={getPromotion(item) ? "Tin đang VIP" : "Đẩy tin lên VIP trong 7 ngày"}
-                                            className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 transition hover:border-amber-300 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                            className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 transition hover:border-amber-300 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
                                         >
                                             {vipBusy === item.ListingId
                                                 ? <Loader2 size={14} className="animate-spin" />
@@ -369,8 +376,21 @@ export default function CrudListing() {
                                             {getPromotion(item) ? "Đang VIP" : "Đẩy VIP"}
                                         </button>
                                         <button
-                                            className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 shadow-2xs transition hover:border-emerald-300 hover:bg-emerald-100"
+                                            type="button"
+                                            className="shrink-0 whitespace-nowrap rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 shadow-2xs transition hover:border-emerald-300 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                            disabled={["RESERVED", "SOLD"].includes(item.Status)}
+                                            title={item.Status === "SOLD"
+                                                ? "Không thể sửa tin đã bán"
+                                                : item.Status === "RESERVED"
+                                                    ? "Không thể sửa tin đã được đặt"
+                                                    : "Sửa sản phẩm"}
                                             onClick={() => {
+                                                if (["RESERVED", "SOLD"].includes(item.Status)) {
+                                                    toast.warning(item.Status === "SOLD"
+                                                        ? "Không thể sửa tin đã bán"
+                                                        : "Không thể sửa tin đã được đặt");
+                                                    return;
+                                                }
                                                 setSelectedListing(item);
                                                 setOpenUpdate(true);
                                             }}
@@ -539,6 +559,10 @@ export default function CrudListing() {
                     onSubmit={handleUpdate}
                 />
             }
+            <ListingDetailModal
+                listing={selectedDetailListing}
+                onClose={() => setSelectedDetailListing(null)}
+            />
         </>
     );
 }

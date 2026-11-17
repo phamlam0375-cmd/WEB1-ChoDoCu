@@ -2,7 +2,7 @@
 const express = require('express');
 const multer = require('multer');
 const controller = require('../../controllers/D03_ThanhToan/payment.controller');
-const { requireAuth, withD01Demo } = require('../../middlewares/auth.middleware');
+const { requireTokenAuth } = require('../../middlewares/auth.middleware');
 const { MAX_BYTES, INVALID_IMAGE_MESSAGE } = require('../../controllers/uploads.controller');
 const { HttpError } = require('../../utils/httpError');
 
@@ -13,6 +13,6 @@ const proofUpload = (req, res, next) => upload(req, res, error => {
   return next(new HttpError(error.code === 'LIMIT_FILE_SIZE' ? 413 : 400, error.code === 'LIMIT_FILE_SIZE' ? INVALID_IMAGE_MESSAGE : 'Chỉ gửi một ảnh biên lai và số tiền hợp lệ.', null, 'INVALID_PROOF'));
 });
 
-router.get('/:id/payment-info', withD01Demo(requireAuth), controller.getPaymentInfo);
-router.post('/:id/payment-notice', withD01Demo(requireAuth), proofUpload, controller.reportPayment);
+router.get('/:id/payment-info', requireTokenAuth, controller.getPaymentInfo);
+router.post('/:id/payment-notice', requireTokenAuth, proofUpload, controller.reportPayment);
 module.exports = router;

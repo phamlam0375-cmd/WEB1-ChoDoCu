@@ -245,7 +245,7 @@ function OrderCreateContent() {
     })
   }, [nowMs, success])
 
-  const validate = () => {
+  const validate = (field) => {
     const nextErrors = {}
     if (!form.receiverName.trim()) nextErrors.receiverName = 'Vui lòng nhập họ tên người nhận.'
     if (!form.receiverPhone.trim()) nextErrors.receiverPhone = 'Vui lòng nhập số điện thoại.'
@@ -257,7 +257,8 @@ function OrderCreateContent() {
     if (form.deliveryMethod === 'DELIVERY' && !quoteValid) {
       nextErrors.deliveryQuote = 'Vui lòng tính lại phí giao hàng trước khi đặt.'
     }
-    setErrors(nextErrors)
+    if (field) setErrors(current => ({ ...current, [field]: nextErrors[field] || '' }))
+    else setErrors(nextErrors)
     return Object.keys(nextErrors).length === 0
   }
 
@@ -559,12 +560,12 @@ function OrderCreateContent() {
             <div className="mt-5 grid gap-5 sm:grid-cols-2">
               <label className="block text-sm font-bold text-slate-700" htmlFor="receiver-name">
                 Họ và tên người nhận <span className="text-rose-600">*</span>
-                <input id="receiver-name" disabled={submitting || uncertainOrder} value={form.receiverName} onChange={(event) => updateField('receiverName', event.target.value)} className={inputClass} maxLength={100} autoComplete="name" aria-invalid={Boolean(errors.receiverName)} aria-describedby={errors.receiverName ? 'receiver-name-error' : undefined} />
+                <input id="receiver-name" disabled={submitting || uncertainOrder} value={form.receiverName} onChange={(event) => updateField('receiverName', event.target.value)} onBlur={() => validate('receiverName')} className={inputClass} maxLength={100} autoComplete="name" aria-invalid={Boolean(errors.receiverName)} aria-describedby={errors.receiverName ? 'receiver-name-error' : undefined} />
                 <FieldError id="receiver-name-error">{errors.receiverName}</FieldError>
               </label>
               <label className="block text-sm font-bold text-slate-700" htmlFor="receiver-phone">
                 Số điện thoại <span className="text-rose-600">*</span>
-                <input id="receiver-phone" disabled={submitting || uncertainOrder} type="tel" value={form.receiverPhone} onChange={(event) => updateField('receiverPhone', event.target.value)} className={inputClass} maxLength={15} autoComplete="tel" aria-invalid={Boolean(errors.receiverPhone)} aria-describedby={errors.receiverPhone ? 'receiver-phone-error' : undefined} />
+                <input id="receiver-phone" disabled={submitting || uncertainOrder} type="tel" value={form.receiverPhone} onChange={(event) => updateField('receiverPhone', event.target.value)} onBlur={() => validate('receiverPhone')} className={inputClass} maxLength={15} autoComplete="tel" aria-invalid={Boolean(errors.receiverPhone)} aria-describedby={errors.receiverPhone ? 'receiver-phone-error' : undefined} />
                 <FieldError id="receiver-phone-error">{errors.receiverPhone}</FieldError>
               </label>
             </div>
@@ -588,7 +589,7 @@ function OrderCreateContent() {
               <div className="mt-5">
                 <label className="block text-sm font-bold text-slate-700" htmlFor="receiver-address">
                   Địa chỉ nhận hàng <span className="text-rose-600">*</span>
-                  <input id="receiver-address" disabled={submitting || uncertainOrder} value={form.receiverAddress} onChange={(event) => updateField('receiverAddress', event.target.value)} className={inputClass} maxLength={255} autoComplete="street-address" aria-invalid={Boolean(errors.receiverAddress)} aria-describedby={errors.receiverAddress ? 'receiver-address-error' : undefined} />
+                  <input id="receiver-address" disabled={submitting || uncertainOrder} value={form.receiverAddress} onChange={(event) => updateField('receiverAddress', event.target.value)} onBlur={() => validate('receiverAddress')} className={inputClass} maxLength={255} autoComplete="street-address" aria-invalid={Boolean(errors.receiverAddress)} aria-describedby={errors.receiverAddress ? 'receiver-address-error' : undefined} />
                   <FieldError id="receiver-address-error">{errors.receiverAddress}</FieldError>
                 </label>
                 {!preview.delivery.available ? (

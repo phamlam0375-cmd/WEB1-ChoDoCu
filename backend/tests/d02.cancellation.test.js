@@ -141,16 +141,16 @@ test('D02 lỗi notification rollback; conditional update thất bại/deadlock 
 });
 
 test('D02 production route thật: demo scoped/ownership, no demo off, không mở admin/refund', async t => {
-  const keys = ['NODE_ENV', 'AUTH_DEV_HEADER', 'D01_DEMO_MODE', 'D01_DEMO_USER_ID'];
+  const keys = ['NODE_ENV', 'AUTH_DEV_HEADER', 'D01_DEMO_MODE', 'D01_DEMO_USER_ID', 'JWT_SECRET'];
   const saved = Object.fromEntries(keys.map(k => [k, process.env[k]]));
-  Object.assign(process.env, { NODE_ENV: 'production', AUTH_DEV_HEADER: 'false', D01_DEMO_MODE: 'true', D01_DEMO_USER_ID: '71' });
+  Object.assign(process.env, { NODE_ENV: 'production', AUTH_DEV_HEADER: 'false', D01_DEMO_MODE: 'true', D01_DEMO_USER_ID: '71', JWT_SECRET: 'd02-route-unit-only' });
   t.after(() => { for (const [k, v] of Object.entries(saved)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; } });
   t.mock.method(models.Users, 'findByPk', async () => ({ ...buyer, Status: 'ACTIVE', Roles: [{ RoleName: 'USER' }] }));
   const f = fixture();
   for (const key of Object.keys(f.repository)) t.mock.method(actualRepository, key, f.repository[key]);
   const server = app.listen(0, '127.0.0.1'); await new Promise(resolve => server.once('listening', resolve));
   t.after(() => new Promise(resolve => server.close(resolve)));
-  async function request(path, method = 'GET', body, headers = { 'x-d01-demo': 'true', 'x-user-id': '2' }) {
+  async function request(path, method = 'GET', body, headers = { authorization: require('./helpers/d-jwt')(71) }) {
     const r = await fetch(`http://127.0.0.1:${server.address().port}${path}`, { method, headers: { ...headers, 'content-type': 'application/json' }, ...(body ? { body: JSON.stringify(body) } : {}) });
     return { status: r.status, body: await r.json() };
   }
@@ -160,10 +160,10 @@ test('D02 production route thật: demo scoped/ownership, no demo off, không m�
   assert.equal((await request('/api/v1/orders/91/cancel', 'PATCH', { reason: 'Retry' })).body.data.alreadyCancelled, true);
   f.state.order.BuyerId = 99;
   assert.equal((await request('/api/v1/orders/91/cancellation-preview')).status, 403);
-  for (const path of ['/api/v1/admin/users', '/api/v1/me']) assert.equal((await request(path)).status, 401);
-  assert.equal((await request('/api/v1/orders/91/refund-requests', 'POST', { reason: 'Khác' })).status, 401);
+  for (const path of ['/api/v1/admin/users', '/api/v1/me']) assert.equal((await request(path, 'GET', undefined, { 'x-d01-demo': 'true' })).status, 401);
+  assert.equal((await request('/api/v1/orders/91/refund-requests', 'POST', { reason: 'Khác' }, { 'x-d01-demo': 'true' })).status, 401);
   process.env.D01_DEMO_MODE = 'false';
-  assert.equal((await request('/api/v1/orders/91/cancel', 'PATCH', { reason: 'Test' })).status, 401);
+  assert.equal((await request('/api/v1/orders/91/cancel', 'PATCH', { reason: 'Test' }, { 'x-d01-demo': 'true' })).status, 401);
 });
 
 test('D01 job repository chặn REPORTED/CONFIRMED/unknown payment và delivery', async t => {

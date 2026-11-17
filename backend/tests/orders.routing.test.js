@@ -90,10 +90,11 @@ test('preview JWT o hai prefix den controller/service that va tra contract front
   assert.deepEqual(previewLookup.mock.calls.map((call) => call.arguments[0]), [1, 1]);
 });
 
-test('v1 giu auth dev co dieu kien va dung ho so DB, khong gan ID 2', async (t) => {
+test('v1 chặn header dev, JWT lấy đúng hồ sơ DB', async (t) => {
   const { request } = await fixture(t);
   const headers = { 'x-user-id': String(buyer.UserId) };
-  assert.equal((await request('/api/v1/orders/preview/1', headers)).status, 200);
+  assert.equal((await request('/api/v1/orders/preview/1', headers)).status, 401);
+  assert.equal((await request('/api/v1/orders/preview/1', { ...headers, authorization: jwt() })).status, 200);
   process.env.AUTH_DEV_HEADER = 'false';
   assert.equal((await request('/api/v1/orders/preview/1', headers)).status, 401);
   process.env.AUTH_DEV_HEADER = 'true';

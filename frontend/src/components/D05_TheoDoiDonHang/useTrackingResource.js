@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { getAccessToken, rememberPostLoginUrl } from '../../lib/auth'
+import { clearSession, getAccessToken, rememberPostLoginUrl } from '../../lib/auth'
 import { errorMessage } from '../../lib/api'
 import { ORDER_STATUS } from '../../lib/labels'
 
@@ -21,7 +21,8 @@ export function useTrackingResource(loader, key, poll = false) {
     navigate(`/login?returnTo=${encodeURIComponent(returnTo)}`, { replace: true, state: { from: returnTo } })
   }, [location.pathname, location.search, navigate])
   useEffect(() => {
-    if (!getAccessToken({ sessionOnly: true })) { login(); return undefined }
+    const requestToken = getAccessToken({ sessionOnly: true })
+    if (!requestToken) { login(); return undefined }
     let controller, disposed = false
     const load = async () => {
       controller?.abort(); controller = new AbortController()
@@ -38,7 +39,11 @@ export function useTrackingResource(loader, key, poll = false) {
         setState({ key, requestKey, response, error: '', notice })
       } catch (error) {
         if (disposed || signal.aborted) return
-        if (error.response?.status === 401) { login(); return }
+        if (error.response?.status === 401) {
+          // An old response must never clear a newly signed-in session.
+          if (clearSession(requestToken)) login()
+          return
+        }
         // Không giữ dữ liệu/quyền đã bị thu hồi hoặc đơn đã mất.
         setState({ key, requestKey, response: null, error: publicError(error), notice: '' })
       }

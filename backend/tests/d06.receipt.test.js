@@ -26,6 +26,7 @@ function fixture() {
     markCompleted: async (_o, at, t) => { assert.equal(t, tx); Object.assign(state.order, { Status: 'COMPLETED', CompletedAt: at }); return 1; },
     markListingSold: async (_o, t) => { assert.equal(t, tx); if (state.listing.Status === 'RESERVED') state.listing.Status = 'SOLD'; },
     createCommission: async (id, t) => { assert.equal(t, tx); assert.equal(state.order.Status, 'COMPLETED'); state.commissions.push(id); },
+    refundPromotion: async (_order, _now, t) => { assert.equal(t, tx); },
     createHistory: async (h, t) => { assert.equal(t, tx); state.histories.push(h); },
     notifyUser: async (id, p, t) => { assert.equal(t, tx); state.notifications.push({ id, ...p }); },
   };

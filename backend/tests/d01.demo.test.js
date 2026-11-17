@@ -39,13 +39,14 @@ async function fixture(t) {
   return { state, lookup, request };
 }
 
-test('production demo preview/create dung ID backend, giu RESERVED/gia DB/history/notify', async t => {
+test('D01 JWT production thay demo, giữ RESERVED/giá DB/history/notify', async t => {
   const { request, state } = await fixture(t);
   for (const prefix of ['/api/orders', '/api/v1/orders']) {
-    const headers = { 'x-d01-demo': 'true', 'x-user-id': '2' };
+    const headers = { 'x-d01-demo': 'true', 'x-user-id': '2', authorization: require('./helpers/d-jwt')(315) };
     assert.equal((await request(`${prefix}/preview/42`, headers)).status, 200);
   }
-  const result = await request('/api/v1/orders', { 'x-d01-demo': 'true', 'x-user-id': '2' }, payload);
+  assert.equal((await request('/api/v1/orders', { 'x-d01-demo': 'true', 'x-user-id': '2' }, payload)).status, 401);
+  const result = await request('/api/v1/orders', { authorization: require('./helpers/d-jwt')(315) }, payload);
   assert.equal(result.status, 201);
   assert.equal(result.body.data.status, 'RESERVED');
   assert.equal(result.body.data.totalAmount, 123456);
@@ -53,7 +54,7 @@ test('production demo preview/create dung ID backend, giu RESERVED/gia DB/histor
   assert.equal(state.listing.Status, 'RESERVED');
   assert.equal(state.histories.length, 1);
   assert.equal(state.notifications.length, 1);
-  assert.equal((await request('/api/v1/orders', { 'x-d01-demo': 'true' }, payload)).status, 409);
+  assert.equal((await request('/api/v1/orders', { authorization: require('./helpers/d-jwt')(315) }, payload)).status, 409);
 });
 
 test('demo off/thieu marker va production x-user-id deu khong bo qua auth', async t => {
@@ -81,9 +82,9 @@ test('marker demo khong mo /me/admin/refund/commission hay gia mao buyerId', asy
   process.env.NODE_ENV = 'production';
   process.env.AUTH_DEV_HEADER = 'false';
   assert.equal(lookup.mock.callCount(), 0);
-  assert.equal((await request('/api/v1/orders', headers, { ...payload, buyerId: 2 })).status, 422);
+  assert.equal((await request('/api/v1/orders', { ...headers, authorization: require('./helpers/d-jwt')(315) }, { ...payload, buyerId: 2 })).status, 422);
   state.listing.SellerId = 315;
-  assert.equal((await request('/api/v1/orders', headers, payload)).status, 403);
+  assert.equal((await request('/api/v1/orders', { ...headers, authorization: require('./helpers/d-jwt')(315) }, payload)).status, 403);
   assert.equal(state.orders.length, 0);
 });
 
@@ -92,14 +93,14 @@ test('tai khoan demo mat/LOCKED/ADMIN va ID sai fail closed', async t => {
   for (const user of [null, { ...buyer, Status: 'LOCKED' }, { ...buyer, Roles: [{ RoleName: 'ADMIN' }] }]) {
     state.user = user;
     const result = await request('/api/v1/orders/preview/42', { 'x-d01-demo': 'true' });
-    assert.equal(result.status, 503);
-    assert.equal(result.body.code, 'D01_DEMO_ACCOUNT_UNAVAILABLE');
+    assert.equal(result.status, 401);
+    assert.equal(result.body.code, 'UNAUTHORIZED');
   }
   for (const id of ['', '0', 'wrong', '-1']) {
     process.env.D01_DEMO_USER_ID = id;
     const result = await request('/api/v1/orders/preview/42', { 'x-d01-demo': 'true' });
-    assert.equal(result.status, 503);
-    assert.equal(result.body.code, 'D01_DEMO_NOT_CONFIGURED');
+    assert.equal(result.status, 401);
+    assert.equal(result.body.code, 'UNAUTHORIZED');
   }
 });
 

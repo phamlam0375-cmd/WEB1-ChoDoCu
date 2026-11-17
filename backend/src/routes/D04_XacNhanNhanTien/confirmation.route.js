@@ -1,10 +1,9 @@
 'use strict';
 const router = require('express').Router();
-const { requireAuth } = require('../../middlewares/auth.middleware');
+const { requireTokenAuth } = require('../../middlewares/auth.middleware');
 const controller = require('../../controllers/D04_XacNhanNhanTien/confirmation.controller');
-// Không dùng marker demo người mua D01 cho API người bán. JWT hoặc tài khoản
-// dev được chọn rõ ràng theo auth hiện có; production không nhận x-user-id.
-router.get('/payments', requireAuth, controller.list);
-router.get('/:id/payment', requireAuth, controller.detail);
-router.patch('/:id/payment', requireAuth, controller.decide);
+// Chỉ nhận JWT thật; quyền người bán và chủ đơn được kiểm tra tại service.
+router.get('/payments', requireTokenAuth, controller.list);
+router.get('/:id/payment', requireTokenAuth, controller.detail);
+router.patch('/:id/payment', requireTokenAuth, controller.decide);
 module.exports = router;

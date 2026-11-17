@@ -18,6 +18,8 @@ const Orders = sequelize.define(
     DeliveryMethod: { type: DataTypes.STRING(20), allowNull: false },
     DeliveryFeeRuleId: { type: DataTypes.INTEGER.UNSIGNED, allowNull: true },
     DeliveryQuoteSnapshot: { type: DataTypes.JSON, allowNull: true },
+    D01RequestId: { type: DataTypes.CHAR(36), allowNull: true },
+    D01RequestHash: { type: DataTypes.CHAR(64), allowNull: true },
     ReceiverName: { type: DataTypes.STRING(100), allowNull: false },
     ReceiverPhone: { type: DataTypes.STRING(15), allowNull: false },
     ReceiverAddress: { type: DataTypes.STRING(255), allowNull: true },

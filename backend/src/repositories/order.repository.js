@@ -50,6 +50,10 @@ async function createOrder(data, transaction) {
   return Orders.create(data, { transaction });
 }
 
+async function findOrderRequest(buyerId, requestId, transaction) {
+  return Orders.findOne({ where: { BuyerId: buyerId, D01RequestId: requestId }, transaction, raw: true });
+}
+
 async function createHistory(data, transaction) {
   return StatusHistories.create(data, { transaction });
 }
@@ -129,6 +133,7 @@ module.exports = {
   findExpiredReservations,
   findListingByIdForUpdate,
   findListingPreview,
+  findOrderRequest,
   reopenListing,
   reserveListing,
   withTransaction

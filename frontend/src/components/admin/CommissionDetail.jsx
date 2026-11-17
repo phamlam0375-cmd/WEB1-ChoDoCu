@@ -1,4 +1,5 @@
 import { InfoRow, Modal, StatusBadge } from './AdminUi'
+import ProofImage from './ProofImage'
 import QrPaymentPanel from '../QrPaymentPanel'
 import { formatDate, formatDateTime, formatMoney } from '../../lib/format'
 import { COMMISSION_STATUS } from '../../lib/labels'
@@ -12,6 +13,8 @@ export default function CommissionDetail({ commission, statusMap = COMMISSION_ST
   const amountDue = Math.round(Number(commission.AmountDue))
   // Chưa thanh toán (Chưa nộp / Đã điều chỉnh) thì mới có nút Thanh toán.
   const payable = ['UNPAID', 'ADJUSTED'].includes(commission.Status)
+  // Chứng từ chuyển khoản chỉ có nghĩa khi người bán đã báo nộp hoặc đã được xác nhận thu.
+  const hasProof = ['REPORTED', 'PAID'].includes(commission.Status)
 
   return (
     <Modal open title={`Hoa hồng đơn #${commission.OrderId}`} onClose={onClose} footer={footer}>
@@ -48,13 +51,11 @@ export default function CommissionDetail({ commission, statusMap = COMMISSION_ST
           <InfoRow label="Số tiền phải nộp"><b>{formatMoney(commission.AmountDue)}</b></InfoRow>
           <InfoRow label="Mã đối soát"><span className="font-mono">{commission.PaymentReference}</span></InfoRow>
           <InfoRow label="Hạn nộp">{formatDate(commission.DueAt)}</InfoRow>
-          {commission.PaymentTransactionCode && (
+          {hasProof && commission.PaymentTransactionCode && (
             <InfoRow label="Mã giao dịch người bán nhập"><span className="font-mono">{commission.PaymentTransactionCode}</span></InfoRow>
           )}
-          {commission.PaymentProofUrl && (
-            <InfoRow label="Ảnh chuyển khoản">
-              <a href={commission.PaymentProofUrl} target="_blank" rel="noreferrer" className="text-emerald-700 underline">Xem ảnh</a>
-            </InfoRow>
+          {hasProof && commission.PaymentProofUrl && (
+            <InfoRow label="Ảnh chuyển khoản"><ProofImage url={commission.PaymentProofUrl} alt="Ảnh chuyển khoản" /></InfoRow>
           )}
           {commission.ReportedAt && <InfoRow label="Báo nộp lúc">{formatDateTime(commission.ReportedAt)}</InfoRow>}
           {commission.ConfirmedAt && (

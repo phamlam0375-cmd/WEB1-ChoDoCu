@@ -87,6 +87,26 @@ function listing(ListingId, Title, Price, Status = 'ACTIVE') {
   };
 }
 
+test('từ chối tin nhắn chỉ có khoảng trắng với thông báo rõ ràng', async () => {
+  const response = await postChat('   ', []);
+
+  assert.equal(response.status, 400);
+  assert.equal(
+    response.body.message,
+    'Không được nhập quá nhiều khoảng trắng'
+  );
+});
+
+test('từ chối nhiều khoảng trắng liên tiếp trong tin nhắn', async () => {
+  const response = await postChat('Tìm  điện thoại', []);
+
+  assert.equal(response.status, 400);
+  assert.equal(
+    response.body.message,
+    'Không được nhập quá nhiều khoảng trắng'
+  );
+});
+
 test('trợ lý tìm đúng món rẻ nhất kể cả khi nằm sau trang đầu', async () => {
   const listings = Array.from({ length: 500 }, (_, index) =>
     listing(index + 1, `Sản phẩm khác ${index + 1}`, index + 1)

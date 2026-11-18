@@ -18,7 +18,7 @@ const GENERIC_RESPONSE = {
   delivery: DEVELOPMENT_MODE ? 'development-log' : 'email',
   message: DEVELOPMENT_MODE
     ? 'Nếu email thuộc tài khoản hợp lệ, mã xác thực đã được tạo. Xem log backend trong development.'
-    : 'Nếu email thuộc tài khoản hợp lệ, mã xác thực sẽ được gửi đến hộp thư của bạn.'
+    : 'Chúng tôi đã gửi liên kết đặt lại mật khẩu đến email của bạn. .'
 };
 
 const normalizeEmail = (value) => String(value ?? '').trim().toLowerCase();

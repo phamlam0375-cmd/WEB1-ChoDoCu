@@ -23,6 +23,11 @@ export default function AIChatWidget() {
   }, [messages, loading, open]);
 
   const sendMessage = async () => {
+    if (/^\s+$/.test(input) || /\s{2,}/.test(input)) {
+      setError("Không được nhập quá nhiều khoảng trắng");
+      return;
+    }
+
     const content = input.trim();
 
     // Không cho gửi tin nhắn rỗng

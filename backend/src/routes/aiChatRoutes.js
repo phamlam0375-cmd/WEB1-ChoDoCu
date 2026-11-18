@@ -473,10 +473,20 @@ async function findPublicSellers() {
 
 router.post('/chat', async (req, res) => {
   try {
-    const message =
+    const rawMessage =
       typeof req.body?.message === 'string'
-        ? req.body.message.trim()
+        ? req.body.message
         : '';
+
+    if (/^\s+$/.test(rawMessage) || /\s{2,}/.test(rawMessage)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Không được nhập quá nhiều khoảng trắng'
+      });
+    }
+
+    const message =
+      rawMessage.trim();
 
     if (!message) {
       return res.status(400).json({

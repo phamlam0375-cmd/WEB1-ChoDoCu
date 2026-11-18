@@ -100,7 +100,7 @@ function ResetPassword() {
         <p className="otp-subtitle">
           {developmentOtp
             ? <>Trong development, xem mã OTP trong log backend rồi nhập mã và tạo mật khẩu mới cho <strong>{email}</strong>.</>
-            : <>Nhập mã xác thực đã gửi đến <strong>{email}</strong> và tạo mật khẩu mới.</>}
+            : <>Chúng tôi đã gửi liên kết đặt lại mật khẩu đến email của bạn. </>}
         </p>
 
         <form onSubmit={handleSubmit}>

@@ -279,7 +279,7 @@ function ProductDetail() {
   if (!product) {
     return (
       <div className="product-detail-loading">
-        <p>Không tìm thấy sản phẩm.</p>
+        <p>Không tìm thấy trang.</p>
 
         <button onClick={() => navigate('/')}>
           Về trang chủ

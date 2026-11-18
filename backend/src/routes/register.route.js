@@ -88,7 +88,7 @@ router.post('/login', async (req, res) => {
   const user = await Users.unscoped().findOne({ where: { Email: cleanEmail } });
 
   if (!user) {
-    return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng!' });
+    return res.status(401).json({ message: 'Email hoặc mật khẩu không chính xác!' });
   }
 
   if (!user.EmailVerified) {
@@ -101,7 +101,7 @@ router.post('/login', async (req, res) => {
 
   const passwordMatches = await bcrypt.compare(password, user.PasswordHash || '');
   if (!passwordMatches) {
-    return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng!' });
+    return res.status(401).json({ message: 'Email hoặc mật khẩu không chính xác!' });
   }
 
   return res.status(200).json({

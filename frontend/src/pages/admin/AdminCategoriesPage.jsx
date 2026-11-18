@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { toast } from 'react-toastify'
 import { Ban, Eye, Pencil, Plus, Trash2 } from 'lucide-react'
 import {
@@ -23,7 +23,6 @@ import { CATEGORY_STATUS } from '../../lib/labels'
 // Mô tả dán bao nhiêu cũng được; chỉ vướng giới hạn mỗi lần gửi của server (express.json 2 MB).
 const MAX_REQUEST_BYTES = 2 * 1024 * 1024
 const byteSize = (value) => new Blob([value]).size
-const formatKb = (bytes) => `${Math.ceil(bytes / 1024).toLocaleString('vi-VN')} KB`
 
 function CategoryForm({ category, onClose, onSaved }) {
   const isNew = !category
@@ -33,12 +32,6 @@ function CategoryForm({ category, onClose, onSaved }) {
   })
   const [errors, setErrors] = useState({})
   const { busy, run } = useMutation()
-  // Đoạn dán dài thì hiện thêm dung lượng để biết còn cách giới hạn gửi bao xa.
-  const descriptionHint = useMemo(() => {
-    const chars = `${form.Description.length.toLocaleString('vi-VN')} ký tự`
-    if (form.Description.length < 10000) return chars
-    return `${chars} · ${formatKb(byteSize(form.Description))} / ${formatKb(MAX_REQUEST_BYTES)}`
-  }, [form.Description])
 
   const submit = async (event) => {
     event.preventDefault()
@@ -47,10 +40,7 @@ function CategoryForm({ category, onClose, onSaved }) {
     if (!name) next.CategoryName = 'Vui lòng nhập tên danh mục'
     else if (name.length > 100) next.CategoryName = 'Tên danh mục tối đa 100 ký tự'
     const body = { CategoryName: name, Description: form.Description.trim() }
-    const size = byteSize(JSON.stringify(body))
-    if (size > MAX_REQUEST_BYTES) {
-      next.Description = `Mô tả quá lớn để gửi (${formatKb(size)}, tối đa ${formatKb(MAX_REQUEST_BYTES)}). Hãy rút bớt nội dung.`
-    }
+    if (byteSize(JSON.stringify(body)) > MAX_REQUEST_BYTES) next.Description = 'Mô tả quá lớn để gửi (tối đa 2 MB). Hãy rút bớt nội dung.'
     setErrors(next)
     if (Object.keys(next).length) return
 
@@ -91,7 +81,7 @@ function CategoryForm({ category, onClose, onSaved }) {
             autoFocus
           />
         </Field>
-        <Field label="Mô tả" hint={descriptionHint} error={errors.Description}>
+        <Field label="Mô tả" hint={`${form.Description.length.toLocaleString('vi-VN')} ký tự`} error={errors.Description}>
           <textarea
             rows={6}
             value={form.Description}

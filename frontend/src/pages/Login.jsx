@@ -15,6 +15,8 @@ function Login() {
   const [searchParams] = useSearchParams()
   const submitLock = useRef(false)
   const [loginError, setLoginError] = useState('')
+  const [emailError, setEmailError] = useState('')
+  const [passwordError, setPasswordError] = useState('')
 
   const [email, setEmail] = useState(location.state?.email || '')
   const [password, setPassword] = useState(location.state?.password || '')
@@ -137,8 +139,24 @@ function Login() {
     event.preventDefault()
     if (submitLock.current) return
 
-    if (!email || !password) {
-      alert('Vui lòng nhập đầy đủ Gmail và mật khẩu!')
+    setLoginError('')
+    setEmailError('')
+    setPasswordError('')
+
+    if (!email.trim()) {
+      setEmailError('Vui lòng nhập Email')
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setEmailError('Email sai định dạng')
+      return
+    }
+    if (!password) {
+      setPasswordError('Vui lòng nhập mật khẩu')
+      return
+    }
+    if (password.length < 8) {
+      setPasswordError('Mật khẩu ít nhất 8 ký tự')
       return
     }
 
@@ -182,7 +200,7 @@ function Login() {
           Đăng nhập để tiếp tục sử dụng Chợ Đồ Cũ
         </p>
 
-        <form onSubmit={handleLogin} aria-busy={loading}>
+        <form onSubmit={handleLogin} aria-busy={loading} noValidate>
           {loginError && <p role="alert" className="mb-4 text-sm text-red-600">{loginError}</p>}
           <div className="login-input-group">
             <label htmlFor="login-email">Gmail</label>
@@ -192,9 +210,14 @@ function Login() {
               type="email"
               placeholder="Nhập Gmail của bạn"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              aria-invalid={Boolean(emailError)}
+              onChange={(event) => {
+                setEmail(event.target.value)
+                setEmailError('')
+              }}
               autoComplete="email"
             />
+            {emailError && <p role="alert" className="login-field-error">{emailError}</p>}
           </div>
 
           <div className="login-input-group">
@@ -206,7 +229,13 @@ function Login() {
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Nhập mật khẩu"
                 value={password}
-                onChange={(event) => setPassword(event.target.value)}
+                aria-invalid={Boolean(passwordError)}
+                onChange={(event) => {
+                  setPassword(event.target.value)
+                  if (event.target.value.length >= 8 || passwordError !== 'Mật khẩu ít nhất 8 ký tự') {
+                    setPasswordError('')
+                  }
+                }}
                 autoComplete="current-password"
               />
               <button
@@ -219,6 +248,7 @@ function Login() {
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
             </div>
+            {passwordError && <p role="alert" className="login-field-error">{passwordError}</p>}
           </div>
 
           <div className="login-options">

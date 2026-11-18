@@ -20,6 +20,9 @@ import { errorMessage } from '../../lib/api'
 import { formatDate } from '../../lib/format'
 import { CATEGORY_STATUS } from '../../lib/labels'
 
+// Khớp giới hạn của backend (cột TEXT); thực tế coi như không giới hạn khi nhập tay.
+const DESCRIPTION_MAX = 16000
+
 function CategoryForm({ category, onClose, onSaved }) {
   const isNew = !category
   const [form, setForm] = useState({
@@ -35,7 +38,7 @@ function CategoryForm({ category, onClose, onSaved }) {
     const next = {}
     if (!name) next.CategoryName = 'Vui lòng nhập tên danh mục'
     else if (name.length > 100) next.CategoryName = 'Tên danh mục tối đa 100 ký tự'
-    if (form.Description.length > 300) next.Description = 'Mô tả tối đa 300 ký tự'
+    if (form.Description.length > DESCRIPTION_MAX) next.Description = `Mô tả tối đa ${DESCRIPTION_MAX.toLocaleString('vi-VN')} ký tự`
     setErrors(next)
     if (Object.keys(next).length) return
 
@@ -77,13 +80,13 @@ function CategoryForm({ category, onClose, onSaved }) {
             autoFocus
           />
         </Field>
-        <Field label="Mô tả" hint={`${form.Description.length}/300 ký tự`} error={errors.Description}>
+        <Field label="Mô tả" hint={`${form.Description.length.toLocaleString('vi-VN')} ký tự`} error={errors.Description}>
           <textarea
-            rows={3}
+            rows={6}
             value={form.Description}
             onChange={(event) => setForm({ ...form, Description: event.target.value })}
             className={input}
-            maxLength={300}
+            maxLength={DESCRIPTION_MAX}
           />
         </Field>
       </form>
@@ -150,7 +153,11 @@ export default function AdminCategoriesPage() {
       render: (row) => (
         <div>
           <p className="font-medium text-slate-900">{row.CategoryName}</p>
-          {row.Description && <p className="max-w-md text-xs text-slate-500">{row.Description}</p>}
+          {row.Description && (
+            <p className="line-clamp-2 max-w-md text-xs text-slate-500" title={row.Description}>
+              {row.Description}
+            </p>
+          )}
         </div>
       ),
     },

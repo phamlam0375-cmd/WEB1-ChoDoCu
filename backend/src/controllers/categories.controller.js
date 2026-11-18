@@ -8,6 +8,8 @@ const { parsePagination, pagedResponse, parseId, text, oneOf } = require("../uti
 const { logAdminAction } = require("../services/auditLog.service");
 
 const STATUSES = ["ACTIVE", "INACTIVE"];
+// Mô tả lưu kiểu TEXT (tối đa 65.535 byte); một ký tự utf8mb4 chiếm tối đa 4 byte nên 16.000 ký tự luôn vừa.
+const DESCRIPTION_MAX = 16000;
 
 // Bỏ khoảng trắng thừa ở đầu, cuối và giữa các từ.
 const normalizeName = (value) => (typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "");
@@ -37,7 +39,7 @@ const readCategoryInput = (body, { partial }) => {
     data.CategoryName = rejectHtml(name, "Tên danh mục");
   }
   if (body.Description !== undefined) {
-    data.Description = text(body.Description, "mô tả", { max: 300 });
+    data.Description = text(body.Description, "mô tả", { max: DESCRIPTION_MAX });
   }
   if (!partial || body.Status !== undefined) {
     data.Status = body.Status === undefined ? "ACTIVE" : oneOf(body.Status, STATUSES, "Trạng thái");

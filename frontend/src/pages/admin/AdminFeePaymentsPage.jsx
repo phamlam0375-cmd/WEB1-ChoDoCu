@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { toast } from 'react-toastify'
 import { Link } from 'react-router-dom'
-import { Check, Eye } from 'lucide-react'
-import { Badge, ConfirmDialog, DataTable, FilterBar, PageHeader, Pagination, SearchInput, Section, StatusBadge } from '../../components/admin/AdminUi'
-import { btn } from '../../components/admin/styles'
+import { Banknote, Check, Eye } from 'lucide-react'
+import { Badge, ConfirmDialog, DataTable, Field, FilterBar, Modal, PageHeader, Pagination, SearchInput, Section, StatusBadge } from '../../components/admin/AdminUi'
+import { btn, input } from '../../components/admin/styles'
 import CommissionDetail from '../../components/admin/CommissionDetail'
 import { commissionColumns } from '../../components/admin/commissionColumns'
 import { useApi, useMutation } from '../../hooks/useApi'
@@ -69,6 +69,53 @@ function Debtors() {
   )
 }
 
+// Giả lập ngân hàng báo có tiền vào (bản thật là webhook biến động số dư): nhập nội dung chuyển
+// khoản và số tiền, hệ thống tự tìm khoản theo mã đối soát và chuyển "Đã thu" nếu khớp đúng số tiền.
+function BankNotifyDialog({ onClose, onDone }) {
+  const [form, setForm] = useState({ content: '', amount: '', transactionCode: '' })
+  const { busy, run } = useMutation()
+  const change = (key) => (event) => setForm((current) => ({ ...current, [key]: event.target.value }))
+  const submit = async (event) => {
+    event.preventDefault()
+    try {
+      const result = await run('post', '/admin/fee-payments/bank-notify', { ...form, amount: Number(form.amount) })
+      toast.success(result.message)
+      onDone()
+    } catch (err) {
+      toast.error(errorMessage(err))
+    }
+  }
+  return (
+    <Modal
+      open
+      title="Giả lập tiền về tài khoản"
+      onClose={onClose}
+      footer={
+        <>
+          <button type="button" className={btn.secondary} onClick={onClose}>Hủy</button>
+          <button type="submit" form="bank-notify-form" className={btn.primary} disabled={busy}>Báo tiền về</button>
+        </>
+      }
+    >
+      <form id="bank-notify-form" onSubmit={submit} className="space-y-3 text-sm">
+        <p className="rounded-lg bg-slate-50 px-3 py-2 text-slate-600">
+          Nhập giống tin ngân hàng báo biến động số dư. Nội dung có mã đối soát <b className="font-mono">HH...</b> (một khoản) hoặc{' '}
+          <b className="font-mono">PHI...</b> (người bán nộp gộp) và số tiền khớp đúng tổng phải nộp thì khoản tự chuyển sang "Đã thu".
+        </p>
+        <Field label="Nội dung chuyển khoản *">
+          <input value={form.content} onChange={change('content')} className={input} placeholder="VD: HH000012" required />
+        </Field>
+        <Field label="Số tiền (đồng) *">
+          <input type="number" min="1" value={form.amount} onChange={change('amount')} className={input} placeholder="VD: 3100" required />
+        </Field>
+        <Field label="Mã giao dịch ngân hàng" hint="Để trống thì hệ thống tự tạo.">
+          <input value={form.transactionCode} onChange={change('transactionCode')} className={input} placeholder="VD: FT26320012345" />
+        </Field>
+      </form>
+    </Modal>
+  )
+}
+
 export default function AdminFeePaymentsPage() {
   const [view, setView] = useState('REPORTED')
   const [filters, setFilters] = useState({ q: '', page: 1 })
@@ -79,6 +126,7 @@ export default function AdminFeePaymentsPage() {
   const { busy, run } = useMutation()
   const [checked, setChecked] = useState([])
   const [bulkOpen, setBulkOpen] = useState(false)
+  const [bankOpen, setBankOpen] = useState(false)
   const selectable = view === 'REPORTED'
   const pageRows = response?.data || []
   const allChecked = pageRows.length > 0 && pageRows.every((row) => checked.includes(row.CommissionId))
@@ -160,7 +208,13 @@ export default function AdminFeePaymentsPage() {
       <PageHeader
         title="Thu và đối soát phí website"
         description="Người bán chuyển hoa hồng theo mã đối soát rồi báo đã nộp kèm mã giao dịch; quản trị đối chiếu sao kê ngân hàng rồi xác nhận đã thu. Mỗi xác nhận được ghi nhật ký."
+        actions={
+          <button type="button" className={btn.secondary} onClick={() => setBankOpen(true)}>
+            <Banknote size={16} /> Giả lập tiền về
+          </button>
+        }
       />
+      {bankOpen && <BankNotifyDialog onClose={() => setBankOpen(false)} onDone={() => { setBankOpen(false); reload() }} />}
       <Section title="Mục đối soát" flush>
         <div className="flex gap-1 overflow-x-auto px-4 pt-2" role="tablist">
           {Object.entries(VIEWS).map(([key, item]) => (

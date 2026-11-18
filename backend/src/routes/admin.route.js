@@ -67,6 +67,7 @@ router.post("/commissions/remind-overdue", commissions.remindOverdue);
 router.get("/fee-payments", commissions.listFeePayments);
 router.get("/fee-payments/debtors", commissions.listDebtors);
 router.post("/fee-payments/bulk-review", commissions.bulkReviewFeePayments);
+router.post("/fee-payments/bank-notify", commissions.simulateBankTransfer);
 router.patch("/fee-payments/:id", commissions.reviewFeePayment);
 
 // B10 Thống kê

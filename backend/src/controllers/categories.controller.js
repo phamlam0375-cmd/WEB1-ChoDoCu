@@ -4,10 +4,21 @@
 const { Op } = require("sequelize");
 const { sequelize, Categories, ConditionOptions, Listings } = require("../models");
 const { badRequest, notFound, conflict } = require("../utils/httpError");
-const { parsePagination, pagedResponse, parseId, text, oneOf } = require("../utils/request");
+const { parsePagination, pagedResponse, parseId, text, oneOf, optionalUrl } = require("../utils/request");
 const { logAdminAction } = require("../services/auditLog.service");
 
 const STATUSES = ["ACTIVE", "INACTIVE"];
+// Mô tả lưu kiểu MEDIUMTEXT (16 MB); một ký tự utf8mb4 tối đa 4 byte nên 4 triệu ký tự luôn vừa.
+// Thực tế mỗi lần gửi còn bị express.json giới hạn 2 MB, nên quản trị dán thoải mái.
+const DESCRIPTION_MAX = 4000000;
+// Nhật ký quản trị lưu kiểu TEXT (64 KB): chỉ ghi phần đầu của mô tả dài kèm độ dài.
+const AUDIT_DESCRIPTION_CHARS = 500;
+const auditDescription = (value) =>
+  typeof value === "string" && value.length > AUDIT_DESCRIPTION_CHARS
+    ? `${value.slice(0, AUDIT_DESCRIPTION_CHARS)}… (${value.length.toLocaleString("vi-VN")} ký tự)`
+    : value;
+const auditCategory = (values) =>
+  "Description" in values ? { ...values, Description: auditDescription(values.Description) } : values;
 
 // Bỏ khoảng trắng thừa ở đầu, cuối và giữa các từ.
 const normalizeName = (value) => (typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "");
@@ -37,7 +48,10 @@ const readCategoryInput = (body, { partial }) => {
     data.CategoryName = rejectHtml(name, "Tên danh mục");
   }
   if (body.Description !== undefined) {
-    data.Description = text(body.Description, "mô tả", { max: 300 });
+    data.Description = text(body.Description, "mô tả", { max: DESCRIPTION_MAX });
+  }
+  if (body.ImageUrl !== undefined) {
+    data.ImageUrl = optionalUrl(body.ImageUrl, "Ảnh danh mục");
   }
   if (!partial || body.Status !== undefined) {
     data.Status = body.Status === undefined ? "ACTIVE" : oneOf(body.Status, STATUSES, "Trạng thái");
@@ -56,10 +70,11 @@ const ensureUniqueName = async (name, exceptId, transaction) => {
 };
 
 // GET /categories — danh mục đang hiện, dùng cho biểu mẫu đăng tin và bộ lọc.
+// Không trả mô tả (có thể rất dài) vì các trang này chỉ cần mã, tên và ảnh danh mục.
 const listActiveCategories = async (_req, res) => {
   const categories = await Categories.findAll({
     where: { Status: "ACTIVE" },
-    attributes: ["CategoryId", "CategoryName", "Description"],
+    attributes: ["CategoryId", "CategoryName", "ImageUrl"],
     order: [["CategoryName", "ASC"]],
   });
   return res.status(200).json({ success: true, data: categories });
@@ -94,7 +109,12 @@ const createCategory = async (req, res) => {
         action: "CATEGORY_CREATE",
         targetType: "CATEGORY",
         targetId: created.CategoryId,
-        newValue: { CategoryName: created.CategoryName, Description: created.Description, Status: created.Status },
+        newValue: auditCategory({
+          CategoryName: created.CategoryName,
+          Description: created.Description,
+          ImageUrl: created.ImageUrl,
+          Status: created.Status,
+        }),
       },
       { transaction }
     );
@@ -124,7 +144,7 @@ const updateCategory = async (req, res) => {
 
     await logAdminAction(
       req,
-      { action: "CATEGORY_UPDATE", targetType: "CATEGORY", targetId: id, oldValue, newValue },
+      { action: "CATEGORY_UPDATE", targetType: "CATEGORY", targetId: id, oldValue: auditCategory(oldValue), newValue: auditCategory(newValue) },
       { transaction }
     );
     return findWithCounts(id, transaction);
@@ -154,7 +174,12 @@ const deleteCategory = async (req, res) => {
         action: "CATEGORY_DELETE",
         targetType: "CATEGORY",
         targetId: id,
-        oldValue: { CategoryName: category.CategoryName, Description: category.Description, Status: category.Status },
+        oldValue: auditCategory({
+          CategoryName: category.CategoryName,
+          Description: category.Description,
+          ImageUrl: category.ImageUrl,
+          Status: category.Status,
+        }),
       },
       { transaction }
     );

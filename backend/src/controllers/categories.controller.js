@@ -4,7 +4,7 @@
 const { Op } = require("sequelize");
 const { sequelize, Categories, ConditionOptions, Listings } = require("../models");
 const { badRequest, notFound, conflict } = require("../utils/httpError");
-const { parsePagination, pagedResponse, parseId, text, oneOf } = require("../utils/request");
+const { parsePagination, pagedResponse, parseId, text, oneOf, optionalUrl } = require("../utils/request");
 const { logAdminAction } = require("../services/auditLog.service");
 
 const STATUSES = ["ACTIVE", "INACTIVE"];
@@ -50,6 +50,9 @@ const readCategoryInput = (body, { partial }) => {
   if (body.Description !== undefined) {
     data.Description = text(body.Description, "mô tả", { max: DESCRIPTION_MAX });
   }
+  if (body.ImageUrl !== undefined) {
+    data.ImageUrl = optionalUrl(body.ImageUrl, "Ảnh danh mục");
+  }
   if (!partial || body.Status !== undefined) {
     data.Status = body.Status === undefined ? "ACTIVE" : oneOf(body.Status, STATUSES, "Trạng thái");
   }
@@ -67,11 +70,11 @@ const ensureUniqueName = async (name, exceptId, transaction) => {
 };
 
 // GET /categories — danh mục đang hiện, dùng cho biểu mẫu đăng tin và bộ lọc.
-// Không trả mô tả (có thể rất dài) vì các trang này chỉ cần mã và tên danh mục.
+// Không trả mô tả (có thể rất dài) vì các trang này chỉ cần mã, tên và ảnh danh mục.
 const listActiveCategories = async (_req, res) => {
   const categories = await Categories.findAll({
     where: { Status: "ACTIVE" },
-    attributes: ["CategoryId", "CategoryName"],
+    attributes: ["CategoryId", "CategoryName", "ImageUrl"],
     order: [["CategoryName", "ASC"]],
   });
   return res.status(200).json({ success: true, data: categories });
@@ -106,7 +109,12 @@ const createCategory = async (req, res) => {
         action: "CATEGORY_CREATE",
         targetType: "CATEGORY",
         targetId: created.CategoryId,
-        newValue: auditCategory({ CategoryName: created.CategoryName, Description: created.Description, Status: created.Status }),
+        newValue: auditCategory({
+          CategoryName: created.CategoryName,
+          Description: created.Description,
+          ImageUrl: created.ImageUrl,
+          Status: created.Status,
+        }),
       },
       { transaction }
     );
@@ -166,7 +174,12 @@ const deleteCategory = async (req, res) => {
         action: "CATEGORY_DELETE",
         targetType: "CATEGORY",
         targetId: id,
-        oldValue: auditCategory({ CategoryName: category.CategoryName, Description: category.Description, Status: category.Status }),
+        oldValue: auditCategory({
+          CategoryName: category.CategoryName,
+          Description: category.Description,
+          ImageUrl: category.ImageUrl,
+          Status: category.Status,
+        }),
       },
       { transaction }
     );

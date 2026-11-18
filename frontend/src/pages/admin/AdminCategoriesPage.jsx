@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { toast } from 'react-toastify'
-import { Ban, Eye, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Ban, Eye, Image as ImageIcon, Pencil, Plus, Trash2 } from 'lucide-react'
 import {
   Section,
   ConfirmDialog,
@@ -15,6 +15,7 @@ import {
 } from '../../components/admin/AdminUi'
 import { btn, input } from '../../components/admin/styles'
 import ConditionOptionsCard from '../../components/admin/ConditionOptionsCard'
+import ImageUpload from '../../components/ImageUpload'
 import { useApi, useMutation } from '../../hooks/useApi'
 import { errorMessage } from '../../lib/api'
 import { formatDate } from '../../lib/format'
@@ -29,6 +30,7 @@ function CategoryForm({ category, onClose, onSaved }) {
   const [form, setForm] = useState({
     CategoryName: category?.CategoryName || '',
     Description: category?.Description || '',
+    ImageUrl: category?.ImageUrl || '',
   })
   const [errors, setErrors] = useState({})
   const { busy, run } = useMutation()
@@ -39,7 +41,7 @@ function CategoryForm({ category, onClose, onSaved }) {
     const next = {}
     if (!name) next.CategoryName = 'Vui lòng nhập tên danh mục'
     else if (name.length > 100) next.CategoryName = 'Tên danh mục tối đa 100 ký tự'
-    const body = { CategoryName: name, Description: form.Description.trim() }
+    const body = { CategoryName: name, Description: form.Description.trim(), ImageUrl: form.ImageUrl }
     if (byteSize(JSON.stringify(body)) > MAX_REQUEST_BYTES) next.Description = 'Mô tả quá lớn để gửi (tối đa 2 MB). Hãy rút bớt nội dung.'
     setErrors(next)
     if (Object.keys(next).length) return
@@ -89,6 +91,7 @@ function CategoryForm({ category, onClose, onSaved }) {
             className={input}
           />
         </Field>
+        <ImageUpload label="Ảnh danh mục" value={form.ImageUrl} onChange={(ImageUrl) => setForm((current) => ({ ...current, ImageUrl }))} />
       </form>
     </Modal>
   )
@@ -151,13 +154,22 @@ export default function AdminCategoriesPage() {
       sortable: true,
       title: 'Danh mục',
       render: (row) => (
-        <div>
-          <p className="font-medium text-slate-900">{row.CategoryName}</p>
-          {row.Description && (
-            <p className="line-clamp-2 max-w-md text-xs text-slate-500" title={row.Description}>
-              {row.Description}
-            </p>
+        <div className="flex items-center gap-3">
+          {row.ImageUrl ? (
+            <img src={row.ImageUrl} alt={row.CategoryName} className="size-11 shrink-0 rounded-lg border border-slate-200 object-cover" />
+          ) : (
+            <span className="grid size-11 shrink-0 place-items-center rounded-lg border border-dashed border-slate-200 text-slate-300" aria-hidden>
+              <ImageIcon size={18} />
+            </span>
           )}
+          <div className="min-w-0">
+            <p className="font-medium text-slate-900">{row.CategoryName}</p>
+            {row.Description && (
+              <p className="line-clamp-2 max-w-md text-xs text-slate-500" title={row.Description}>
+                {row.Description}
+              </p>
+            )}
+          </div>
         </div>
       ),
     },

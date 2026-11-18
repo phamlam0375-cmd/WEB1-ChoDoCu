@@ -14,6 +14,7 @@ const Categories = sequelize.define(
     },
     CategoryName: { type: DataTypes.STRING(100), allowNull: false, unique: true },
     Description: { type: DataTypes.TEXT("medium"), allowNull: true },
+    ImageUrl: { type: DataTypes.STRING(255), allowNull: true },
     Status: {
       type: DataTypes.STRING(20),
       allowNull: false,

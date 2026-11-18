@@ -46,7 +46,14 @@ function readPayment(params) {
 }
 
 // Hỏi server tiền đã về chưa. Trả về { received } hoặc { error } nếu khoản không còn chờ thanh toán.
-async function checkReceived(payment, { first }) {
+// owner: tài khoản người nộp ghi nhận ở lần kiểm tra đầu; đổi tài khoản giữa chừng (vd. đăng nhập
+// quản trị ở tab khác cùng trình duyệt) thì dừng, tránh hiểu nhầm "khoản biến mất" là đã thu.
+async function checkReceived(payment, { first, owner }) {
+  const { data: me } = await api.get('/me')
+  if (first) owner.current = me.data.UserId
+  else if (owner.current !== me.data.UserId) {
+    return { error: 'Tài khoản đăng nhập trên trình duyệt đã đổi. Hãy đăng nhập lại tài khoản người nộp rồi mở lại trang thanh toán.' }
+  }
   if (payment.type === 'fee') {
     const { data } = await api.get('/seller/fee-payments')
     const open = new Set((data.data.items || []).filter((item) => OPEN_FEE_STATUSES.includes(item.Status)).map((item) => item.CommissionId))
@@ -91,6 +98,7 @@ export default function MomoPaymentPage() {
   const [failure, setFailure] = useState('')
   const [closeIn, setCloseIn] = useState(CLOSE_AFTER_SECONDS)
   const firstCheck = useRef(true)
+  const owner = useRef(null)
 
   const ready = Boolean(payment && account)
   const waiting = ready && !result && !failure && secondsLeft > 0
@@ -106,7 +114,7 @@ export default function MomoPaymentPage() {
   // Mỗi 5 giây hỏi server tiền đã về chưa (lần đầu hỏi ngay).
   const poll = useCallback(async () => {
     try {
-      const check = await checkReceived(payment, { first: firstCheck.current })
+      const check = await checkReceived(payment, { first: firstCheck.current, owner })
       firstCheck.current = false
       if (check.error) setFailure(check.error)
       else if (check.received) {
